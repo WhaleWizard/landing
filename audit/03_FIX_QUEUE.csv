@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-65,P2,Render the one-day chart,AdminSearchConsole,COMPLETED,
+ADMIN-20261113-66,P2,Track chart selection by date,AdminSearchConsole,COMPLETED,
+ADMIN-20261113-67,P2,Support keyboard and touch chart navigation,AdminSearchConsole,COMPLETED,
+ADMIN-20261113-68,P2,Expose query sort controls and direction,AdminSearchConsole,COMPLETED,
+ADMIN-20261113-69,P2,Label query search and expose selected position filter,AdminSearchConsole,COMPLETED,
 ADMIN-20261113-60,P2,Snap decimal boundary before rounding quantities,AdminUnitEconomics,COMPLETED,
 ADMIN-20261113-61,P2,Preserve the exact cent before flooring,AdminUnitEconomics,COMPLETED,
 ADMIN-20261113-62,P2,Reject unsafe results before formatting,AdminUnitEconomics,COMPLETED,

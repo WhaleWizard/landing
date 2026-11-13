@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-65,P2,DATA,/admin/,AdminSearchConsole,Chart hidden for a single day,Rendering required at least two samples,FIXED,AdminSearchConsole.tsx,Single-day chart in Chromium and WebKit
+ADMIN-20261113-66,P2,STATE,/admin/,AdminSearchConsole,Refreshing a shorter series leaves stale chart selection,Selection tracked array position rather than date,FIXED,AdminSearchConsole.tsx,Refresh after selecting the last day
+ADMIN-20261113-67,P2,ACCESSIBILITY,/admin/,AdminSearchConsole,Chart values unavailable with keyboard and unreliable on touch,Point selection depended on hover,FIXED,AdminSearchConsole.tsx,Keyboard and touch in Chromium and WebKit
+ADMIN-20261113-68,P2,ACCESSIBILITY,/admin/,AdminSearchConsole,Query columns cannot be sorted by keyboard,Header click handlers lacked native buttons and sort state,FIXED,AdminSearchConsole.tsx,Enter and Space change sort direction
+ADMIN-20261113-69,P2,ACCESSIBILITY,/admin/,AdminSearchConsole,Query search and filters lack accessible control states,Placeholder and color convey control labels and selection,FIXED,AdminSearchConsole.tsx,Search clear and active position filter
 ADMIN-20261113-60,P2,DATA,/admin/,AdminUnitEconomics,Exact funnel quotient rounds up one too many,Binary rounding before ceil,FIXED,adminUnitEconomics.ts and AdminUnitEconomics.tsx,Calculator and browser verification
 ADMIN-20261113-61,P2,DATA,/admin/,AdminUnitEconomics,Exact break-even threshold loses a cent,Absolute epsilon is too small for scaled numbers,FIXED,adminUnitEconomics.ts and AdminUnitEconomics.tsx,Calculator and browser verification
 ADMIN-20261113-62,P2,DATA,/admin/,AdminUnitEconomics,Large inputs yield unsafe metrics,Only intermediate finiteness was checked,FIXED,adminUnitEconomics.ts and AdminUnitEconomics.tsx,Calculator and browser verification

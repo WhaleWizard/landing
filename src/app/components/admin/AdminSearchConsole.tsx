@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import {
-  ArrowDownUp, CheckCircle2, Copy,
+  ArrowDown, ArrowDownUp, ArrowUp, CheckCircle2, Copy,
   ExternalLink, Globe, Info, Key,
   Lightbulb, RefreshCw, Search, ShieldAlert, Sparkles, X,
 } from 'lucide-react';
@@ -18,6 +18,12 @@ interface AdminSearchConsoleProps {
 type TabKey = 'queries' | 'pages' | 'growth' | 'setup';
 type PositionFilter = 'all' | 'top3' | 'top10' | 'top20';
 type SortField = 'clicks' | 'impressions' | 'ctr' | 'position';
+const SORT_COLUMNS = [
+  ['position', 'Позиция'],
+  ['clicks', 'Клики'],
+  ['impressions', 'Показы'],
+  ['ctr', 'CTR'],
+] as const;
 
 export default function AdminSearchConsole({ password }: AdminSearchConsoleProps) {
   const [snapshot, setData] = useState<SearchConsoleResponse | null>(null);
@@ -34,7 +40,6 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 
   // Для графика
-  const [hoveredPointIndex, setHoveredPointIndex] = useState<number | null>(null);
   const [metricView, setMetricView] = useState<'both' | 'clicks' | 'impressions'>('both');
 
   const requestSequence = useRef(0);
@@ -243,7 +248,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
           </div>
 
           {/* Векторный интерактивный график динамики */}
-          {data.daily?.length > 1 && (
+          {data.daily?.length > 0 && (
             <div className="admin-card admin-gsc-chart-card">
               <div className="admin-gsc-chart-header">
                 <div>
@@ -279,10 +284,9 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
 
               <div className="admin-gsc-chart-wrapper">
                 <GscSvgChart
+                  key={days}
                   points={data.daily}
                   view={metricView}
-                  hoveredIndex={hoveredPointIndex}
-                  onHoverPoint={setHoveredPointIndex}
                 />
               </div>
             </div>
@@ -335,6 +339,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                   <input
                     type="text"
                     placeholder="Фильтр по ключевой фразе…"
+                    aria-label="Фильтр по ключевой фразе"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     className="admin-input admin-gsc-search-input"
@@ -345,6 +350,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                       onClick={() => setSearchQuery('')}
                       className="admin-gsc-search-clear"
                       title="Очистить"
+                      aria-label="Очистить поиск"
                     >
                       <X size={13} aria-hidden="true" />
                     </button>
@@ -356,6 +362,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                     type="button"
                     className={`admin-pill ${positionFilter === 'all' ? 'admin-pill--active' : ''}`}
                     onClick={() => setPositionFilter('all')}
+                    aria-pressed={positionFilter === 'all'}
                   >
                     Все запросы ({data.queries.length})
                   </button>
@@ -363,6 +370,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                     type="button"
                     className={`admin-pill ${positionFilter === 'top3' ? 'admin-pill--active' : ''}`}
                     onClick={() => setPositionFilter('top3')}
+                    aria-pressed={positionFilter === 'top3'}
                   >
                     Топ-3 ({data.queries.filter((q) => q.position <= 3).length})
                   </button>
@@ -370,6 +378,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                     type="button"
                     className={`admin-pill ${positionFilter === 'top10' ? 'admin-pill--active' : ''}`}
                     onClick={() => setPositionFilter('top10')}
+                    aria-pressed={positionFilter === 'top10'}
                   >
                     4–10 (1-я страница) ({data.queries.filter((q) => q.position > 3 && q.position <= 10).length})
                   </button>
@@ -377,6 +386,7 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
                     type="button"
                     className={`admin-pill ${positionFilter === 'top20' ? 'admin-pill--active' : ''}`}
                     onClick={() => setPositionFilter('top20')}
+                    aria-pressed={positionFilter === 'top20'}
                   >
                     11–20 ({data.queries.filter((q) => q.position > 10 && q.position <= 20).length})
                   </button>
@@ -384,47 +394,24 @@ export default function AdminSearchConsole({ password }: AdminSearchConsoleProps
               </div>
 
               {/* Таблица запросов */}
-              <div className="admin-gsc-table-scroll">
+              <div className="admin-gsc-table-scroll" role="region" aria-label="Таблица поисковых запросов" tabIndex={0}>
                 <table className="admin-table admin-gsc-table">
                   <thead>
                     <tr>
                       <th className="admin-gsc-th-query">Поисковый запрос</th>
-                      <th
-                        className="admin-gsc-th-sortable"
-                        onClick={() => toggleSort('position')}
-                      >
-                        <div className="admin-gsc-th-content">
-                          <span>Позиция</span>
-                          <ArrowDownUp size={12} aria-hidden="true" />
-                        </div>
-                      </th>
-                      <th
-                        className="admin-gsc-th-sortable"
-                        onClick={() => toggleSort('clicks')}
-                      >
-                        <div className="admin-gsc-th-content">
-                          <span>Клики</span>
-                          <ArrowDownUp size={12} aria-hidden="true" />
-                        </div>
-                      </th>
-                      <th
-                        className="admin-gsc-th-sortable"
-                        onClick={() => toggleSort('impressions')}
-                      >
-                        <div className="admin-gsc-th-content">
-                          <span>Показы</span>
-                          <ArrowDownUp size={12} aria-hidden="true" />
-                        </div>
-                      </th>
-                      <th
-                        className="admin-gsc-th-sortable"
-                        onClick={() => toggleSort('ctr')}
-                      >
-                        <div className="admin-gsc-th-content">
-                          <span>CTR</span>
-                          <ArrowDownUp size={12} aria-hidden="true" />
-                        </div>
-                      </th>
+                      {SORT_COLUMNS.map(([field, label]) => {
+                        const sorted = sortField === field;
+                        const ascending = field === 'position' ? sortDirection === 'desc' : sortDirection === 'asc';
+                        const Icon = sorted ? (ascending ? ArrowUp : ArrowDown) : ArrowDownUp;
+                        return (
+                          <th key={field} scope="col" className="admin-gsc-th-sortable" aria-sort={sorted ? (ascending ? 'ascending' : 'descending') : undefined}>
+                            <button type="button" className="admin-gsc-th-content" onClick={() => toggleSort(field)}>
+                              <span>{label}</span>
+                              <Icon size={12} aria-hidden="true" />
+                            </button>
+                          </th>
+                        );
+                      })}
                     </tr>
                   </thead>
                   <tbody>
@@ -675,14 +662,12 @@ function getPositionClass(position: number): string {
 function GscSvgChart({
   points,
   view,
-  hoveredIndex,
-  onHoverPoint,
 }: {
   points: GscDailyPoint[];
   view: 'both' | 'clicks' | 'impressions';
-  hoveredIndex: number | null;
-  onHoverPoint: (index: number | null) => void;
 }) {
+  const [activeDate, setActiveDate] = useState<string | null>(null);
+  const instructionsId = useId();
   const width = 800;
   const height = 240;
   const padding = { top: 20, right: 30, bottom: 35, left: 45 };
@@ -693,7 +678,7 @@ function GscSvgChart({
   const maxClicks = Math.max(...points.map((p) => p.clicks), 1);
   const maxImpressions = Math.max(...points.map((p) => p.impressions), 1);
 
-  const getX = (index: number) => padding.left + (index / (points.length - 1)) * chartW;
+  const getX = (index: number) => padding.left + (points.length === 1 ? 0.5 : index / (points.length - 1)) * chartW;
   const getClickY = (val: number) => padding.top + chartH - (val / maxClicks) * chartH;
   const getImpY = (val: number) => padding.top + chartH - (val / maxImpressions) * chartH;
 
@@ -709,15 +694,39 @@ function GscSvgChart({
   const clicksArea = `${clicksPath} L ${getX(points.length - 1).toFixed(1)} ${(padding.top + chartH).toFixed(1)} L ${getX(0).toFixed(1)} ${(padding.top + chartH).toFixed(1)} Z`;
   const impressionsArea = `${impressionsPath} L ${getX(points.length - 1).toFixed(1)} ${(padding.top + chartH).toFixed(1)} L ${getX(0).toFixed(1)} ${(padding.top + chartH).toFixed(1)} Z`;
 
-  const hoveredPoint = hoveredIndex !== null && points[hoveredIndex] ? points[hoveredIndex] : null;
+  const hoveredIndex = points.findIndex((point) => point.date === activeDate);
+  const hoveredPoint = points[hoveredIndex];
 
   return (
-    <div className="admin-gsc-svg-chart-box">
+    <div
+      className="admin-gsc-svg-chart-box"
+      role="group"
+      aria-label="График кликов и показов"
+      aria-describedby={instructionsId}
+      tabIndex={0}
+      onFocus={() => setActiveDate((current) => points.some((point) => point.date === current) ? current : points[0].date)}
+      onBlur={() => setActiveDate(null)}
+      onKeyDown={(event) => {
+        const current = Math.max(0, hoveredIndex);
+        const next = event.key === 'ArrowLeft' ? Math.max(0, current - 1)
+          : event.key === 'ArrowRight' ? Math.min(points.length - 1, current + 1)
+          : event.key === 'Home' ? 0
+          : event.key === 'End' ? points.length - 1 : null;
+        if (next === null) return;
+        event.preventDefault();
+        setActiveDate(points[next].date);
+      }}
+    >
+      <span id={instructionsId} className="sr-only">Выберите день стрелками влево и вправо. Home и End переходят к краям графика.</span>
+      <span className="sr-only" role="status" aria-atomic="true">
+        {hoveredPoint ? `${hoveredPoint.date}. Клики: ${hoveredPoint.clicks}. Показы: ${hoveredPoint.impressions}. CTR: ${hoveredPoint.ctr}%. Позиция: ${hoveredPoint.position}.` : ''}
+      </span>
       <svg
         viewBox={`0 0 ${width} ${height}`}
         className="admin-gsc-svg-chart"
         preserveAspectRatio="none"
-        onMouseLeave={() => onHoverPoint(null)}
+        aria-hidden="true"
+        onMouseLeave={() => setActiveDate(null)}
       >
         <defs>
           <linearGradient id="gscClicksGrad" x1="0" y1="0" x2="0" y2="1">
@@ -762,6 +771,13 @@ function GscSvgChart({
           </>
         )}
 
+        {points.length === 1 && view !== 'clicks' && (
+          <circle cx={getX(0)} cy={getImpY(points[0].impressions)} r="6" fill="none" stroke="#a855f7" strokeWidth="2" />
+        )}
+        {points.length === 1 && view !== 'impressions' && (
+          <circle cx={getX(0)} cy={getClickY(points[0].clicks)} r="3.5" fill="#3b82f6" />
+        )}
+
         {/* Интерактивные вертикальные зоны для hover */}
         {points.map((pt, i) => {
           const x = getX(i);
@@ -774,14 +790,15 @@ function GscSvgChart({
               height={chartH}
               fill="transparent"
               style={{ cursor: 'pointer' }}
-              onMouseEnter={() => onHoverPoint(i)}
+              onMouseEnter={() => setActiveDate(pt.date)}
+              onClick={() => setActiveDate(pt.date)}
             />
           );
         })}
 
         {/* Подсветка точки при hover */}
-        {hoveredIndex !== null && (
-          <>
+        {hoveredPoint && (
+          <g pointerEvents="none">
             <line
               x1={getX(hoveredIndex)}
               y1={padding.top}
@@ -794,7 +811,7 @@ function GscSvgChart({
             {(view === 'both' || view === 'clicks') && (
               <circle
                 cx={getX(hoveredIndex)}
-                cy={getClickY(points[hoveredIndex].clicks)}
+                cy={getClickY(hoveredPoint.clicks)}
                 r="4.5"
                 fill="#3b82f6"
                 stroke="#fff"
@@ -804,14 +821,14 @@ function GscSvgChart({
             {(view === 'both' || view === 'impressions') && (
               <circle
                 cx={getX(hoveredIndex)}
-                cy={getImpY(points[hoveredIndex].impressions)}
+                cy={getImpY(hoveredPoint.impressions)}
                 r="4.5"
                 fill="#a855f7"
                 stroke="#fff"
                 strokeWidth="2"
               />
             )}
-          </>
+          </g>
         )}
 
         {/* Подписи дат */}
@@ -836,9 +853,10 @@ function GscSvgChart({
       </svg>
 
       {/* Тултип точки */}
-      {hoveredPoint && hoveredIndex !== null && (
+      {hoveredPoint && (
         <div
           className="admin-gsc-chart-tooltip"
+          aria-hidden="true"
           style={{
             ['--gsc-tooltip-x' as string]: `${(getX(hoveredIndex) / width) * 100}%`,
           }}
