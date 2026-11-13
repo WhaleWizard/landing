@@ -1,6 +1,6 @@
 import { isCaseArticle } from './articleCategory';
 
-export const HOME_ARTICLES_LIMIT = 15;
+export const HOME_ARTICLES_LIMIT = 10;
 
 type HomeArticleLike = {
   category?: string | null;
@@ -30,19 +30,25 @@ export function isFeaturedArticle(article: HomeArticleLike): boolean {
 }
 
 /**
- * Что показывает блок «Статьи» на главной: закреплённые владельцем в его
- * порядке, а пока закреплённых нет — последние по дате. Кейсы сюда не
+ * Что показывает блок «Статьи» на главной: сначала закреплённые владельцем
+ * в его порядке (1..N), затем оставшиеся места до лимита (10 статей)
+ * заполняются самыми свежими статьями блога по дате. Кейсы сюда не
  * попадают, у них своя витрина.
  *
  * Той же функцией пользуется генератор статических страниц: встроенный в
  * главную список и живой список из API обязаны совпадать, иначе карусель
  * дёргается после загрузки.
  */
-export function selectHomeArticles<T extends HomeArticleLike>(articles: T[]): T[] {
+export function selectHomeArticles<T extends HomeArticleLike>(articles: T[], limit = HOME_ARTICLES_LIMIT): T[] {
   const blog = articles.filter((article) => !isCaseArticle(article));
   const featured = blog
     .filter(isFeaturedArticle)
     .sort((a, b) => Number(a.featuredOrder) - Number(b.featuredOrder));
-  if (featured.length > 0) return featured.slice(0, HOME_ARTICLES_LIMIT);
-  return [...blog].sort((a, b) => sortTimestamp(b) - sortTimestamp(a)).slice(0, HOME_ARTICLES_LIMIT);
+
+  const featuredSet = new Set(featured);
+  const remaining = blog
+    .filter((article) => !featuredSet.has(article))
+    .sort((a, b) => sortTimestamp(b) - sortTimestamp(a));
+
+  return [...featured, ...remaining].slice(0, limit);
 }
