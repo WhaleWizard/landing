@@ -4,7 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 import { build, transform } from 'esbuild';
+import { JSDOM } from 'jsdom';
 import { ssrBuildOptions } from './ssr-bundle.js';
+import { STATIC_ROUTES } from './config.js';
 
 /**
  * Находки построчного аудита в оболочке админки: статьи, редактор сайта,
@@ -442,9 +444,27 @@ test('F-133: панель передаёт «сейчас» и не даёт в�
 // ---------------------------------------------------------------------------
 // F-062: ссылки на свои страницы
 
-test('F-062: ссылка на страницу услуги считается внутренней', async () => {
+async function loadSeoAssistant(t) {
+  const dom = new JSDOM();
+  const previous = globalThis.document;
+  globalThis.document = dom.window.document;
+  t.after(() => {
+    if (previous === undefined) delete globalThis.document;
+    else globalThis.document = previous;
+    dom.window.close();
+  });
   const plural = await compilePlain('src/app/utils/plural.ts');
-  const seo = await loadWithStubs('src/app/components/admin/SeoAssistant.tsx', { '/plural': plural });
+  const category = await compilePlain('src/app/utils/articleCategory.ts');
+  const cover = await compilePlain('src/app/utils/articleCover.ts');
+  return loadWithStubs('src/app/components/admin/SeoAssistant.tsx', {
+    '/plural': plural,
+    '/articleCategory': category,
+    '/articleCover': cover,
+  });
+}
+
+test('F-062: ссылка на страницу услуги считается внутренней', async (t) => {
+  const seo = await loadSeoAssistant(t);
   const count = seo.countInternalLinks;
   assert.equal(count('<a href="/meta-ads">услуга</a> <a href="/google-ads/">ещё</a> <a href=\'/consult\'>консультация</a>'), 3);
   assert.equal(count('<a href="/blog/x">статья</a><a href="https://www.whalewzrd.com/cases/y">кейс</a><a href="https://whalewzrd.com">главная</a>'), 3);
@@ -462,29 +482,29 @@ test('F-062: ссылка на страницу услуги считается 
   assert.equal(noLinks.level, 'warn');
 });
 
-test('Broken Link Checker: валидация ссылок выявляет битые 404, лишние слеши и опечатки в протоколе', async () => {
-  const plural = await compilePlain('src/app/utils/plural.ts');
-  const seo = await loadWithStubs('src/app/components/admin/SeoAssistant.tsx', { '/plural': plural });
+test('Broken Link Checker: валидация ссылок выявляет отсутствующие страницы и опечатки в протоколе', async (t) => {
+  const seo = await loadSeoAssistant(t);
   const { validateContentLinks, runChecks } = seo;
+  const options = { knownArticles: [{ slug: 'hello-world' }] };
 
-  const validHtml = '<p><a href="/meta-ads">Услуга</a> и <a href="/blog/hello-world">статья</a> и <a href="https://example.com">внешняя</a></p>';
-  const validResult = validateContentLinks(validHtml, { knownSlugs: new Set(['hello-world']) });
+  const validHtml = '<p><a href="/meta-ads/">Услуга</a> и <a href="/blog/hello-world">статья</a> и <a href="https://example.com">внешняя</a></p>';
+  const validResult = validateContentLinks(validHtml, options);
   assert.equal(validResult.total, 3);
   assert.equal(validResult.internal, 2);
   assert.equal(validResult.external, 1);
   assert.equal(validResult.issues.length, 0);
 
-  const brokenHtml = '<p><a href="/meta-ads/">Слеш</a> <a href="/blog/missing-404">Битая</a> <a href="htp://broken.com">Опечатка</a> <a href="http://insecure.com">Незащищённая</a></p>';
-  const brokenResult = validateContentLinks(brokenHtml, { knownSlugs: new Set(['hello-world']) });
+  const brokenHtml = '<p><a href="/meta-ads">Слеш</a> <a href="/blog/missing-404/">Битая</a> <a href="htp://broken.com">Опечатка</a> <a href="http://insecure.com">Незащищённая</a></p>';
+  const brokenResult = validateContentLinks(brokenHtml, options);
   assert.equal(brokenResult.issues.length, 4);
 
-  const slashIssue = brokenResult.issues.find((i) => i.href === '/meta-ads/');
+  const slashIssue = brokenResult.issues.find((i) => i.href === '/meta-ads');
   assert.equal(slashIssue.level, 'warn');
-  assert.match(slashIssue.reason, /Лишний завершающий слеш/);
+  assert.match(slashIssue.reason, /\/meta-ads\/$/);
 
-  const missingIssue = brokenResult.issues.find((i) => i.href === '/blog/missing-404');
+  const missingIssue = brokenResult.issues.find((i) => i.href === '/blog/missing-404/');
   assert.equal(missingIssue.level, 'fail');
-  assert.match(missingIssue.reason, /404/);
+  assert.match(missingIssue.reason, /отсутствует/);
 
   const typoIssue = brokenResult.issues.find((i) => i.href === 'htp://broken.com');
   assert.equal(typoIssue.level, 'fail');
@@ -495,10 +515,47 @@ test('Broken Link Checker: валидация ссылок выявляет би
   assert.match(insecureIssue.reason, /http:\/\//);
 
   // runChecks возвращает проверку 'link-health'
-  const checks = runChecks({ content: brokenHtml }, { knownSlugs: new Set(['hello-world']) });
+  const checks = runChecks({ content: brokenHtml }, options);
   const linkHealth = checks.find((c) => c.id === 'link-health');
   assert.ok(linkHealth);
   assert.equal(linkHealth.level, 'fail');
+});
+
+test('SEO: статические маршруты, формы адресов и старые ссылки совпадают с правилами сайта', async (t) => {
+  const { CANONICAL_STATIC_ROUTES, validateContentLinks: validate } = await loadSeoAssistant(t);
+  const check = (href, options) => validate(`<a href="${href}">Ссылка</a>`, options).issues[0];
+  assert.deepEqual([...CANONICAL_STATIC_ROUTES].sort(), [...STATIC_ROUTES].sort());
+  for (const path of STATIC_ROUTES) assert.equal(check(path === '/' ? path : path + '/'), undefined);
+  assert.equal(check('/missing/').level, 'fail');
+  assert.equal(check('/blog/real/').reason, 'Канонический адрес: /blog/real');
+  assert.equal(check('/blog/missing', { knownArticles: [] }).level, 'fail');
+  assert.equal(check('/blog/missing'), undefined);
+  const catalog = {
+    now: '2026-11-13T10:00:00.000Z',
+    knownArticles: [
+      { slug: 'draft', status: 'draft' },
+      { slug: 'future', status: 'published', publishedAt: '2026-11-13T10:00:01.000Z' },
+      { slug: 'case-study', category: '  КЕЙСЫ ' },
+      { slug: 'guide-to-ads' },
+      { slug: 'guide-draft', status: 'draft' },
+    ],
+  };
+  assert.match(check('/blog/draft', catalog).reason, /недоступна/);
+  assert.match(check('/blog/future', catalog).reason, /недоступна/);
+  assert.equal(check('/blog/case-study', catalog).reason, 'Канонический адрес: /cases/case-study');
+  assert.equal(check('/blog/guide', catalog).reason, 'Канонический адрес: /blog/guide-to-ads');
+  assert.equal(check('/cases/guide', catalog).level, 'fail');
+});
+
+test('SEO: проверяются фактические атрибуты ссылок и подсказки редактора', async (t) => {
+  const { validateContentLinks: validate, runChecks } = await loadSeoAssistant(t);
+  const links = validate('<!-- <a href="/not-real">комментарий</a> --><div data-href="/ghost"></div><a href="">Пусто</a><a href=/about/>Обо мне</a><a href="https://[">Адрес</a>');
+  assert.equal(links.internal, 1);
+  assert.deepEqual(links.issues.map(issue => issue.href), ['""', 'https://[']);
+  const checks = runChecks({ slug: 'wrong--slug', image: '/og-image-v2.jpg', seoTitle: 'д'.repeat(72) });
+  assert.equal(checks.find(({ id }) => id === 'slug').level, 'fail');
+  assert.equal(checks.find(({ id }) => id === 'image').level, 'warn');
+  assert.match(checks.find(({ id }) => id === 'title').detail, /может сократить/);
 });
 
 // ---------------------------------------------------------------------------

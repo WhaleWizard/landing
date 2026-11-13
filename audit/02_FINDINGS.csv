@@ -1,4 +1,16 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+SEO-20261113-01,P2,DATA,/admin/,SeoAssistant,Real pages reported missing and removed paths accepted,Route table drifted from generated site,FIXED,SeoAssistant.tsx,Route-set parity assertion
+SEO-20261113-02,P2,DATA,/admin/,SeoAssistant,Canonical static links flagged and missing links with slash escape validation,All trailing slashes triggered an early warning,FIXED,SeoAssistant.tsx,Static and article paths tested
+SEO-20261113-03,P2,DATA,/admin/,SeoAssistant,Draft and scheduled article links passed,Catalog dropped publication status and date,FIXED,SeoAssistant.tsx,Deterministic publication date fixture
+SEO-20261113-04,P2,DATA,/admin/,SeoAssistant,Case and blog URLs confused,Catalog dropped article category,FIXED,SeoAssistant.tsx,Category and redirect destination asserted
+SEO-20261113-05,P2,DATA,/admin/,SeoAssistant,Existing old short URLs reported missing,Unique published prefix redirect ignored,FIXED,SeoAssistant.tsx,Legacy route fixture
+SEO-20261113-06,P2,DATA,/admin/,SeoAssistant,Empty or unquoted links skipped and markup comments counted,Regex did not parse actual anchor attributes,FIXED,SeoAssistant.tsx,DOM fixture
+SEO-20261113-07,P2,DATA,/admin/,SeoAssistant,Empty loaded catalog accepted unknown publications,Empty and unavailable catalogs treated equally,FIXED,SeoAssistant.tsx,Empty and unavailable fixtures
+SEO-20261113-08,P2,DATA,/admin/,SeoAssistant,Malformed HTTPS links passed,Only a scheme prefix was checked,FIXED,SeoAssistant.tsx,Invalid HTTPS fixture
+SEO-20261113-09,P2,DATA,/admin/,SeoAssistant,Editor accepted slugs rejected on save,Advisory regex allowed repeated or terminal hyphens,FIXED,SeoAssistant.tsx,Invalid slug fixture
+SEO-20261113-10,P2,UX,/admin/,SeoAssistant,SEO text incorrectly described as always truncated,Soft length target presented as hard output cap,FIXED,SeoAssistant.tsx,Long title fixture
+SEO-20261113-11,P2,UX,/admin/,SeoAssistant,Default cover shown as a custom image,Any nonempty image counted as custom,FIXED,SeoAssistant.tsx,Default cover fixture
+SEO-20261113-12,P2,LAYOUT,/admin/,SeoAssistant,Long URL can crowd labels and overflow,Unbounded detail column and nowrap label,FIXED,admin-ui.css,Chromium and WebKit in two themes
 NAV-20261113-01,P2,RELIABILITY,public,RouteErrorBoundary,WebKit recovery interrupts navigation to a new document,Cancelled module or CSS can fail after beforeunload and before pagehide,FIXED,documentNavigation.ts and routes.tsx,Reproduced on live site and verified with delayed FAQ on local build
 ADMIN-20261113-70,P2,STATE,/admin/,Article pins,Fast pin changes could overwrite each other,Parallel writes replace the complete list,FIXED,Admin.tsx,Delayed response and blocked controls
 ADMIN-20261113-71,P2,DATA,/admin/,Article pins,Missing article or case can replace valid pins,Server did not validate selected articles,FIXED,articles-featured.ts and d1.ts,SQLite preserves prior order on 409

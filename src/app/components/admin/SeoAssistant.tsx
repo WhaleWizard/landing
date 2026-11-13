@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
 import { AlertTriangle, Check, CircleAlert, Sparkles } from 'lucide-react';
 import { plural, withPlural } from '../../utils/plural';
+import { isCaseArticle } from '../../utils/articleCategory';
+import { hasCustomCover } from '../../utils/articleCover';
 
 /** Формы для счётных подписей: «1 символ / 2 символа / 5 символов». */
 const SYMBOLS: [string, string, string] = ['символ', 'символа', 'символов'];
@@ -25,6 +27,28 @@ interface ArticleLike {
   tags?: string[];
   keyTakeaways?: string[];
   faq?: Array<{ question: string; answer: string }>;
+}
+
+interface LinkArticle {
+  slug?: string;
+  category?: string | null;
+  status?: string;
+  publishedAt?: string;
+}
+
+interface LinkCheckOptions {
+  knownArticles?: readonly LinkArticle[];
+  now?: string;
+}
+
+const SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+function articleLinks(content: string): string[] {
+  // Template content is inert. Parsing the actual attributes also handles
+  // empty hrefs, entity escapes and markup pasted from rich-text editors.
+  const template = document.createElement('template');
+  template.innerHTML = content;
+  return Array.from(template.content.querySelectorAll('a[href]'), (link) => (link.getAttribute('href') ?? '').trim());
 }
 
 function stripHtml(html = ''): string {
@@ -52,18 +76,26 @@ function rangeCheck(
 ): CheckResult {
   if (value === 0) return { id, label, detail: emptyText, level: 'fail' };
   const measured = `${value} ${plural(value, unit)}`;
-  if (value < min) return { id, label, detail: `${measured} — коротко, лучше от ${min}`, level: 'warn' };
-  if (value > max) return { id, label, detail: `${measured} — длинно, обрежется до ${max}`, level: 'warn' };
+  if (value < min) return { id, label, detail: `${measured} — коротко, лучше от\u00a0${min}`, level: 'warn' };
+  if (value > max) return { id, label, detail: `${measured} — длиннее ориентира\u00a0${max}, поисковик может сократить текст`, level: 'warn' };
   return { id, label, detail: `${measured} — в норме`, level: 'ok' };
 }
 
 /** Путь внутри сайта или null, если ссылка ведёт наружу, на якорь, mailto: и т. п. */
 function internalPath(href: string): string | null {
-  const own = /^https?:\/\/(?:www\.)?whalewzrd\.com(\/.*)?$/i.exec(href);
-  if (own) return own[1] || '/';
-  // Одна косая черта в начале — свой адрес; две — чужой домен без схемы.
-  return /^\/(?!\/)/.test(href) ? href : null;
+  if (href.startsWith('/') && !href.startsWith('//')) return href;
+  if (!/^https?:\/\//i.test(href)) return null;
+  try {
+    const url = new URL(href);
+    return ['www.whalewzrd.com', 'whalewzrd.com'].includes(url.host)
+      ? url.pathname + url.search + url.hash
+      : null;
+  } catch {
+    return null;
+  }
 }
+
+const SERVICE_PATH = /^\/(?:api|admin)(?:[/?#]|$)/i;
 
 /**
  * Ссылки на свои страницы: любой `href` с одной косой черты (кроме служебных
@@ -74,10 +106,9 @@ function internalPath(href: string): string | null {
  */
 export function countInternalLinks(content = ''): number {
   let count = 0;
-  for (const match of String(content).matchAll(/href\s*=\s*["']([^"']+)["']/gi)) {
-    const path = internalPath(match[1].trim());
-    if (!path) continue;
-    if (/^\/api\//i.test(path) || /^\/admin(?:[/?#]|$)/i.test(path)) continue;
+  for (const href of articleLinks(content)) {
+    const path = internalPath(href);
+    if (!path || SERVICE_PATH.test(path)) continue;
     count += 1;
   }
   return count;
@@ -89,17 +120,16 @@ export const CANONICAL_STATIC_ROUTES = new Set([
   '/meta-apps',
   '/google-ads',
   '/consult',
-  '/privacy',
-  '/terms',
-  '/data-deletion',
+  '/about',
+  '/privacy-policy',
+  '/offer',
+  '/cookie-policy',
   '/blog',
   '/cases',
-  '/glossary',
+  '/marketing-glossary',
   '/faq',
   '/calculator',
   '/roi-calculator',
-  '/unit-economics',
-  '/client-report',
 ]);
 
 export interface LinkIssue {
@@ -115,20 +145,28 @@ export interface LinkValidationResult {
   issues: LinkIssue[];
 }
 
+function isPublicArticle(article: LinkArticle, now: string): boolean {
+  return article.status !== 'draft' && (!article.publishedAt || article.publishedAt <= now);
+}
+
+function articleSection(article: LinkArticle): 'cases' | 'blog' {
+  return isCaseArticle(article) ? 'cases' : 'blog';
+}
+
 export function validateContentLinks(
   content = '',
-  options?: { knownSlugs?: Set<string> | string[] },
+  options?: LinkCheckOptions,
 ): LinkValidationResult {
   const issues: LinkIssue[] = [];
-  const slugsSet = options?.knownSlugs instanceof Set
-    ? options.knownSlugs
-    : new Set(options?.knownSlugs || []);
+  const catalog = options?.knownArticles
+    ? new Map(options.knownArticles.map((article) => [article.slug, article]))
+    : undefined;
+  const now = options?.now ?? new Date().toISOString();
   let total = 0;
   let internal = 0;
   let external = 0;
 
-  for (const match of String(content).matchAll(/href\s*=\s*["']([^"']+)["']/gi)) {
-    const rawHref = match[1].trim();
+  for (const rawHref of articleLinks(content)) {
     if (!rawHref) {
       issues.push({ href: '""', reason: 'Пустая ссылка href', level: 'fail' });
       continue;
@@ -146,7 +184,7 @@ export function validateContentLinks(
       continue;
     }
 
-    if (/^https?\/\//i.test(rawHref) || /^htps?:\/\//i.test(rawHref)) {
+    if (/^(?:https?\/\/|htps?:\/\/)/i.test(rawHref)) {
       issues.push({ href: rawHref, reason: 'Опечатка в схеме протокола', level: 'fail' });
       continue;
     }
@@ -155,41 +193,47 @@ export function validateContentLinks(
     if (path) {
       internal += 1;
 
-      if (/^\/api\//i.test(path) || /^\/admin(?:[/?#]|$)/i.test(path)) {
+      if (SERVICE_PATH.test(path)) {
         issues.push({ href: rawHref, reason: 'Ссылка ведёт на служебный или закрытый раздел', level: 'warn' });
         continue;
       }
 
       const [pathname] = path.split(/[?#]/);
 
-      if (pathname.length > 1 && pathname.endsWith('/')) {
-        issues.push({
-          href: rawHref,
-          reason: `Лишний завершающий слеш (канонический адрес: ${pathname.replace(/\/+$/, '')})`,
-          level: 'warn',
-        });
-        continue;
-      }
-
       if (pathname.includes('//')) {
         issues.push({ href: rawHref, reason: 'Двойная косая черта в пути', level: 'fail' });
         continue;
       }
 
-      if (CANONICAL_STATIC_ROUTES.has(pathname)) {
+      const normalized = pathname.replace(/\/$/, '') || '/';
+      if (CANONICAL_STATIC_ROUTES.has(normalized)) {
+        if (pathname !== '/' && !pathname.endsWith('/')) {
+          issues.push({ href: rawHref, reason: `Канонический адрес: ${normalized}/`, level: 'warn' });
+        }
         continue;
       }
 
-      const articleMatch = /^\/(?:blog|cases)\/([a-z0-9-]+)$/i.exec(pathname);
+      const articleMatch = /^\/(blog|cases)\/([a-z0-9]+(?:-[a-z0-9]+)*)$/.exec(normalized);
       if (articleMatch) {
-        const slug = articleMatch[1].toLowerCase();
-        if (slugsSet.size > 0 && !slugsSet.has(slug)) {
-          issues.push({
-            href: rawHref,
-            reason: `Статья или кейс «${slug}» не найдены (битая ссылка 404)`,
-            level: 'fail',
-          });
-          continue;
+        const [, section, slug] = articleMatch;
+        const article = catalog?.get(slug);
+        if (article && !isPublicArticle(article, now)) {
+          issues.push({ href: rawHref, reason: 'Публикация пока недоступна читателям', level: 'fail' });
+        } else if (catalog && !article) {
+          const matches = options?.knownArticles?.filter((candidate) =>
+            candidate.slug?.startsWith(`${slug}-`) && isPublicArticle(candidate, now) && articleSection(candidate) === section,
+          );
+          if (matches?.length === 1) {
+            issues.push({ href: rawHref, reason: `Канонический адрес: /${section}/${matches[0].slug}`, level: 'warn' });
+          } else {
+            issues.push({ href: rawHref, reason: 'Публикация отсутствует в списке', level: 'fail' });
+          }
+        } else {
+          const correctSection = article ? articleSection(article) : section;
+          const canonical = `/${correctSection}/${slug}`;
+          if (pathname !== canonical) {
+            issues.push({ href: rawHref, reason: `Канонический адрес: ${canonical}`, level: 'warn' });
+          }
         }
         continue;
       }
@@ -201,16 +245,12 @@ export function validateContentLinks(
       });
     } else {
       external += 1;
-      if (/^http:\/\//i.test(rawHref)) {
+      if (!/^https?:\/\/[^/]/i.test(rawHref) || !isAbsoluteUrl(rawHref)) {
+        issues.push({ href: rawHref, reason: 'Некорректный адрес внешней ссылки', level: 'fail' });
+      } else if (/^http:\/\//i.test(rawHref)) {
         issues.push({
           href: rawHref,
           reason: 'Незащищённый протокол http:// (рекомендуется https://)',
-          level: 'warn',
-        });
-      } else if (!/^https:\/\//i.test(rawHref)) {
-        issues.push({
-          href: rawHref,
-          reason: 'Некорректный адрес внешней ссылки',
           level: 'warn',
         });
       }
@@ -220,6 +260,15 @@ export function validateContentLinks(
   return { total, internal, external, issues };
 }
 
+function isAbsoluteUrl(href: string): boolean {
+  try {
+    new URL(href);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Проверки перед публикацией. Раньше в редакторе был короткий список
  * «чего не хватает», но без чисел и без объяснения, почему это важно —
@@ -227,7 +276,7 @@ export function validateContentLinks(
  */
 export function runChecks(
   article: ArticleLike,
-  options?: { knownSlugs?: Set<string> | string[] },
+  options?: LinkCheckOptions,
 ): CheckResult[] {
   const text = stripHtml(article.content || '');
   const words = countWords(text);
@@ -235,7 +284,10 @@ export function runChecks(
   const description = (article.seoDescription || article.description || '').trim();
   const internalLinks = countInternalLinks(article.content);
   const linkStats = validateContentLinks(article.content, options);
-  const headings = (String(article.content || '').match(/<h2/gi) || []).length;
+  const headings = (String(article.content || '').match(/<h2\b/gi) || []).length;
+  const slug = (article.slug || '').trim();
+  const validSlug = SLUG_PATTERN.test(slug) && slug.length <= 200;
+  const customCover = hasCustomCover(article.image);
 
   const checks: CheckResult[] = [
     rangeCheck('title', 'Заголовок для поиска', title.length, 30, 65, SYMBOLS, 'Не заполнен — в выдаче будет обрезанный слаг'),
@@ -243,8 +295,8 @@ export function runChecks(
     {
       id: 'image',
       label: 'Обложка',
-      detail: article.image?.trim() ? 'Есть' : 'Нет — в соцсетях и выдаче ссылка будет пустой',
-      level: article.image?.trim() ? 'ok' : 'fail',
+      detail: customCover ? 'Есть' : 'Используется стандартная обложка сайта',
+      level: customCover ? 'ok' : 'warn',
     },
     {
       id: 'words',
@@ -276,7 +328,7 @@ export function runChecks(
       id: 'link-health',
       label: 'Целостность ссылок',
       detail: linkStats.issues.length === 0
-        ? (linkStats.total === 0 ? 'Ссылок нет' : `Все ${linkStats.total} ${plural(linkStats.total, ['ссылка', 'ссылки', 'ссылок'])} корректны`)
+        ? (linkStats.total === 0 ? 'Ссылок нет' : 'Замечаний к адресам в тексте нет')
         : linkStats.issues.slice(0, 2).map((i) => `${i.reason} (${i.href})`).join('; ') + (linkStats.issues.length > 2 ? ` и ещё ${linkStats.issues.length - 2}` : ''),
       level: linkStats.issues.some((i) => i.level === 'fail')
         ? 'fail'
@@ -287,14 +339,12 @@ export function runChecks(
     {
       id: 'slug',
       label: 'Адрес страницы',
-      detail: !article.slug?.trim()
+      detail: !slug
         ? 'Пустой'
-        : /^[a-z0-9-]+$/.test(article.slug)
-          ? article.slug.length > 70 ? `${withPlural(article.slug.length, SYMBOLS)} — длинновато` : 'В норме'
-          : 'Есть недопустимые символы',
-      level: !article.slug?.trim()
-        ? 'fail'
-        : /^[a-z0-9-]+$/.test(article.slug) && article.slug.length <= 70 ? 'ok' : 'warn',
+        : !SLUG_PATTERN.test(slug) ? 'Используйте строчные буквы a–z, цифры и одиночные дефисы между словами'
+        : slug.length > 200 ? 'Адрес превышает 200 символов'
+        : slug.length > 70 ? `${withPlural(slug.length, SYMBOLS)} — длинновато` : 'В норме',
+      level: !validSlug ? 'fail' : slug.length <= 70 ? 'ok' : 'warn',
     },
     {
       id: 'faq',
@@ -314,14 +364,9 @@ export default function SeoAssistant({
   knownArticles,
 }: {
   article: ArticleLike;
-  knownArticles?: Array<{ slug?: string }>;
+  knownArticles?: readonly LinkArticle[];
 }) {
-  const knownSlugs = useMemo(() => {
-    if (!knownArticles) return undefined;
-    return new Set(knownArticles.map((a) => (a.slug || '').trim().toLowerCase()).filter(Boolean));
-  }, [knownArticles]);
-
-  const checks = useMemo(() => runChecks(article, { knownSlugs }), [article, knownSlugs]);
+  const checks = useMemo(() => runChecks(article, { knownArticles }), [article, knownArticles]);
   const failed = checks.filter((check) => check.level === 'fail').length;
   const warned = checks.filter((check) => check.level === 'warn').length;
   const passed = checks.length - failed - warned;

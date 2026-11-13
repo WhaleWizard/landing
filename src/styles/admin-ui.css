@@ -11546,8 +11546,8 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .seo-assistant__list li {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
+  grid-template-columns: auto minmax(0, 1fr) minmax(0, 1.3fr);
+  align-items: start;
   gap: var(--adm-space-2);
   padding: 6px 8px;
   border-radius: var(--adm-radius-xs);
@@ -11572,15 +11572,14 @@ body[data-admin-theme] .planner-weekpick :is(button):focus-visible {
 
 .admin-root .seo-assistant__label {
   font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  text-wrap: pretty;
 }
 
 .admin-root .seo-assistant__detail {
   font-variant-numeric: tabular-nums;
   color: var(--adm-text-tertiary);
   text-align: end;
+  overflow-wrap: anywhere;
 }
 
 @media (max-width: 640px) {

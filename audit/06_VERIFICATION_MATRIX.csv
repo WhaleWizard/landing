@@ -1,4 +1,5 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Publication checks with long URLs,output/playwright/seo-assistant-2026-11-13/matrix.mjs,Chromium and WebKit,320 to 1440 px in light and dark,16,0,PASSED
 Slow document navigation and article recovery,output/playwright/navigation-followup-2026-11-13/,Chromium and WebKit,390 and 1100 px,10,0,PASSED
 Article pins validation and deterministic carousel,scripts/admin-article-save.test.js and scripts/audit-blog.test.js,Node and SQLite,Regression scenarios,3,0,PASSED
 Article pin actions and failed response recovery,output/playwright/home-articles-sync-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,4,0,PASSED
