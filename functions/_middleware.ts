@@ -275,6 +275,15 @@ export const onRequest: PagesFunction<Env> = async ({ request, env, next, waitUn
     );
   }
 
+  if (url.pathname === '/61487b66d6dc49dabfbd628839b66215.txt') {
+    return new Response('61487b66d6dc49dabfbd628839b66215', {
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'public, max-age=86400',
+      },
+    });
+  }
+
   if (LEGACY_HOSTS.has(url.hostname)) {
     const redirectUrl = new URL(request.url);
     redirectUrl.hostname = CANONICAL_HOST;
