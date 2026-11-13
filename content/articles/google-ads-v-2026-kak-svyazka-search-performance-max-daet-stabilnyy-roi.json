@@ -1,0 +1,38 @@
+{
+  "id": 10,
+  "slug": "google-ads-v-2026-kak-svyazka-search-performance-max-daet-stabilnyy-roi",
+  "title": "Google Ads в 2026: как связка Search и Performance Max дает стабильную окупаемость",
+  "category": "Google Ads",
+  "description": "Как правильно подружить поисковые кампании и PMax в одном кабинете: минус-слова, исключение бренда, чистка мусорных площадок и сигналы аудиторий.",
+  "seoTitle": "Google Ads: Search + Performance Max — правильная настройка связки",
+  "seoDescription": "Практика работы с Google Ads: почему PMax каннибализирует брендовый трафик, как настроить исключения и выстроить управляемую связку с поиском.",
+  "tags": [
+    "Google Ads",
+    "Performance Max",
+    "Контекстная реклама",
+    "PMax",
+    "Search Ads"
+  ],
+  "readTime": "9 мин",
+  "summary": "Руководство по настройке Google Ads: как исключить воровство брендового трафика алгоритмом Performance Max, когда использовать точное соответствие в поиске и как передавать качественные сигналы для умного назначения ставок.",
+  "keyTakeaways": [
+    "Performance Max по умолчанию cannibalizes собственный брендовый поиск, создавая видимость заоблачного ROAS.",
+    "Исключение брендовых запросов из PMax — первое обязательное действие при настройке связки.",
+    "Поисковые кампании Search должны забирать узкие коммерческие транзакционные ключи, а PMax — работать на охват по сети и товарным фидам."
+  ],
+  "faq": [
+    {
+      "question": "Может ли Performance Max полностью заменить классический поиск?",
+      "answer": "Нет. PMax — это «черный ящик». Классические Search-кампании дают строгий контроль над минус-словами, текстами и поисковыми запросами, чего лишен PMax."
+    },
+    {
+      "question": "Как исключить бренд из Performance Max?",
+      "answer": "Через списки исключения брендов (Brand Exclusion Lists) в настройках кампании или обращением в поддержку Google Ads для добавления негативного списка."
+    }
+  ],
+  "status": "published",
+  "content": "<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Когда Google выкатил кампании Performance Max (PMax), многие маркетологи решили, что ручная настройка контекста умерла: загрузил картинки, заголовки, нажал «Авто» — и получай прибыль. В реальности 8 из 10 запусков PMax в лоб заканчиваются сливом бюджета на бессмысленные показы в мобильных играх и каннибализацией собственного бренда.</p>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Чтобы Google Ads приносил стабильный ROI, нужно понимать четкую границу между классическим поиском (Search) и автоматическим PMax.</p>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Главная ловушка PMax: воровство ваших же клиентов</h2>\n<blockquote data-ww-block=\"quote\" style=\"margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;\">PMax стремится показать красивый ROAS любой ценой. Самый простой способ для него — показывать объявления людям, которые и так вбивают в поиск точное название вашего бренда. В отчете вы видите ROAS 800%, но по факту вы просто заплатили Google за клиентов, которые и так шли к вам.</blockquote>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Как это лечится:</p>\n<ul data-ww-block=\"list\" data-ww-tone=\"bulleted\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Обязательно привязывайте к PMax список исключения брендов (Brand Exclusion List).</li><li style=\"margin:.38em 0;\">Создайте отдельную изолированную кампанию Search только под брендовые запросы с минимальной ценой клика.</li></ul>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Разделение обязанностей в аккаунте</h2>\n<div data-ww-block=\"accent\" style=\"margin:1.1em 0;padding:0.9em 1.1em;border-left:3px solid rgba(139,92,246,.9);background:rgba(139,92,246,.08);border-radius:0.7rem;\"><p style=\"margin:0;line-height:1.8;\">Поисковые кампании Search отвечают за контроль: там собраны высококонверсионные ключевые слова с жесткими минус-списками. PMax отвечает за охватный масштаб: он крутит динамические товарные объявления в Покупках, на YouTube и в картах.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Сигналы аудиторий: как направить PMax в нужное русло</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">PMax обучается быстрее, если вы даете ему правильные стартовые ориентиры (Audience Signals).</p>\n<div data-ww-block=\"card\" style=\"margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;\"><p style=\"margin:0;line-height:1.8;\">Загрузите в сигналы аудиторий списки покупателей за последний год, а также кастомный сегмент людей, которые искали сайты ваших прямых конкурентов. Это сразу сузит круг поиска и предотвратит показ рекламы случайным зевакам.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Правила безопасной оптимизации</h2>\n<ol data-ww-block=\"list\" data-ww-tone=\"numbered\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Регулярно отключайте показ в мусорных приложениях через исключение мест размещения на уровне аккаунта.</li><li style=\"margin:.38em 0;\">Не оценивайте эффективность PMax в первые 10 дней после запуска — фаза разведки требует времени.</li><li style=\"margin:.38em 0;\">Используйте стратегию «Максимум конверсий с ограничением tCPA» только после накопления 30+ конверсий в месяц.</li></ol>",
+  "image": "https://i.ibb.co/8gCxfGy5/Chat-GPT-Image-2-2026-03-05-40.png",
+  "publishedAt": "2026-05-01T22:04:33.410Z",
+  "date": "23.04.2026"
+}

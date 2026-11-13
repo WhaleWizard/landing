@@ -1,0 +1,38 @@
+{
+  "id": 7,
+  "slug": "masshtabirovanie-e-commerce-v-meta-i-google-bez-poteri-rentabelnosti",
+  "title": "Масштабирование интернет-магазина в Meta и Google без падения окупаемости",
+  "category": "Ниши",
+  "description": "Как безопасно увеличивать бюджет интернет-магазина в 2–5 раз: Advantage+ Shopping Campaigns, Google Shopping фиды и учет юнит-экономики.",
+  "seoTitle": "Масштабирование e-commerce в Meta и Google: сохраняем ROAS при росте бюджета",
+  "seoDescription": "Стратегии роста бюджета для интернет-магазинов: ASC+ кампании в Meta, Performance Max в Google, работа с каталогом и предотвращение обвала окупаемости.",
+  "tags": [
+    "E-commerce",
+    "Масштабирование",
+    "Google Shopping",
+    "Meta Ads",
+    "ROAS"
+  ],
+  "readTime": "10 мин",
+  "summary": "Как масштабировать рекламный бюджет в e-commerce: почему при росте затрат неизбежно снижается маржинальность, как настроить автоматизированные кампании Advantage+ Shopping (ASC) и использовать динамический ремаркетинг.",
+  "keyTakeaways": [
+    "Закон убывающей отдачи: при росте бюджета в 3 раза ROAS снижается на 15–25%, но общая чистая прибыль в деньгах растет.",
+    "Качественный товарный фид с разметкой маржинальности — основа успешного масштабирования Google Shopping.",
+    "Для стабильного спенда свыше $5 000 в месяц требуется непрерывный конвейер из 8–15 новых креативов еженедельно."
+  ],
+  "faq": [
+    {
+      "question": "Что делать, если при повышении бюджета падает ROAS?",
+      "answer": "Это нормальный закон аукциона. Оценивайте не процент ROAS, а итоговую чистую прибыль в деньгах (Contribution Margin). Если денег в кассе стало больше — масштабирование успешно."
+    },
+    {
+      "question": "Какая структура кампаний лучше всего работает для интернет-магазина?",
+      "answer": "В Meta Ads — кампания Advantage+ Shopping (ASC) со связкой каталога и UGC-креативов. В Google — связка брендового поиска и Performance Max с разделением товаров по прибыльности."
+    }
+  ],
+  "status": "published",
+  "content": "<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Многие владельцы интернет-магазинов попадают в ловушку линейного мышления: «Если при бюджете $1 000 мы делаем $5 000 выручки (ROAS 500%), значит, вложив $10 000, мы сделаем $50 000». В реальности при росте бюджета до $10 000 окупаемость падает до 250%, а склад оказывается завален неликвидом.</p>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Масштабирование e-commerce — это не просто перетаскивание ползунка бюджета вправо. Это перестройка всей структуры кампаний.</p>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Закон аукциона: почему окупаемость обязана снижаться</h2>\n<blockquote data-ww-block=\"quote\" style=\"margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;\">При малом бюджете алгоритм выбирает самых горячих и легких покупателей. Когда вы требуете в 5 раз больше заказов, системе приходится привлекать более холодную аудиторию, за которую приходится платить больше. Главное — чтобы росла чистая прибыль в деньгах, а не красивый процент в отчете.</blockquote>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Ключевые правила удержания рентабельности:</p>\n<ul data-ww-block=\"list\" data-ww-tone=\"bulleted\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Сегментируйте товарный фид по маржинальности: не лейте рекламу с одинаковой ставкой на товары с наценкой 20% и товары с наценкой 200%.</li><li style=\"margin:.38em 0;\">Выделите бестселлеры (топ-10% каталога, дающие 80% выручки) в отдельные кампании с приоритетным бюджетом.</li></ul>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Advantage+ Shopping Campaigns (ASC): стандарт для Meta</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">В 2026 году ручные кампании по интересам в товарке проигрывают автоматизированным ASC-кампаниям на базе каталога.</p>\n<div data-ww-block=\"accent\" style=\"margin:1.1em 0;padding:0.9em 1.1em;border-left:3px solid rgba(139,92,246,.9);background:rgba(139,92,246,.08);border-radius:0.7rem;\"><p style=\"margin:0;line-height:1.8;\">Дайте Meta чистый товарный фид и загрузите в одну ASC-кампанию как каталожные карточки, так и живые UGC-распаковки. Алгоритм сам сопоставит товар с поведением пользователя лучше любого маркетолога.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Креативный голод: топливо для больших бюджетов</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">При расходах от $200–300 в день креативы выгорают за 10–14 дней.</p>\n<div data-ww-block=\"card\" style=\"margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;\"><p style=\"margin:0;line-height:1.8;\">Масштабирование в товарке невозможно без регулярного производства контента. Вам нужно минимум 5–10 новых роликов в неделю: распаковки, сравнения «до/после», видеообзоры от реальных покупателей.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Стратегия плавного подъема</h2>\n<ol data-ww-block=\"list\" data-ww-tone=\"numbered\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Поднимайте дневной бюджет не чаще одного раза в 3 дня и не более чем на 20%.</li><li style=\"margin:.38em 0;\">Контролируйте складские остатки: реклама товара, которого нет в наличии, сжигает бюджет впустую.</li><li style=\"margin:.38em 0;\">Оценивайте вклад Google Shopping и Meta Ads суммарно по метрике MER.</li></ol>",
+  "image": "https://i.ibb.co/tMy43bt4/Chat-GPT-Image-2-2026-03-12-38.png",
+  "publishedAt": "2026-05-01T22:04:33.410Z",
+  "date": "23.04.2026"
+}

@@ -1,0 +1,38 @@
+{
+  "id": 5,
+  "slug": "antikrizisnyy-kontrol-reklamy-chto-delat-kogda-cpa-rastet-kazhdyy-den",
+  "title": "Антикризисный контроль рекламы: что делать, когда CPA растет каждый день",
+  "category": "Деньги и окупаемость",
+  "description": "Пошаговый план спасения рекламы при резком росте стоимости лида: техническая диагностика, проверка выгорания креативов и ошибки управления.",
+  "seoTitle": "Что делать, если растет CPA в рекламе: пошаговый антикризисный план",
+  "seoDescription": "Руководство по спасению рекламных кампаний при удорожании лида: диагностика поломок на сайте, аукцион Meta, выгорание креативов и спам.",
+  "tags": [
+    "Оптимизация рекламы",
+    "CPA",
+    "Аудит кабинета",
+    "Антикризис",
+    "Лидогенерация"
+  ],
+  "readTime": "9 мин",
+  "summary": "План действий при скачке стоимости заявки: как отличить технический сбой на сайте от выгорания креативов или перегрева аукциона, и какие панические действия только усугубляют проблему.",
+  "keyTakeaways": [
+    "В 40% случаев внезапный рост CPA вызван поломкой на сайте или сбоем отправки форм.",
+    "Рост частоты показов выше 3.5 за неделю — верный признак выгорания креатива.",
+    "Резкое снижение бюджета более чем на 30% сбрасывает машинное обучение кампании."
+  ],
+  "faq": [
+    {
+      "question": "Стоит ли сразу выключать кампанию, если лиды подорожали в два раза?",
+      "answer": "Нет. Дайте связке 24–48 часов. Аукцион колеблется по дням недели. Если отключить кампанию сразу, вы потеряете накопленный прогресс обучения."
+    },
+    {
+      "question": "Как быстро понять, что выгорел креатив?",
+      "answer": "Смотрите на связку метрик: частота (Frequency) растет выше 3, CTR падает на 30–50%, а цена клика (CPC) растет. Это сигнал для ввода свежих креативов."
+    }
+  ],
+  "status": "published",
+  "content": "<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Вчера заявка стоила $8, сегодня — $17, а к вечеру доходит до $25. Первая реакция большинства владельцев — паника: срочно урезать бюджет, удалить все адсеты или выставить претензию таргетологу.</p>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Панические движения в рекламном кабинете делают ситуацию только хуже. Алгоритм окончательно теряет ориентиры и начинает хаотичный поиск. Действовать нужно по холодному протоколу.</p>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Шаг 0: Проверка на тупые технические ошибки</h2>\n<blockquote data-ww-block=\"quote\" style=\"margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;\">Прежде чем лезть в настройки кабинета, откройте сайт со своего смартфона через мобильный интернет и попробуйте отправить заявку. Вы удивитесь, как часто причина кроется в отвалившейся интеграции или зависшей капче.</blockquote>\n<ul data-ww-block=\"list\" data-ww-tone=\"bulleted\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Работает ли кнопка отправки формы? Приходит ли уведомление в CRM и Telegram?</li><li style=\"margin:.38em 0;\">Не закончился ли срок оплаты хостинга, домена или SSL-сертификата?</li><li style=\"margin:.38em 0;\">Не изменил ли программист URL страницы «Спасибо», из-за чего пиксель перестал видеть конверсии?</li></ul>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Шаг 1: Диагностика частоты и выгорания (Frequency)</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Если технически сайт работает идеально — открываем Ads Manager и выводим колонку Frequency за последние 7 дней.</p>\n<div data-ww-block=\"accent\" style=\"margin:1.1em 0;padding:0.9em 1.1em;border-left:3px solid rgba(139,92,246,.9);background:rgba(139,92,246,.08);border-radius:0.7rem;\"><p style=\"margin:0;line-height:1.8;\">Если частота перевалила за 3.0–3.5, ваша аудитория видит одно и то же объявление в четвертый раз. Люди перестают реагировать, кликабельность (CTR) падает, а Meta наказывает неинтересную рекламу повышенным CPM.</p></div>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Лекарство одно: залить 3–4 абсолютно новых креатива с другим визуальным рядом и другим первым хуком.</p>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Шаг 2: Анализ аукциона и конкуренции</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Иногда рост стоимости не зависит от вас. В периоды «Черной пятницы», Нового года или перед крупными праздниками крупные игроки удваивают бюджеты, раздувая аукцион для всех.</p>\n<div data-ww-block=\"card\" style=\"margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;\"><p style=\"margin:0;line-height:1.8;\">Если CPM вырос на 50% при стабильном CTR — вы попали под перегрев аукциона. В этот период не нужно дергать связки: переждите пик или предложите более агрессивный оффер, чтобы удержать конверсию страницы.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Чего делать категорически нельзя</h2>\n<ol data-ww-block=\"list\" data-ww-tone=\"numbered\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Срезать дневной бюджет со $100 до $20 за один клик (это гарантированный сброс обучения).</li><li style=\"margin:.38em 0;\">Создавать 10 дублей кампании в надежде, что один из них случайно зацепит аудиторию.</li><li style=\"margin:.38em 0;\">Менять аудиторию и креатив одновременно (вы не поймете, что именно исправило или ухудшило ситуацию).</li></ol>",
+  "image": "https://i.ibb.co/rf3XNgbS/Chat-GPT-Image-2-2026-03-18-34.png",
+  "publishedAt": "2026-05-01T22:04:33.410Z",
+  "date": "23.04.2026"
+}

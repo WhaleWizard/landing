@@ -1,0 +1,39 @@
+{
+  "id": 4,
+  "slug": "analitika-i-atributsiya-v-2026-kak-perestat-sporit-o-lidah-i-schitat-pribyl",
+  "title": "Аналитика и атрибуция рекламы в 2026: как перестать спорить и видеть реальную прибыль",
+  "category": "Аналитика и трекинг",
+  "description": "Почему рекламные кабинеты приписывают себе одни и те же продажи, как настроить серверный трекинг CAPI и смотреть на сквозной показатель MER.",
+  "seoTitle": "Аналитика и атрибуция рекламы: как отслеживать окупаемость в 2026",
+  "seoDescription": "Разбор систем атрибуции: почему расходятся данные Google, Meta и CRM, как настроить CAPI и оценивать маркетинговый результат по метрике MER.",
+  "tags": [
+    "Аналитика",
+    "Атрибуция",
+    "CAPI",
+    "GA4",
+    "MER",
+    "ROAS"
+  ],
+  "readTime": "9 мин",
+  "summary": "Практическое руководство по маркетинговой аналитике: почему отчеты Google и Meta противоречат друг другу, как настроить серверную передачу данных и почему бизнес должен оценивать эффективность по сводному коэффициенту маркетинговой эффективности (MER).",
+  "keyTakeaways": [
+    "Каждая рекламная сеть считает конверсию в свою пользу, завышая отчетный ROAS.",
+    "Серверный трекинг CAPI обязателен для восстановления до 35% потерянных браузерных событий.",
+    "Главная финансовая метрика бизнеса — MER (отношение общей выручки ко всем расходам на рекламу)."
+  ],
+  "faq": [
+    {
+      "question": "Почему в кабинете Meta 40 продаж, а в CRM только 25?",
+      "answer": "Meta использует окно атрибуции (обычно 7 дней после клика и 1 день после показа) и приписывает себе продажу, даже если клиент в итоге пришел из поисковика или рассылки."
+    },
+    {
+      "question": "Что такое метрика MER и зачем она нужна?",
+      "answer": "MER (Marketing Efficiency Ratio) — это общая выручка компании, деленная на общий рекламный бюджет. Она показывает реальное здоровье бизнеса без споров об авторстве лида."
+    }
+  ],
+  "status": "published",
+  "content": "<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Типичная сцена на планерке: таргетолог показывает отчет, где Meta принесла 50 продаж. Контекстолог клянется, что Google дал еще 40. Владелец открывает кассу — а реальных заказов всего 60. Где еще 30?</p>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Ответ прост: оба рекламных кабинета честно приписали пересекающихся клиентов себе. Если человек увидел Reels, кликнул, через два дня вбил название в Google и купил — и Meta, и Google запишут победу на свой счет.</p>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Смерть классического Last-Click и иллюзия отчетов</h2>\n<blockquote data-ww-block=\"quote\" style=\"margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;\">В 2026 году пользователь перед покупкой делает от 4 до 9 касаний. Оценивать маркетинг по последнему клику — все равно что платить премию за победу в футболе только тому, кто забил гол в пустые ворота, забыв про защиту и полузащиту.</blockquote>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Что происходит на практике:</p>\n<ul data-ww-block=\"list\" data-ww-tone=\"bulleted\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Meta генерирует первичный интерес. Без нее человек никогда бы не узнал о продукте.</li><li style=\"margin:.38em 0;\">Google подхватывает спрос, когда клиент уже готов платить.</li><li style=\"margin:.38em 0;\">Ретаргетинг или рассылка ставят точку. Отключите Meta — и через месяц поисковый спрос в Google упадет на 40%.</li></ul>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Серверный трекинг CAPI: технический фундамент</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Если ваш сайт до сих пор полагается только на стандартный браузерный пиксель через код в шапке сайта — вы работаете с закрытыми глазами.</p>\n<div data-ww-block=\"accent\" style=\"margin:1.1em 0;padding:0.9em 1.1em;border-left:3px solid rgba(139,92,246,.9);background:rgba(139,92,246,.08);border-radius:0.7rem;\"><p style=\"margin:0;line-height:1.8;\">Safari, блокировщики рекламы и ограничения операционных систем срезают передачу кук. Серверный Conversions API (CAPI) отправляет событие напрямую с вашего сервера на сервер Meta, гарантируя совпадение данных и точное обучение алгоритма.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Как оценивать результат: метрика MER вместо самообмана</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Перестаньте требовать идеального отчета по каждому отдельному объявлению. Смотрите на соотношение всех маркетинговых расходов к итоговой выручке — метрику **MER (Marketing Efficiency Ratio)**.</p>\n<div data-ww-block=\"card\" style=\"margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;\"><p style=\"margin:0;line-height:1.8;\">Формула проста: Вся выручка за месяц / Весь маркетинговый бюджет. Если вы вложили $5 000 и получили $25 000 — ваш MER равен 5. Если при масштабировании бюджета до $10 000 MER удерживается на уровне выше 4 — маркетинг работает в плюс.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">План наведения порядка в аналитике</h2>\n<ol data-ww-block=\"list\" data-ww-tone=\"numbered\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Внедрите единый регламент UTM-меток: строгий нижний регистр, понятные названия источников.</li><li style=\"margin:.38em 0;\">Настройте дедупликацию событий между браузерным пикселем и CAPI через единый event_id.</li><li style=\"margin:.38em 0;\">Сверяйте данные рекламы с реальными оплатами в CRM каждую неделю.</li></ol>",
+  "image": "https://i.ibb.co/LLs68Kw/Chat-GPT-Image-2-2026-03-15-35.png",
+  "publishedAt": "2026-05-01T22:04:33.410Z",
+  "date": "23.04.2026"
+}

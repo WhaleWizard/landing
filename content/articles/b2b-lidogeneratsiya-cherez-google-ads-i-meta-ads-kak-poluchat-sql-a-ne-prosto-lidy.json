@@ -1,0 +1,38 @@
+{
+  "id": 3,
+  "slug": "b2b-lidogeneratsiya-cherez-google-ads-i-meta-ads-kak-poluchat-sql-a-ne-prosto-lidy",
+  "title": "B2B лидогенерация в Meta и Google: как привлекать заказчиков, а не пустые клики",
+  "category": "Ниши",
+  "description": "Как получать целевые заявки в B2B с длинным циклом сделки: квалификация через формы, отсев розницы и передача офлайн-конверсий из CRM.",
+  "seoTitle": "B2B лидогенерация через Google и Meta Ads: как получать SQL лиды",
+  "seoDescription": "Стратегия лидогенерации для B2B: фильтрация розницы, разделение MQL и SQL, связка поискового спроса Google с прогревом через Instagram.",
+  "tags": [
+    "B2B маркетинг",
+    "Лидогенерация",
+    "SQL лиды",
+    "Google Ads",
+    "Meta Ads"
+  ],
+  "readTime": "10 мин",
+  "summary": "Руководство по B2B-лидогенерации: почему дешевые лид-формы заваливают отдел продаж мусором, как настроить фильтрацию розничных клиентов и обучать рекламные алгоритмы на этапе реальной квалификации сделки (SQL).",
+  "keyTakeaways": [
+    "Дешевый лид в B2B — почти всегда признак того, что форма привлекает физических лиц или соискателей.",
+    "Google Search собирает прямой спрос со спецификациями, а Meta работает на узнаваемость и дожим лиц, принимающих решения.",
+    "Передача статуса сделки из CRM обратно в рекламную сеть снижает долю нецелевых обращений в 2–3 раза."
+  ],
+  "faq": [
+    {
+      "question": "Подходит ли Instagram для B2B?",
+      "answer": "Да, потому что директора и закупщики тоже листают соцсети. Но креатив должен сразу говорить на языке бизнеса: сроки поставки, НДС, оптовые объемы, чтобы отсекать розницу."
+    },
+    {
+      "question": "Как отсеять частников, которым нужна одна штука?",
+      "answer": "Укажите минимальный объем партии или минимальную сумму заказа прямо в заголовке объявления и в первом поле лид-формы."
+    }
+  ],
+  "status": "published",
+  "content": "<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Главный кошмар любого директора по продажам в B2B — это когда маркетолог радостно рапортует о 200 лидах по $4, а менеджеры на созвоне выясняют, что звонят студенты, ищущие работу, или розничные покупатели, которым нужна одна деталь со скидкой.</p>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">В B2B стоимость лида (CPL) сама по себе не значит ничего. Важна стоимость квалифицированного лида (SQL) — человека, у которого есть полномочия, потребность и бюджет на оптовую сделку.</p>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Разделение ролей: Google забирает спрос, Meta прогревает лицо, принимающее решения</h2>\n<blockquote data-ww-block=\"quote\" style=\"margin:1.2em 0;padding:0.8em 1em;border-left:3px solid rgba(255,255,255,.35);font-style:italic;opacity:.95;\">В B2B нельзя надеяться на один канал. В Google человек ищет конкретное решение («поставка фланцев оптом с сертификатом»), а в Instagram он листает ленту вечером после работы. Если он видит вас в обоих каналах — доверие формируется в разы быстрее.</blockquote>\n<ul data-ww-block=\"list\" data-ww-tone=\"bulleted\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">Google Ads Search: работаем только по горячим ключам с коммерческими маркерами («оптом», «производство», «дистрибьютор», «поставки»). Любые общие слова немедленно минусуются.</li><li style=\"margin:.38em 0;\">Meta Ads: бьем в узкие боли управления. Не «станки недорого», а «сократите простой линии на 18%: поставка запчастей за 48 часов с гарантией по договору».</li></ul>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Жесткий барьер на входе: как отсекать нецелевых клиентов</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Если вы хотите качественные лиды — сделайте форму сложнее. Да, конверсия формы упадет, но менеджеры перестанут тратить часы на пустые звонки.</p>\n<div data-ww-block=\"accent\" style=\"margin:1.1em 0;padding:0.9em 1.1em;border-left:3px solid rgba(139,92,246,.9);background:rgba(139,92,246,.08);border-radius:0.7rem;\"><p style=\"margin:0;line-height:1.8;\">Добавьте в форму три обязательных поля: название компании, рабочий email (не mail.ru) и диапазон объема закупки. Случайный зевака закроет страницу. Реальный снабженец — заполнит.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Связка CRM с CAPI: обучаем алгоритм на деньгах</h2>\n<p data-ww-block=\"paragraph\" style=\"margin:0 0 1.1em;line-height:1.85;font-size:1.04rem;\">Если передавать в Meta и Google просто событие отправки формы, алгоритм будет оптимизироваться на тех, кто легче всего оставляет контакты — то есть на спамеров и пенсионеров.</p>\n<div data-ww-block=\"card\" style=\"margin:1.1em 0;padding:1em 1.15em;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);backdrop-filter:blur(6px);border-radius:0.95rem;\"><p style=\"margin:0;line-height:1.8;\">Настройте передачу офлайн-конверсий: когда менеджер переводит сделку в статус «Квалифицирован» или «Выставлен счет», CRM отправляет сигнал в кабинет. Через 2–3 недели сеть начинает искать похожих директоров и руководителей.</p></div>\n<div data-ww-block=\"spacer\" style=\"height:20px;\"></div>\n<h2 data-ww-block=\"heading\" data-ww-tone=\"default\" style=\"margin:1.2em 0 0.55em;font-weight:800;line-height:1.2;font-size:1.95rem;letter-spacing:-0.01em;\">Чек-лист проверки B2B кампании</h2>\n<ol data-ww-block=\"list\" data-ww-tone=\"numbered\" style=\"margin:1.1em 0;padding-left:1.35em;line-height:1.85;\"><li style=\"margin:.38em 0;\">В объявлениях прямо указаны условия: «от 100 кг», «для юрлиц», «с НДС».</li><li style=\"margin:.38em 0;\">В Google Ads отключены мусорные показы в поисковых партнерах и контекстно-медийной сети.</li><li style=\"margin:.38em 0;\">Форма содержит квалификационный вопрос о специфике бизнеса.</li><li style=\"margin:.38em 0;\">Менеджеры перезванивают по заявке в течение 10–20 минут в рабочее время.</li></ol>",
+  "image": "https://i.ibb.co/1fxZ1Gcy/Chat-GPT-Image-2-2026-03-10-58.png",
+  "publishedAt": "2026-05-01T22:04:33.410Z",
+  "date": "23.04.2026"
+}
