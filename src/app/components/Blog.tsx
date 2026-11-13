@@ -23,8 +23,6 @@ function Blog() {
   const navigate = useNavigate();
   const location = useLocation();
   const { articles, loading, error: articlesError, refreshArticles } = useArticles();
-  // Закреплённые владельцем в его порядке, иначе пятнадцать последних.
-  // Кейсы не показываем — у них своя витрина выше.
   const blogArticles = selectHomeArticles(articles);
 
   const openArticle = useCallback((slug: string) => {

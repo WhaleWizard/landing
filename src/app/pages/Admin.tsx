@@ -996,6 +996,7 @@ interface AdminArticleItemProps {
   featuredIndex: number | null;
   featuredCount: number;
   canFeature: boolean;
+  featuredSaving: boolean;
   onEdit: (article: Article) => void;
   onDuplicate: (article: Article) => void;
   onDelete: (slug: string) => void;
@@ -1009,7 +1010,7 @@ interface AdminArticleItemProps {
 // весь список. Обработчики строк приходят стабильными (useCallback), статья
 // меняется только вместе со списком — строка перерисовывается лишь тогда,
 // когда изменилась она сама.
-const AdminArticleItem = memo(function AdminArticleItem({ article, featuredIndex, featuredCount, canFeature, onEdit, onDuplicate, onDelete, onToggleFeatured, onMoveFeatured, locked }: AdminArticleItemProps) {
+const AdminArticleItem = memo(function AdminArticleItem({ article, featuredIndex, featuredCount, canFeature, featuredSaving, onEdit, onDuplicate, onDelete, onToggleFeatured, onMoveFeatured, locked }: AdminArticleItemProps) {
   const staleDays = daysSinceUpdate(article);
   const isFeatured = featuredIndex !== null;
 
@@ -1026,7 +1027,7 @@ const AdminArticleItem = memo(function AdminArticleItem({ article, featuredIndex
       <button
         type="button"
         onClick={() => onToggleFeatured(article)}
-        disabled={!canFeature}
+        disabled={!canFeature || featuredSaving}
         className={`admin-article-row__grab p-1.5 rounded-lg ${isFeatured ? 'text-[var(--adm-primary)]' : 'text-[var(--adm-fg)]/50'} ${canFeature ? 'hover:bg-[var(--adm-primary)]/10' : 'cursor-not-allowed opacity-50'}`}
         title={!canFeature ? 'Кейсы на главную не закрепляются' : isFeatured ? 'Убрать с главной' : 'Закрепить на главной'}
         aria-label={!canFeature ? 'Кейсы на главную не закрепляются' : isFeatured ? 'Убрать с главной' : 'Закрепить на главной'}
@@ -1048,7 +1049,7 @@ const AdminArticleItem = memo(function AdminArticleItem({ article, featuredIndex
             <button
               type="button"
               onClick={() => onMoveFeatured(article, -1)}
-              disabled={featuredIndex === 0}
+              disabled={featuredSaving || featuredIndex === 0}
               className="p-0.5 rounded hover:bg-[var(--adm-primary)]/20 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Выше на главной"
               aria-label="Выше на главной"
@@ -1058,7 +1059,7 @@ const AdminArticleItem = memo(function AdminArticleItem({ article, featuredIndex
             <button
               type="button"
               onClick={() => onMoveFeatured(article, 1)}
-              disabled={featuredIndex >= featuredCount - 1}
+              disabled={featuredSaving || featuredIndex >= featuredCount - 1}
               className="p-0.5 rounded hover:bg-[var(--adm-primary)]/20 disabled:opacity-40 disabled:cursor-not-allowed"
               title="Ниже на главной"
               aria-label="Ниже на главной"
@@ -1112,6 +1113,7 @@ export const AdminArticleCard = memo(function AdminArticleCard({
   featuredIndex,
   featuredCount,
   canFeature,
+  featuredSaving,
   onEdit,
   onDuplicate,
   onDelete,
@@ -1183,7 +1185,7 @@ export const AdminArticleCard = memo(function AdminArticleCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMoveFeatured(article, -1); }}
-                disabled={featuredIndex === 0}
+                disabled={featuredSaving || featuredIndex === 0}
                 className="p-0.5 rounded hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Выше на главной"
                 aria-label="Выше на главной"
@@ -1193,7 +1195,7 @@ export const AdminArticleCard = memo(function AdminArticleCard({
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); onMoveFeatured(article, 1); }}
-                disabled={featuredIndex >= featuredCount - 1}
+                disabled={featuredSaving || featuredIndex >= featuredCount - 1}
                 className="p-0.5 rounded hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed"
                 title="Ниже на главной"
                 aria-label="Ниже на главной"
@@ -1240,9 +1242,10 @@ export const AdminArticleCard = memo(function AdminArticleCard({
           <button
             type="button"
             onClick={() => onToggleFeatured(article)}
-            disabled={!canFeature}
+            disabled={!canFeature || featuredSaving}
             className={`p-1.5 rounded-lg ${isFeatured ? 'text-[var(--adm-primary)] bg-[var(--adm-primary)]/10' : 'text-[var(--adm-fg)]/50 hover:bg-[var(--adm-muted)]'} ${!canFeature ? 'opacity-40 cursor-not-allowed' : ''}`}
             title={!canFeature ? 'Кейсы на главную не закрепляются' : isFeatured ? 'Убрать с главной' : 'Закрепить на главной'}
+            aria-pressed={isFeatured}
           >
             {isFeatured ? <Pin className="w-3.5 h-3.5" /> : <PinOff className="w-3.5 h-3.5" />}
           </button>
@@ -1901,7 +1904,7 @@ export default function Admin() {
   const featuredSlugs = useMemo(() => (
     articles
       .filter((article) => (
-        article.category !== CASES_CATEGORY
+        !isCaseArticle(article)
         && Number.isInteger(article.featuredOrder)
         && Number(article.featuredOrder) > 0
       ))
@@ -1909,18 +1912,26 @@ export default function Admin() {
       .map((article) => article.slug)
   ), [articles]);
 
+  const [featuredSaving, setFeaturedSaving] = useState(false);
+  const featuredSavingRef = useRef(false);
   const applyFeatured = useCallback(async (slugs: string[], successMessage: string) => {
+    if (featuredSavingRef.current) return;
+    featuredSavingRef.current = true;
+    setFeaturedSaving(true);
     try {
       await setFeaturedArticles(slugs, password);
       notify.success(successMessage);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Неизвестная ошибка';
       notify.error('Не удалось сохранить закрепление', message);
+    } finally {
+      featuredSavingRef.current = false;
+      setFeaturedSaving(false);
     }
   }, [password, setFeaturedArticles]);
 
   const toggleFeatured = useCallback((article: Article) => {
-    if (article.category === CASES_CATEGORY) {
+    if (isCaseArticle(article)) {
       notify.error('Кейсы на главную не закрепляются', 'У них своя витрина на главной.');
       return;
     }
@@ -2779,7 +2790,8 @@ export default function Admin() {
                         article={article}
                         featuredIndex={featuredIndex >= 0 ? featuredIndex : null}
                         featuredCount={featuredSlugs.length}
-                        canFeature={article.category !== CASES_CATEGORY}
+                        canFeature={!isCaseArticle(article)}
+                        featuredSaving={featuredSaving}
                         onEdit={openArticleForEdit}
                         onDuplicate={duplicateArticle}
                         onDelete={handleDelete}
@@ -2800,7 +2812,8 @@ export default function Admin() {
                         article={article}
                         featuredIndex={featuredIndex >= 0 ? featuredIndex : null}
                         featuredCount={featuredSlugs.length}
-                        canFeature={article.category !== CASES_CATEGORY}
+                        canFeature={!isCaseArticle(article)}
+                        featuredSaving={featuredSaving}
                         onEdit={openArticleForEdit}
                         onDuplicate={duplicateArticle}
                         onDelete={handleDelete}

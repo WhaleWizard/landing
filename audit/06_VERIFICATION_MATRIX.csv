@@ -1,4 +1,6 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Article pins validation and deterministic carousel,scripts/admin-article-save.test.js and scripts/audit-blog.test.js,Node and SQLite,Regression scenarios,3,0,PASSED
+Article pin actions and failed response recovery,output/playwright/home-articles-sync-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,4,0,PASSED
 Search Console chart and accessible query controls,output/playwright/admin-gsc-access-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Unit economics decimal and bounds,scripts/calculator-engine.test.js,Node,Formula regression,2,0,PASSED
 Unit economics clipboard and unsafe input,output/playwright/admin-unit-economics-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,2,0,PASSED

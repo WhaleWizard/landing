@@ -336,6 +336,38 @@ test('закрепление на главной: порядок 1..N, оста�
   assert.equal((await putFeatured(sqlite, Array.from({ length: 16 }, (_, i) => `s${i}`))).status, 400, 'больше 15 нельзя');
 });
 
+test('удалённая статья или кейс не меняют сохранённый порядок на главной', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { article: article({ slug: 'first' }) });
+  await patch(sqlite, { article: article({ slug: 'second' }) });
+  await patch(sqlite, { article: article({ slug: 'case', category: '  КЕЙСЫ  ' }) });
+  assert.equal((await putFeatured(sqlite, ['first', 'second'])).status, 200);
+
+  for (const unavailable of ['missing', 'case']) {
+    assert.equal((await putFeatured(sqlite, ['second', unavailable])).status, 409);
+    const saved = sqlite.prepare('SELECT slug FROM articles WHERE featured_order > 0 ORDER BY featured_order').all();
+    assert.deepEqual(saved.map((row) => row.slug), ['first', 'second']);
+  }
+});
+
+test('лимит главной — 10 новых закреплений, старый список можно сокращать', async () => {
+  const sqlite = freshDatabase();
+  const slugs = Array.from({ length: 12 }, (_, index) => `story-${index}`);
+  for (const slug of slugs) await patch(sqlite, { article: article({ slug }) });
+  const count = () => sqlite.prepare('SELECT COUNT(*) AS total FROM articles WHERE featured_order > 0').get().total;
+
+  assert.equal((await putFeatured(sqlite, slugs.slice(0, 11))).status, 409);
+  assert.equal(count(), 0);
+  assert.equal((await putFeatured(sqlite, slugs.slice(0, 10))).status, 200);
+  sqlite.prepare('UPDATE articles SET featured_order = 11 WHERE slug = ?').run(slugs[10]);
+  const legacy = slugs.slice(0, 11).reverse();
+  assert.equal((await putFeatured(sqlite, legacy)).status, 200);
+  assert.equal((await putFeatured(sqlite, [...legacy.slice(1), slugs[11]])).status, 409);
+  assert.equal(count(), 11);
+  assert.equal((await putFeatured(sqlite, legacy.slice(1))).status, 200);
+  assert.equal(count(), 10);
+});
+
 test('без миграции 0042 закрепление объясняет себя, а не падает', async () => {
   // Свежие модули: список колонок кэшируется на пять минут внутри загруженного
   // кода, и после тестов с миграцией он помнил бы колонку, которой здесь нет.

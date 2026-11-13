@@ -4,6 +4,8 @@ import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from '
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { visualizer } from 'rollup-plugin-visualizer'
+import { HOME_ARTICLES_LIMIT, isFeaturedArticle } from './src/app/utils/homeArticles'
+import { isCaseArticle } from './src/app/utils/articleCategory'
 
 function figmaAssetResolver() {
   return {
@@ -270,12 +272,20 @@ function localArticlesApi() {
           if (url.pathname === '/api/admin/articles-featured' && req.method === 'PUT') {
             const body = await readJsonBody(req)
             if (!localAuthorized(body)) { sendJson(res, 401, { success: false, error: 'Unauthorized' }); return }
-            const slugs = Array.isArray(body?.slugs) ? body.slugs.map(String) : null
-            if (!slugs || slugs.length > 15 || new Set(slugs).size !== slugs.length) {
+            const slugs = Array.isArray(body?.slugs) ? body.slugs.map((value) => String(value || '').trim()) : null
+            if (!slugs || slugs.length > 15 || new Set(slugs).size !== slugs.length
+              || !slugs.every((slug) => slug.length <= 200 && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))) {
               sendJson(res, 400, { success: false, error: 'Invalid slugs' })
               return
             }
             const current = readPayload().articles
+            if (slugs.some((slug) => {
+              const article = current.find((item) => item.slug === slug)
+              return !article || isCaseArticle(article) || (slugs.length > HOME_ARTICLES_LIMIT && !isFeaturedArticle(article))
+            })) {
+              sendJson(res, 409, { success: false, error: `Список не сохранён. Обновите список статей. Закреплять можно только статьи блога, лимит — ${HOME_ARTICLES_LIMIT}.` })
+              return
+            }
             writePayload(current.map((article) => {
               const index = slugs.indexOf(article?.slug)
               return { ...article, featuredOrder: index >= 0 ? index + 1 : undefined }

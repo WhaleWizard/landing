@@ -53,7 +53,8 @@ function getSiteUrl(env: Env, request: Request): string {
 const DEFAULT_INDEXNOW_KEY = '61487b66d6dc49dabfbd628839b66215';
 
 async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Article[]): Promise<void> {
-  const key = env.INDEXNOW_KEY || DEFAULT_INDEXNOW_KEY;
+  const host = new URL(siteUrl).host;
+  const key = env.INDEXNOW_KEY || (host === 'www.whalewzrd.com' ? DEFAULT_INDEXNOW_KEY : '');
   if (!key) return;
 
   const endpoint = env.INDEXNOW_ENDPOINT || 'https://api.indexnow.org/indexnow';
@@ -66,7 +67,6 @@ async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Articl
   if (parsedEndpoint.protocol !== 'https:' || !ALLOWED_INDEXNOW_HOSTS.has(parsedEndpoint.host)) {
     return;
   }
-  const host = new URL(siteUrl).host;
   // Только опубликованные статьи и их реальные адреса: кейсы живут на /cases/,
   // а черновики отдают 404 — пинговать их бессмысленно.
   const urls = updatedArticles
@@ -75,7 +75,7 @@ async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Articl
 
   if (urls.length === 0) return;
 
-  await fetch(parsedEndpoint.toString(), {
+  const response = await fetch(parsedEndpoint.toString(), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
@@ -91,6 +91,7 @@ async function notifyIndexNow(env: Env, siteUrl: string, updatedArticles: Articl
       cacheTtl: 0,
     },
   });
+  if (!response.ok) throw new Error(`IndexNow HTTP ${response.status}`);
 }
 
 function isValidArticlePayload(article: Article): boolean {
@@ -337,7 +338,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
     const invalidationPromise = invalidateSeoCaches(cacheTargets);
     waitUntil(invalidationPromise.then(() => undefined));
     waitUntil(purgeCloudflareEdgeCache(env, cacheTargets).then(() => undefined));
-    waitUntil(notifyIndexNow(env, siteUrl, updated));
+    waitUntil(notifyIndexNow(env, siteUrl, updated).catch(() => console.warn('[indexnow] Notification failed')));
 
     const invalidationReport = await invalidationPromise;
 
@@ -501,7 +502,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
     const invalidationPromise = invalidateSeoCaches(cacheTargets);
     waitUntil(invalidationPromise.then(() => undefined));
     waitUntil(purgeCloudflareEdgeCache(env, cacheTargets).then(() => undefined));
-    waitUntil(notifyIndexNow(env, siteUrl, [saved]));
+    waitUntil(notifyIndexNow(env, siteUrl, [saved]).catch(() => console.warn('[indexnow] Notification failed')));
     const invalidationReport = await invalidationPromise;
 
     return json(

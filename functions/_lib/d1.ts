@@ -368,15 +368,29 @@ export async function nextArticleIdFromD1(env: Env): Promise<number> {
 }
 
 /** Закрепление на главной: перечисленным — порядок 1..N, всем остальным — пусто. */
-export async function writeFeaturedOrderToD1(env: Env, slugs: string[]): Promise<void> {
+export async function writeFeaturedOrderToD1(env: Env, slugs: string[], visibleLimit: number): Promise<boolean> {
   if (!hasD1(env)) {
     throw new Error('D1 is not configured');
   }
-  const statements = [env.DB.prepare('UPDATE articles SET featured_order = NULL WHERE featured_order IS NOT NULL')];
-  slugs.forEach((slug, index) => {
-    statements.push(env.DB.prepare('UPDATE articles SET featured_order = ? WHERE slug = ?').bind(index + 1, slug));
-  });
-  await env.DB.batch(statements);
+  // Validate and replace in one statement. A removed article or a case must
+  // leave the entire previous order intact.
+  const result = await env.DB.prepare(`
+    WITH requested AS MATERIALIZED (
+      SELECT value AS slug, key + 1 AS position FROM json_each(?1)
+    ),
+    eligible AS MATERIALIZED (
+      SELECT requested.slug, requested.position
+      FROM requested JOIN articles ON articles.slug = requested.slug
+      WHERE TRIM(articles.category, char(9, 10, 13, 32, 160)) NOT GLOB '[Кк][Ее][Йй][Сс][Ыы]'
+        AND (?2 <= ?3 OR articles.featured_order > 0)
+    ),
+    validated AS MATERIALIZED (SELECT COUNT(*) = ?2 AS ok FROM eligible)
+    UPDATE articles
+    SET featured_order = (SELECT position FROM eligible WHERE eligible.slug = articles.slug)
+    WHERE (SELECT ok FROM validated)
+      AND (featured_order IS NOT NULL OR slug IN (SELECT slug FROM eligible))
+  `).bind(JSON.stringify(slugs), slugs.length, visibleLimit).run();
+  return slugs.length === 0 || Number(result.meta?.changes ?? 0) > 0;
 }
 
 /** Удаление одной статьи. История версий остаётся: она живёт в своей таблице. */

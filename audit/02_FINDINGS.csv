@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-70,P2,STATE,/admin/,Article pins,Fast pin changes could overwrite each other,Parallel writes replace the complete list,FIXED,Admin.tsx,Delayed response and blocked controls
+ADMIN-20261113-71,P2,DATA,/admin/,Article pins,Missing article or case can replace valid pins,Server did not validate selected articles,FIXED,articles-featured.ts and d1.ts,SQLite preserves prior order on 409
+ADMIN-20261113-72,P2,DATA,/admin/,Article pins,Server accepted more new pins than public slots,Legacy endpoint limit differed from carousel,FIXED,articles-featured.ts and d1.ts,SQLite limit and legacy reorder
+ADMIN-20261113-73,P2,DATA,/,Home articles,Equal-date entries could reorder after loading API,Stable sort inherited different source orders,FIXED,homeArticles.ts,Reversed input yields identical result
+ADMIN-20261113-74,P2,RELIABILITY,/admin/,Article publishing,Default IndexNow notification also ran against fixture hosts and rejected in background,Production fallback key was unconditional,FIXED,articles.ts,Full admin API suite without unexpected external request
 ADMIN-20261113-65,P2,DATA,/admin/,AdminSearchConsole,Chart hidden for a single day,Rendering required at least two samples,FIXED,AdminSearchConsole.tsx,Single-day chart in Chromium and WebKit
 ADMIN-20261113-66,P2,STATE,/admin/,AdminSearchConsole,Refreshing a shorter series leaves stale chart selection,Selection tracked array position rather than date,FIXED,AdminSearchConsole.tsx,Refresh after selecting the last day
 ADMIN-20261113-67,P2,ACCESSIBILITY,/admin/,AdminSearchConsole,Chart values unavailable with keyboard and unreliable on touch,Point selection depended on hover,FIXED,AdminSearchConsole.tsx,Keyboard and touch in Chromium and WebKit

@@ -1,6 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { build } from 'esbuild';
+
+test('главная сохраняет порядок при одинаковых датах в HTML и в публичном API', async () => {
+  const bundle = await build({
+    entryPoints: ['src/app/utils/homeArticles.ts'],
+    bundle: true,
+    format: 'esm',
+    write: false,
+  });
+  const { selectHomeArticles } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+  const articles = [
+    { slug: 'earlier', date: '04.05.2026' },
+    { slug: 'b', date: '05.05.2026' },
+    { slug: 'a', date: '05.05.2026' },
+    { slug: 'edited', date: '05.05.2026', updatedAt: '2026-05-07T01:00:00Z' },
+    { slug: 'pinned', featuredOrder: 1 },
+    { slug: 'case', category: ' Кейсы ', featuredOrder: 1 },
+  ];
+  const expected = ['pinned', 'edited', 'a', 'b', 'earlier'];
+  assert.deepEqual(selectHomeArticles(articles).map((item) => item.slug), expected);
+  assert.deepEqual(selectHomeArticles([...articles].reverse()).map((item) => item.slug), expected);
+});
 
 test('F-010: seed consumed after initial read in ArticlesContext', () => {
   const code = readFileSync('src/app/context/ArticlesContext.tsx', 'utf8');

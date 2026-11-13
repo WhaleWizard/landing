@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-70,P2,Block overlapping pin and reorder actions,Admin.tsx,COMPLETED,
+ADMIN-20261113-71,P2,Validate pin membership atomically,Article CMS,COMPLETED,
+ADMIN-20261113-72,P2,Use ten public slots and preserve legacy pin lists,Article CMS,COMPLETED,
+ADMIN-20261113-73,P2,Keep order stable for equal publication dates,Home articles,COMPLETED,
+ADMIN-20261113-74,P2,Isolate default IndexNow key and handle delivery errors,Article CMS,COMPLETED,
 ADMIN-20261113-65,P2,Render the one-day chart,AdminSearchConsole,COMPLETED,
 ADMIN-20261113-66,P2,Track chart selection by date,AdminSearchConsole,COMPLETED,
 ADMIN-20261113-67,P2,Support keyboard and touch chart navigation,AdminSearchConsole,COMPLETED,
