@@ -1,4 +1,5 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Media captions clipboard upload and preview,output/playwright/admin-media-feedback-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 FAQ schedule and page access,output/playwright/admin-publication-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Finance forms and alerts request order,output/playwright/admin-finance-alerts-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Client cards and list isolation plus migration status,output/playwright/admin-client-isolation-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED

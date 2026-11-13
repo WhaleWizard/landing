@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-35,P2,DATA,/admin/,AdminMedia,Open preview shows obsolete alt after save,Only the grid is updated,FIXED,AdminMedia.tsx,New caption and pending draft
+ADMIN-20261113-36,P2,STATE,/admin/,AdminMedia,Repeated Enter sends duplicate alt writes,Keyboard bypasses button busy state,FIXED,AdminMedia.tsx,Two Enter events during a pending write
+ADMIN-20261113-37,P2,STATE,/admin/,AdminMedia,Earlier timer hides a later copy indicator,Timeout is not replaced,FIXED,AdminMedia.tsx,Two sequential clipboard writes
+ADMIN-20261113-38,P2,DATA,/admin/,AdminMedia,HTTP 200 can falsely count a rejected upload,Only HTTP status is checked,FIXED,AdminMedia.tsx,HTTP 200 with unsuccessful response body
+ADMIN-20261113-39,P2,STATE,/admin/,AdminMedia,Old move closes a new preview,Completion closes any dialog,FIXED,AdminMedia.tsx,Switch preview before move response
 ADMIN-20261113-30,P2,DATA,/admin/,AdminFaqControl,Seed content is editable before successful CMS read,Missing readiness state,FIXED,AdminFaqControl.tsx,Failed read and retry
 ADMIN-20261113-31,P2,ACCESSIBILITY,/admin/,AdminFaqControl,Missing answer focuses question,Validation target always points to question,FIXED,AdminFaqControl.tsx,Missing answer keyboard focus
 ADMIN-20261113-32,P2,DATA,/admin/,PublishSchedulePanel,Expired slots are reported as published articles,API client discards skippedPast,FIXED,PublishSchedulePanel.tsx and useArticlesApi.ts,Expired slot and other skip in one response

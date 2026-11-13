@@ -117,6 +117,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
   const [busy, setBusy] = useState(false);
   const [moveNeedsRefresh, setMoveNeedsRefresh] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
+  const copyTimer = useRef<number | undefined>(undefined);
   const [croppingFile, setCroppingFile] = useState<MediaFile | null>(null);
   const [query, setQuery] = useState('');
   const [collection, setCollection] = useState<Collection>('all');
@@ -147,6 +148,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
   }, [target?.nonce, target?.folder, target?.section]);
   const [selected, setSelected] = useState<string[]>([]);
   const [preview, setPreview] = useState<MediaFile | null>(null);
+  const previewSession = useRef(0);
   const previewDialogRef = useDialogFocus<HTMLDivElement>(Boolean(preview), () => setPreview(null));
   useDialogScrollLock(Boolean(preview));
   const [dropActive, setDropActive] = useState(false);
@@ -154,6 +156,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
   const [altMigration, setAltMigration] = useState('');
   const [altDraft, setAltDraft] = useState('');
   const [altSaving, setAltSaving] = useState(false);
+  const altSavePending = useRef(false);
 
   /**
    * Alt — это то, что прочитает поисковик и экранный диктор вместо картинки.
@@ -161,6 +164,9 @@ export default function AdminMedia({ password, articles, target }: { password: s
    * нельзя поменять на месте, пришлось бы перезаливать файл и менять ссылку.
    */
   const saveAlt = useCallback(async (file: MediaFile, alt: string) => {
+    if (altSavePending.current || alt.trim() === (file.alt || '')) return;
+    altSavePending.current = true;
+    const session = previewSession.current;
     setAltSaving(true);
     try {
       const res = await fetch('/api/admin/media', {
@@ -176,10 +182,13 @@ export default function AdminMedia({ password, articles, target }: { password: s
       }
       const saved = payload.alt || '';
       setFiles((current) => current.map((item) => (item.key === file.key ? { ...item, alt: saved } : item)));
+      setPreview((current) => current?.key === file.key ? { ...current, alt: saved } : current);
+      if (session === previewSession.current) setAltDraft((current) => current === alt ? saved : current);
       notify.success(saved ? 'Подпись сохранена' : 'Подпись убрана');
     } catch (err) {
       notify.error('Не удалось сохранить подпись', err instanceof Error ? err.message : undefined);
     } finally {
+      altSavePending.current = false;
       setAltSaving(false);
     }
   }, [password]);
@@ -221,8 +230,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
     setSelected((current) => current.every((key) => keys.has(key)) ? current : current.filter((key) => keys.has(key)));
   }, [error, files, loading, nextCursor]);
 
-  // Черновик подписи всегда начинается с того, что уже сохранено у файла.
-  useEffect(() => { setAltDraft(preview?.alt || ''); }, [preview]);
+  useEffect(() => () => window.clearTimeout(copyTimer.current), []);
 
   const mediaUsage = useMemo(() => {
     const usage = new Map<string, string[]>();
@@ -284,7 +292,8 @@ export default function AdminMedia({ password, articles, target }: { password: s
     try {
       await navigator.clipboard.writeText(file.url);
       setCopiedKey(file.key);
-      window.setTimeout(() => setCopiedKey(''), 1500);
+      window.clearTimeout(copyTimer.current);
+      copyTimer.current = window.setTimeout(() => setCopiedKey(''), 1500);
     } catch {
       // Буфер обмена недоступен (нет разрешения или небезопасный контекст) —
       // показываем ссылку в своём окне, откуда её можно выделить и скопировать.
@@ -478,9 +487,9 @@ export default function AdminMedia({ password, articles, target }: { password: s
           credentials: 'same-origin',
           body: form,
         });
-        if (!res.ok) {
-          const payload = await res.json().catch(() => ({})) as { error?: string };
-          throw new Error(payload?.error || `HTTP ${res.status}`);
+        const payload = await res.json().catch(() => null) as { success?: boolean; url?: string; error?: string } | null;
+        if (!res.ok || payload?.success !== true || typeof payload.url !== 'string' || !payload.url.trim()) {
+          throw new Error(payload?.error || (res.ok ? 'Сервер не подтвердил загрузку файла' : `HTTP ${res.status}`));
         }
         uploaded++;
       }
@@ -785,7 +794,11 @@ export default function AdminMedia({ password, articles, target }: { password: s
                     <button
                       type="button"
                       className="media-card__preview"
-                      onClick={() => setPreview(file)}
+                      onClick={() => {
+                        previewSession.current++;
+                        setPreview(file);
+                        setAltDraft(file.alt || '');
+                      }}
                       aria-label={`Открыть ${file.name}`}
                     >
                       {isImage
@@ -892,7 +905,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
                         value={altDraft}
                         placeholder="Например: график роста заявок из Meta Ads за три месяца"
                         onChange={(event) => setAltDraft(event.target.value)}
-                        onKeyDown={(event) => { if (event.key === 'Enter') void saveAlt(preview, altDraft); }}
+                        onKeyDown={(event) => { if (event.key === 'Enter' && !event.nativeEvent.isComposing) void saveAlt(preview, altDraft); }}
                       />
                       <button
                         type="button"
@@ -923,7 +936,10 @@ export default function AdminMedia({ password, articles, target }: { password: s
                   onValueChange={(value) => {
                     const target = value === '__none__' ? '' : value;
                     if (target === preview.folder) return;
-                    void moveFile(preview, target).then((moved) => { if (moved) setPreview(null); });
+                    const session = previewSession.current;
+                    void moveFile(preview, target).then((moved) => {
+                      if (moved && session === previewSession.current) setPreview(null);
+                    });
                   }}
                 />
                 {preview.contentType.startsWith('image/') && (

@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-35,P2,Refresh confirmed alt in the current preview,AdminMedia,COMPLETED,
+ADMIN-20261113-36,P2,Prevent duplicate alt writes,AdminMedia,COMPLETED,
+ADMIN-20261113-37,P2,Reset copy timeout on each success,AdminMedia,COMPLETED,
+ADMIN-20261113-38,P2,Validate upload response before reporting success,AdminMedia,COMPLETED,
+ADMIN-20261113-39,P2,Keep later file preview open,AdminMedia,COMPLETED,
 ADMIN-20261113-30,P2,Enable FAQ editing after a confirmed read,AdminFaqControl,COMPLETED,
 ADMIN-20261113-31,P2,Focus the missing FAQ field,AdminFaqControl,COMPLETED,
 ADMIN-20261113-32,P2,Report expired publication slots,PublishSchedulePanel,COMPLETED,
