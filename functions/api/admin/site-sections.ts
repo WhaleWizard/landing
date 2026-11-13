@@ -140,7 +140,8 @@ type WriteBody = {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
-  const body = await readCappedJsonBody(request) as WriteBody;
+  const parsed = await readCappedJsonBody(request);
+  const body: WriteBody = parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed as WriteBody : {};
   if (!verifyAdminPassword(credentials(request, body), env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }

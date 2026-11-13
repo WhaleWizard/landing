@@ -1,4 +1,14 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+FULL-20261113-01,P2,DATA,/admin/,Monthly report,Drafts and later publications counted as live,Report used only the local date,FIXED,report.ts,SQLite regression
+FULL-20261113-02,P2,DATA,/admin/,CRM calendar,Month and date depend on browser timezone,Local calendar dates mixed with owner timezone,FIXED,CrmCalendar.tsx,Browser matrix across three timezones
+FULL-20261113-03,P2,DATA,/admin/,CRM calendar,Legacy dates shift or hide an open deal,Legacy database timestamps interpreted in browser timezone,FIXED,CrmCalendar.tsx,Legacy and invalid timestamp fixtures
+FULL-20261113-04,P2,UX,/admin/,CRM calendar,Overdue actions today miss cell highlight,Cell compared days instead of deadlines,FIXED,CrmCalendar.tsx,Overdue today assertion
+FULL-20261113-05,P2,UX,/admin/,CRM calendar,Day panel remains in previous month,Month navigation did not reconcile selection,FIXED,CrmCalendar.tsx,Month navigation assertion
+FULL-20261113-06,P2,DATA,/admin/,CRM calendar,Zero deal amount is hidden,Amount rendered using truthiness,FIXED,CrmCalendar.tsx,Zero amount assertion
+FULL-20261113-07,P2,ARCH,/admin/,CRM calendar,Type dependency cycles through the parent screen,Calendar imported the parent lead row,FIXED,CrmCalendar.tsx and AdminLeads.tsx,Madge and browser assertion
+FULL-20261113-08,P2,RELIABILITY,/admin/,CMS,JSON null causes an uncontrolled error,Request body was cast without shape check,FIXED,site-sections.ts,Handler returns 400
+FULL-20261113-09,P2,UX,/admin/,CRM calendar,Agenda is displayed out of time order,Calendar kept CRM input order,FIXED,CrmCalendar.tsx,Agenda time order assertion
+FULL-20261113-10,P2,UX,/admin/,CRM calendar,Only five unscheduled deals can be reached from calendar,Slice has no expansion control,FIXED,CrmCalendar.tsx,Sixth deal reachable in both engines
 SEO-20261113-01,P2,DATA,/admin/,SeoAssistant,Real pages reported missing and removed paths accepted,Route table drifted from generated site,FIXED,SeoAssistant.tsx,Route-set parity assertion
 SEO-20261113-02,P2,DATA,/admin/,SeoAssistant,Canonical static links flagged and missing links with slash escape validation,All trailing slashes triggered an early warning,FIXED,SeoAssistant.tsx,Static and article paths tested
 SEO-20261113-03,P2,DATA,/admin/,SeoAssistant,Draft and scheduled article links passed,Catalog dropped publication status and date,FIXED,SeoAssistant.tsx,Deterministic publication date fixture

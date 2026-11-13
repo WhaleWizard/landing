@@ -565,6 +565,37 @@ test('F-042: выставленный и не оплаченный счёт ст
   assert.deepEqual(numbers, ['NEW-1', 'OLD-1'], 'старый неоплаченный виден, давно оплаченный — в истории не нужен');
 });
 
+test('monthly report counts only articles already public at the current instant', async (t) => {
+  t.after(installMemoryCache());
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-13T10:00:00.000Z') });
+  const report = await harness('functions/api/admin/report.ts');
+  const add = report.sqlite.prepare(`
+    INSERT INTO articles (id, slug, title, date, description, content, published_at, status)
+    VALUES (1, ?, 'Проверка', '', '', '', ?, ?)
+  `);
+  add.run('live', '2026-11-13T10:00:00.000Z', 'published');
+  add.run('scheduled', '2026-11-13T10:00:01.000Z', 'published');
+  add.run('draft', '2026-11-13T09:00:00.000Z', 'draft');
+  const { status, payload } = await report.get({ period: '2026-11', timezone_offset: -300 });
+  assert.equal(status, 200);
+  assert.equal(payload.publishedArticles, 1);
+});
+
+test('site editor rejects a JSON null body with a controlled validation response', async (t) => {
+  t.after(installMemoryCache());
+  const { module, env } = await harness('functions/api/admin/site-sections.ts');
+  const response = await module.onRequestPost({
+    env,
+    request: new Request('https://example.test/api/admin/site-sections', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': ADMIN_PASSWORD },
+      body: 'null',
+    }),
+    waitUntil() {},
+  });
+  assert.equal(response.status, 400);
+});
+
 test('finance history starts eleven months before the owner’s current month', async (t) => {
   t.after(installMemoryCache());
   t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-30T20:30:00Z') });

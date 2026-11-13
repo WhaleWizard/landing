@@ -175,11 +175,14 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         `).bind(from, to).all<{ page_path: string; views: number }>()
       : { results: [] as Array<{ page_path: string; views: number }> };
 
-    const published = await tableExists(db, 'articles')
+    const articleColumns = await db.prepare('PRAGMA table_info(articles)').all<{ name: string }>();
+    const hasArticleStatus = (articleColumns.results || []).some((column) => column.name === 'status');
+    const published = (articleColumns.results || []).length > 0
       ? await db.prepare(`
           SELECT COUNT(*) AS total FROM articles
-          WHERE published_at IS NOT NULL AND date(published_at, ?) BETWEEN date(?) AND date(?)
-        `).bind(localModifier, from, to).first<{ total: number }>().catch(() => null)
+          WHERE published_at <= ? AND date(published_at, ?) BETWEEN date(?) AND date(?)
+          ${hasArticleStatus ? "AND status <> 'draft'" : ''}
+        `).bind(new Date().toISOString(), localModifier, from, to).first<{ total: number }>()
       : null;
 
     const profit = current.revenue !== null && current.spend !== null ? round(current.revenue - current.spend) : null;

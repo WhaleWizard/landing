@@ -7,40 +7,34 @@ import {
   AlertTriangle,
   ArrowRight,
 } from 'lucide-react';
-import type { LeadRow } from './AdminLeads';
-import PipelineStepper, { isDealStale } from './PipelineStepper';
+import PipelineStepper, { isDealStale, type PipelineStage } from './PipelineStepper';
 import { withPlural } from '../../utils/plural';
+import { ownerToday } from '../../utils/publishSchedule';
+import type { Priority } from './CrmBoard';
 
 const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'] as const;
+const OPEN_STAGES = new Set<PipelineStage>(['new', 'contacted', 'discovery', 'proposal']);
 
-const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' });
+const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+const dayFormatter = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', weekday: 'short', timeZone: 'UTC' });
+const timeFormatter = new Intl.DateTimeFormat('ru-RU', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Tashkent' });
 
-function startOfMonth(date: Date): Date {
-  return new Date(date.getFullYear(), date.getMonth(), 1);
+function currentMonth(): Date {
+  return new Date(`${ownerToday().slice(0, 7)}-01T00:00:00Z`);
 }
 
 function shiftMonth(date: Date, months: number): Date {
-  return new Date(date.getFullYear(), date.getMonth() + months, 1);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
 }
 
-function localDayKey(date: Date): string {
-  try {
-    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Tashkent' }).format(date);
-  } catch {
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${date.getFullYear()}-${month}-${day}`;
-  }
+function actionTimestamp(value?: string | null): number {
+  if (!value) return NaN;
+  return Date.parse(/^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d$/.test(value) ? `${value.replace(' ', 'T')}Z` : value);
 }
 
 function formatTime(iso?: string | null): string {
-  if (!iso) return '';
-  try {
-    const d = new Date(iso);
-    return d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
-  } catch {
-    return '';
-  }
+  const time = actionTimestamp(iso);
+  return Number.isFinite(time) ? timeFormatter.format(time) : '';
 }
 
 function formatMoney(value?: number | null, currency?: string): string {
@@ -49,65 +43,75 @@ function formatMoney(value?: number | null, currency?: string): string {
   return `${new Intl.NumberFormat('ru-RU').format(num)} ${currency || 'USD'}`;
 }
 
+interface CalendarLead {
+  id: number;
+  name: string;
+  service: string;
+  priority: Priority;
+  pipeline_stage: PipelineStage;
+  created_at: string;
+  last_submitted_at?: string | null;
+  next_action_at?: string | null;
+  next_action_text?: string;
+  deal_value?: number | null;
+  deal_currency?: string;
+}
+
 interface CrmCalendarProps {
-  leads: LeadRow[];
-  onOpenLead: (lead: LeadRow) => void;
-  password?: string;
-  onChanged?: () => void;
+  leads: CalendarLead[];
+  onOpenLead: (leadId: number) => void;
 }
 
 export default memo(function CrmCalendar({
   leads,
   onOpenLead,
 }: CrmCalendarProps) {
-  const [month, setMonth] = useState(() => startOfMonth(new Date()));
-  const todayKey = localDayKey(new Date());
+  const [month, setMonth] = useState(currentMonth);
+  const todayKey = ownerToday();
   const [selectedDayKey, setSelectedDayKey] = useState<string>(todayKey);
+  const [showAllUnscheduled, setShowAllUnscheduled] = useState(false);
+  const selectedDate = selectedDayKey.startsWith(month.toISOString().slice(0, 7))
+    ? selectedDayKey
+    : month.toISOString().slice(0, 10);
+  const now = Date.now();
 
   // Календарная сетка: 42 клетки, начиная с понедельника
   const cells = useMemo(() => {
-    const first = startOfMonth(month);
-    const weekday = first.getDay();
+    const weekday = month.getUTCDay();
     const leadDays = weekday === 0 ? 6 : weekday - 1;
-    const start = new Date(first.getFullYear(), first.getMonth(), 1 - leadDays);
     return Array.from({ length: 42 }, (_, index) => (
-      new Date(start.getFullYear(), start.getMonth(), start.getDate() + index)
+      new Date(Date.UTC(month.getUTCFullYear(), month.getUTCMonth(), 1 - leadDays + index))
     ));
   }, [month]);
 
   // Группировка сделок по дням следующего шага
   const byDay = useMemo(() => {
-    const map = new Map<string, LeadRow[]>();
+    const map = new Map<string, CalendarLead[]>();
     for (const lead of leads) {
-      if (!lead.next_action_at) continue;
-      const key = localDayKey(new Date(lead.next_action_at));
+      const time = actionTimestamp(lead.next_action_at);
+      if (!Number.isFinite(time)) continue;
+      const key = ownerToday(time);
       const list = map.get(key) || [];
       list.push(lead);
       map.set(key, list);
+    }
+    for (const list of map.values()) {
+      list.sort((first, second) => actionTimestamp(first.next_action_at) - actionTimestamp(second.next_action_at));
     }
     return map;
   }, [leads]);
 
   // Сделки без назначенного следующего действия
   const unscheduledLeads = useMemo(() => {
-    const openStages = ['new', 'contacted', 'discovery', 'proposal'];
-    return leads.filter((lead) => openStages.includes(lead.pipeline_stage) && !lead.next_action_at);
+    return leads.filter((lead) => OPEN_STAGES.has(lead.pipeline_stage) && !Number.isFinite(actionTimestamp(lead.next_action_at)));
   }, [leads]);
 
   // Просроченные сделки
-  const overdueCount = useMemo(() => {
-    const openStages = ['new', 'contacted', 'discovery', 'proposal'];
-    const now = Date.now();
-    return leads.filter((lead) => (
-      openStages.includes(lead.pipeline_stage) &&
-      lead.next_action_at &&
-      new Date(lead.next_action_at).getTime() < now
-    )).length;
-  }, [leads]);
+  const isOverdue = (lead: CalendarLead) =>
+    OPEN_STAGES.has(lead.pipeline_stage) && actionTimestamp(lead.next_action_at) < now;
+  const overdueCount = leads.filter(isOverdue).length;
 
-  const selectedDayDeals = useMemo(() => {
-    return byDay.get(selectedDayKey) || [];
-  }, [byDay, selectedDayKey]);
+  const selectedDayDeals = byDay.get(selectedDate) || [];
 
   return (
     <div className="crm-calendar-view admin-stack admin-stack--lg">
@@ -138,8 +142,8 @@ export default memo(function CrmCalendar({
             type="button"
             className="admin-button admin-button--quiet crm-calendar-today-btn"
             onClick={() => {
-              setMonth(startOfMonth(new Date()));
-              setSelectedDayKey(todayKey);
+              setMonth(currentMonth());
+              setSelectedDayKey(ownerToday());
             }}
           >
             Сегодня
@@ -168,24 +172,27 @@ export default memo(function CrmCalendar({
 
           <div className="crm-calendar-grid">
             {cells.map((date) => {
-              const key = localDayKey(date);
+              const key = date.toISOString().slice(0, 10);
               const dayDeals = byDay.get(key) || [];
-              const isOutside = date.getMonth() !== month.getMonth();
+              const isOutside = date.getUTCMonth() !== month.getUTCMonth();
               const isToday = key === todayKey;
-              const isSelected = key === selectedDayKey;
-              const isPast = date.getTime() < new Date().setHours(0, 0, 0, 0);
-              const hasOverdue = isPast && dayDeals.some((l) => ['new', 'contacted', 'discovery', 'proposal'].includes(l.pipeline_stage));
+              const isSelected = key === selectedDate;
+              const hasOverdue = dayDeals.some(isOverdue);
 
               return (
                 <button
                   key={key}
                   type="button"
                   className={`crm-calendar-cell${isOutside ? ' is-outside' : ''}${isToday ? ' is-today' : ''}${isSelected ? ' is-selected' : ''}${hasOverdue ? ' has-overdue' : ''}`}
-                  onClick={() => setSelectedDayKey(key)}
-                  aria-label={`${date.toLocaleDateString('ru-RU')}: ${dayDeals.length} сделок`}
+                  onClick={() => {
+                    if (isOutside) setMonth(new Date(`${key.slice(0, 7)}-01T00:00:00Z`));
+                    setSelectedDayKey(key);
+                  }}
+                  aria-label={`${date.toLocaleDateString('ru-RU', { timeZone: 'UTC' })}: ${withPlural(dayDeals.length, ['сделка', 'сделки', 'сделок'])}`}
+                  aria-pressed={isSelected}
                 >
                   <div className="crm-calendar-cell__top">
-                    <span className="crm-calendar-cell__num">{date.getDate()}</span>
+                    <span className="crm-calendar-cell__num">{date.getUTCDate()}</span>
                     {dayDeals.length > 0 ? (
                       <span className={`crm-calendar-cell__badge${hasOverdue ? ' is-overdue' : ''}`}>
                         {dayDeals.length}
@@ -225,7 +232,7 @@ export default memo(function CrmCalendar({
             <div>
               <p className="admin-eyebrow">Расписание на день</p>
               <h3 className="crm-calendar-sidebar__date">
-                {new Date(selectedDayKey).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', weekday: 'short' })}
+                {dayFormatter.format(new Date(selectedDate))}
               </h3>
             </div>
             <span className="admin-tag">
@@ -242,7 +249,7 @@ export default memo(function CrmCalendar({
                     <div className="crm-calendar-item__header">
                       <span className={`admin-priority-dot is-${lead.priority}`} />
                       <strong className="crm-calendar-item__name">{lead.name || 'Без имени'}</strong>
-                      {time ? <span className="crm-calendar-item__time">{time}</span> : null}
+                      {time ? <span className="crm-calendar-item__time" title="Время Ташкента">{time}</span> : null}
                     </div>
 
                     <div className="crm-calendar-item__stepper">
@@ -261,7 +268,7 @@ export default memo(function CrmCalendar({
                     ) : null}
 
                     <div className="crm-calendar-item__foot">
-                      {lead.deal_value ? (
+                      {lead.deal_value != null ? (
                         <span className="admin-crm-lead__deal-badge">
                           {formatMoney(lead.deal_value, lead.deal_currency)}
                         </span>
@@ -269,7 +276,7 @@ export default memo(function CrmCalendar({
                       <button
                         type="button"
                         className="admin-button admin-button--quiet crm-calendar-item__open"
-                        onClick={() => onOpenLead(lead)}
+                        onClick={() => onOpenLead(lead.id)}
                       >
                         Открыть сделку <ArrowRight aria-hidden="true" />
                       </button>
@@ -295,19 +302,29 @@ export default memo(function CrmCalendar({
                 <span>Без следующего шага ({unscheduledLeads.length})</span>
               </div>
               <div className="crm-calendar-unscheduled__list">
-                {unscheduledLeads.slice(0, 5).map((lead) => (
+                {(showAllUnscheduled ? unscheduledLeads : unscheduledLeads.slice(0, 5)).map((lead) => (
                   <div key={lead.id} className="crm-calendar-unscheduled__item">
                     <span className="crm-calendar-unscheduled__name">{lead.name || 'Без имени'}</span>
                     <button
                       type="button"
                       className="admin-button admin-button--quiet admin-button--compact"
-                      onClick={() => onOpenLead(lead)}
+                      onClick={() => onOpenLead(lead.id)}
                     >
                       Назначить
                     </button>
                   </div>
                 ))}
               </div>
+              {unscheduledLeads.length > 5 && (
+                <button
+                  type="button"
+                  className="admin-button admin-button--quiet admin-button--compact"
+                  aria-expanded={showAllUnscheduled}
+                  onClick={() => setShowAllUnscheduled((current) => !current)}
+                >
+                  {showAllUnscheduled ? 'Свернуть' : `Показать все ${unscheduledLeads.length}`}
+                </button>
+              )}
             </div>
           ) : null}
         </aside>

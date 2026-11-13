@@ -1952,9 +1952,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
         <>
           <CrmCalendar
             leads={leads}
-            onOpenLead={(lead) => setBoardLead(lead)}
-            password={password}
-            onChanged={() => { setTrashVersion((value) => value + 1); void load(true); }}
+            onOpenLead={(leadId) => setBoardLead(leads.find((lead) => lead.id === leadId) ?? null)}
           />
           {boardLead ? (
             <AdminOverlay><div className="admin-drawer-portal">
