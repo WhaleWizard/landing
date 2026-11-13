@@ -35,14 +35,14 @@ export function WorkspacePayments({
     ),
     [clientId, setClientId] = useState(String(target?.clientId || "all")),
     [workId, setWorkId] = useState(String(target?.workId || "all")),
-    [filter, setFilter] = useState(target?.tab || "unpaid"),
+    [filter, setFilter] = useState(() => paymentFilter(target?.tab, target?.invoiceId)),
     [query, setQuery] = useState(""),
     [sort, setSort] = useState("due");
   useEffect(() => {
     setInvoiceId(target?.invoiceId || null);
     setClientId(String(target?.clientId || "all"));
     setWorkId(String(target?.workId || "all"));
-    if (target?.tab) setFilter(target.tab); else if (target?.invoiceId) setFilter("all");
+    setFilter(paymentFilter(target?.tab, target?.invoiceId));
   }, [target?.nonce, target?.invoiceId, target?.clientId, target?.workId, target?.tab]);
   const [dirty, setDirty] = useState(false);
   useWorkspaceGuard(dirty, onRegisterLeaveGuard);
@@ -203,6 +203,13 @@ export function WorkspacePayments({
       )}
     </div>
   );
+}
+
+const PAYMENT_FILTERS = new Set(["all", "unpaid", "overdue", "partial", "week", "paid", "unlinked"]);
+
+function paymentFilter(tab?: string, invoiceId?: number): string {
+  if (tab && PAYMENT_FILTERS.has(tab)) return tab;
+  return invoiceId ? "all" : "unpaid";
 }
 
 export function WorkspaceFocus({

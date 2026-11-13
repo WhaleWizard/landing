@@ -104,9 +104,11 @@ export default function WorkspaceInvoice({
           invoice.status === "issued" ? (
             <AdminButton
               tone="primary"
+              disabled={busy}
               onClick={() => {
                 setAmount(invoiceOutstanding(invoice));
                 setDay(data.today);
+                setNote("");
                 setMode("payment");
               }}
             >
@@ -143,6 +145,7 @@ export default function WorkspaceInvoice({
               <AdminDecimalInput
                 className="admin-input"
                 value={amount}
+                disabled={busy}
                 onValueChange={setAmount}
               />
             </label>
@@ -154,6 +157,7 @@ export default function WorkspaceInvoice({
                 value={day}
                 max={data.today}
                 required
+                disabled={busy}
                 onChange={(e) => setDay(e.target.value)}
               />
             </label>
@@ -163,6 +167,7 @@ export default function WorkspaceInvoice({
                 className="admin-input"
                 value={note}
                 maxLength={500}
+                disabled={busy}
                 onChange={(e) => setNote(e.target.value)}
               />
             </label>
@@ -176,7 +181,7 @@ export default function WorkspaceInvoice({
               >
                 Записать полученную оплату
               </AdminButton>
-              <AdminButton onClick={() => setMode("view")}>Отмена</AdminButton>
+              <AdminButton disabled={busy} onClick={() => setMode("view")}>Отмена</AdminButton>
             </div>
           </form>
         )}
@@ -238,6 +243,7 @@ export default function WorkspaceInvoice({
       <div className="ws-toolbar">
         {invoiceOutstanding(invoice) > 0 && (
           <AdminButton
+            disabled={busy}
             onClick={() => {
               setDay(reminder?.due_at || data.today);
               setMode("reminder");
@@ -247,7 +253,11 @@ export default function WorkspaceInvoice({
             {reminder ? `Напомнить ${date(reminder.due_at)}` : "Напомнить себе"}
           </AdminButton>
         )}
-        <AdminButton tone="quiet" onClick={() => setMode("link")}>
+        <AdminButton tone="quiet" disabled={busy} onClick={() => {
+          setClientId(String(invoice.client_id || ""));
+          setWorkId(String(invoice.work_id || ""));
+          setMode("link");
+        }}>
           Связать с клиентом / проектом
         </AdminButton>
         {invoice.status === "draft" && (
@@ -297,6 +307,7 @@ export default function WorkspaceInvoice({
                 required
                 value={day}
                 min={data.today}
+                disabled={busy}
                 onChange={(e) => setDay(e.target.value)}
               />
             </label>
@@ -312,7 +323,7 @@ export default function WorkspaceInvoice({
               >
                 Сохранить
               </AdminButton>
-              <AdminButton onClick={() => setMode("view")}>Отмена</AdminButton>
+              <AdminButton disabled={busy} onClick={() => setMode("view")}>Отмена</AdminButton>
             </div>
             {!invoice.client_id && (
               <p className="admin-meta">
@@ -344,6 +355,7 @@ export default function WorkspaceInvoice({
           >
             <AdminSelect
               label="Клиент"
+              disabled={busy}
               value={clientId || "none"}
               options={[
                 { value: "none", label: "Выберите клиента" },
@@ -359,6 +371,7 @@ export default function WorkspaceInvoice({
             />
             <AdminSelect
               label="Проект или услуга"
+              disabled={busy}
               value={workId || "none"}
               options={[
                 { value: "none", label: "Общее по клиенту" },
@@ -376,7 +389,7 @@ export default function WorkspaceInvoice({
               >
                 Сохранить связь
               </AdminButton>
-              <AdminButton onClick={() => setMode("view")}>Отмена</AdminButton>
+              <AdminButton disabled={busy} onClick={() => setMode("view")}>Отмена</AdminButton>
             </div>
           </form>
         </WorkspacePanel>

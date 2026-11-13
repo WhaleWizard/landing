@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-50,P2,Reset note when opening a payment,WorkspaceInvoice,COMPLETED,
+ADMIN-20261113-51,P2,Disable form changes during pending writes,WorkspaceInvoice,COMPLETED,
+ADMIN-20261113-52,P2,Reset links from saved invoice,WorkspaceInvoice,COMPLETED,
+ADMIN-20261113-53,P2,Validate payment filters from navigation,WorkspacePayments,COMPLETED,
+ADMIN-20261113-54,P2,Ignore reload from obsolete credentials,useWorkspace,COMPLETED,
 ADMIN-20261113-45,P2,Label goals with their saved currency,AdminGoals,COMPLETED,
 ADMIN-20261113-46,P2,Report a goal response for the wrong month,AdminGoals,COMPLETED,
 ADMIN-20261113-47,P2,Expose report text when clipboard is unavailable,AdminReport,COMPLETED,

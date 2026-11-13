@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-50,P2,STATE,/admin/,WorkspaceInvoice,Cancelled payment note leaks into next form,Opening a payment only resets amount and date,FIXED,WorkspaceInvoice,Cancel and reopen payment
+ADMIN-20261113-51,P2,STATE,/admin/,WorkspaceInvoice,Pending payment allows another form to replace it,Only submit controls observe busy state,FIXED,WorkspaceInvoice,Delayed failed payment
+ADMIN-20261113-52,P2,STATE,/admin/,WorkspaceInvoice,Reopening invoice links restores cancelled choices,Opening link form reuses the previous draft,FIXED,WorkspaceInvoice,Change client cancel and reopen
+ADMIN-20261113-53,P2,STATE,/admin/,WorkspacePayments,Foreign finance tab hides all invoices,Navigation tab is accepted without validation,FIXED,WorkspacePayments,Open from time tab
+ADMIN-20261113-54,P2,STATE,/admin/,useWorkspace,Old write triggers a reload with obsolete credentials,Mutation retains the original load callback,FIXED,useWorkspace,Change credentials during write
 ADMIN-20261113-45,P2,DATA,/admin/,AdminGoals,Goal fields show dollars for another currency,Labels are hard coded,FIXED,AdminGoals.tsx,EUR goal labels
 ADMIN-20261113-46,P2,DATA,/admin/,AdminGoals,Wrong month response renders no usable feedback,Period mismatch is only checked at render,FIXED,AdminGoals.tsx,Wrong month and successful retry
 ADMIN-20261113-47,P2,UX,/admin/,AdminReport,Manual copy message points to missing report text,Clipboard failure has no actual text field,FIXED,AdminReport.tsx,Clipboard unavailable

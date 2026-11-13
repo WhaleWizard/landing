@@ -12,7 +12,10 @@ export function useWorkspace(password: string) {
     lock = useRef(false),
     alive = useRef(true);
   const generation = useRef(0), source = useRef(Symbol('workspace'));
+  const activePassword = useRef(password);
+  activePassword.current = password;
   const load = useCallback(async () => {
+    if (!alive.current || activePassword.current !== password) return;
     const current = ++generation.current;
     setLoading(true);
     try {
