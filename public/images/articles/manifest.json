@@ -321,6 +321,30 @@
         1518
       ],
       "sourceBytes": 299161
+    },
+    "https://whalewzrd.com/images/articles/meta-ads-infobiz-funnel.jpg": {
+      "id": "9f473aeeedb5",
+      "width": 1376,
+      "height": 768,
+      "widths": [
+        480,
+        768,
+        1200,
+        1376
+      ],
+      "sourceBytes": 690758
+    },
+    "https://whalewzrd.com/images/articles/mobile-app-user-acquisition.jpg": {
+      "id": "74ea3b30f33e",
+      "width": 1376,
+      "height": 768,
+      "widths": [
+        480,
+        768,
+        1200,
+        1376
+      ],
+      "sourceBytes": 836800
     }
   }
 }

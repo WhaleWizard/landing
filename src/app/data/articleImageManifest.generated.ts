@@ -35,4 +35,6 @@ export const ARTICLE_IMAGE_MANIFEST: Readonly<Record<string, ArticleImageManifes
   "https://pub-0c68f065a6a3442c97a55535ba03e377.r2.dev/uploads/2026-07-26/1785092482481-a2974abb-4f21-4ef5-aa0e-c7412f94614f-2104d160-9d4e-55db-aef2-774ca797a561.jpg": { id: "17146bb96163", width: 2880, height: 2880, widths: [480, 768, 1200, 1600] },
   "https://pub-0c68f065a6a3442c97a55535ba03e377.r2.dev/uploads/2026-07-26/1785092816055-f86417a2-f836-47f8-bb40-1a58112f578c-4f608486-f41e-5022-be02-fe49cf731706.jpg": { id: "66abf8627dd3", width: 1278, height: 1278, widths: [480, 768, 1200, 1278] },
   "https://pub-0c68f065a6a3442c97a55535ba03e377.r2.dev/uploads/2026-07-26/1785092918820-664c4817-3690-4f42-9ebc-d72b291f5a41-bff66797-ed1b-58cb-bbd0-67896e903e79.png": { id: "4087dc99de37", width: 1518, height: 972, widths: [480, 768, 1200, 1518] },
+  "https://whalewzrd.com/images/articles/meta-ads-infobiz-funnel.jpg": { id: "9f473aeeedb5", width: 1376, height: 768, widths: [480, 768, 1200, 1376] },
+  "https://whalewzrd.com/images/articles/mobile-app-user-acquisition.jpg": { id: "74ea3b30f33e", width: 1376, height: 768, widths: [480, 768, 1200, 1376] },
 };
