@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Check, CheckCircle2, Clock, Copy, Database, RefreshCw } from 'lucide-react';
 import { AdminBlank, AdminSectionSkeleton, notify } from './AdminFeedback';
 import { AdminButton, AdminPanel, AdminSectionHeading } from './AdminUI';
@@ -142,8 +142,10 @@ export default function AdminMigrations({ password }: { password: string }) {
   const [failure, setFailure] = useState<{ message: string; code?: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [onlyPending, setOnlyPending] = useState(false);
+  const loadSequence = useRef(0);
 
   const load = useCallback(async () => {
+    const requestId = ++loadSequence.current;
     setLoading(true);
     setFailure(null);
     try {
@@ -153,6 +155,7 @@ export default function AdminMigrations({ password }: { password: string }) {
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => null) as MigrationsResponse | null;
+      if (requestId !== loadSequence.current) return;
       if (!response.ok || !payload?.success || !Array.isArray(payload.migrations)
         || ![payload.total, payload.applied, payload.pending, payload.partial].every(Number.isInteger)) {
         setFailure({ message: payload?.error || 'Не удалось прочитать состояние базы', code: payload?.code });
@@ -160,13 +163,17 @@ export default function AdminMigrations({ password }: { password: string }) {
       }
       setData(payload);
     } catch {
-      setFailure({ message: 'Не удалось прочитать состояние базы' });
+      if (requestId === loadSequence.current) setFailure({ message: 'Не удалось прочитать состояние базы' });
     } finally {
-      setLoading(false);
+      if (requestId === loadSequence.current) setLoading(false);
     }
   }, [password]);
 
-  useEffect(() => { void load(); }, [load]);
+  const invalidateLoad = useCallback(() => { loadSequence.current++; }, []);
+  useEffect(() => {
+    void load();
+    return invalidateLoad;
+  }, [invalidateLoad, load]);
 
   const rows = useMemo(() => {
     const all = data?.migrations || [];

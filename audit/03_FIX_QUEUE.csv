@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-20,P2,Keep another client open after deletion,AdminClients,COMPLETED,
+ADMIN-20261113-21,P1,Bind a contract upload to its original editor,AdminClients,COMPLETED,
+ADMIN-20261113-22,P2,Discard obsolete client list responses,AdminClients,COMPLETED,
+ADMIN-20261113-23,P2,Distinguish a client list failure from empty results,AdminClients,COMPLETED,
+ADMIN-20261113-24,P2,Discard obsolete migration responses,AdminMigrations,COMPLETED,
 ADMIN-20261113-15,P2,Scope spend rows and totals to their period,AdminAdSpend,COMPLETED,
 ADMIN-20261113-16,P2,Keep newer manual spend input,AdminAdSpend,COMPLETED,
 ADMIN-20261113-17,P2,Keep current CSV across asynchronous operations,AdminAdSpend,COMPLETED,

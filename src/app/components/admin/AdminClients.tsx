@@ -206,6 +206,9 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const listRequest = useRef(0);
+  const currentPassword = useRef(password);
+  currentPassword.current = password;
   const [migration, setMigration] = useState('');
   const [filter, setFilter] = useState<'all' | ClientStatus | 'attention'>('all');
 
@@ -234,6 +237,8 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [monthOrigin, setMonthOrigin] = useState<string | null>(null);
   const [presetBusy, setPresetBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const contractLinkRevision = useRef(0);
+  const deletingClients = useRef(new Set<number>());
   const draftChanged = draft && Object.entries(draft).some(([key, value]) => (
     !['health', 'healthReasons', 'lastReportMonth'].includes(key)
     && JSON.stringify(value) !== JSON.stringify(savedDraft?.[key as keyof Client])
@@ -258,7 +263,6 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
       });
       const payload = await response.json().catch(() => null) as { url?: string; error?: string } | null;
       if (!response.ok || !payload?.url) throw new Error(payload?.error || `HTTP ${response.status}`);
-      notify.success('Договор загружен', 'Не забудьте сохранить карточку.');
       return payload.url;
     } catch (uploadError) {
       notify.error('Файл не загрузился', uploadError instanceof Error ? uploadError.message : undefined);
@@ -286,6 +290,8 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   }, [password]);
 
   const load = useCallback(async () => {
+    if (password !== currentPassword.current) return;
+    const requestId = ++listRequest.current;
     setLoading(true);
     setError('');
     try {
@@ -299,6 +305,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
       const payload = await response.json().catch(() => null) as {
         success?: boolean; error?: string; migration?: string; clients?: Client[]; summary?: Summary; connectedWorkspace?: boolean;
       } | null;
+      if (requestId !== listRequest.current) return;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -308,13 +315,17 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
       setConnectedWorkspace(payload.connectedWorkspace === true);
       setSummary(payload.summary || null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить клиентов');
+      if (requestId === listRequest.current) setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить клиентов');
     } finally {
-      setLoading(false);
+      if (requestId === listRequest.current) setLoading(false);
     }
   }, [password]);
 
-  useEffect(() => { void load(); }, [load]);
+  const invalidateList = useCallback(() => { listRequest.current++; }, []);
+  useEffect(() => {
+    void load();
+    return invalidateList;
+  }, [invalidateList, load]);
 
   const fetchDetails = useCallback(async (id: number) => {
     const response = await fetch(`/api/admin/clients?id=${id}&timezone_offset=${new Date().getTimezoneOffset()}`, {
@@ -432,22 +443,29 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   };
 
   const removeClient = async () => {
-    if (!draft?.id) return;
-    const confirmed = await confirmAsk({
-      title: `Удалить карточку «${draft.name}»?`,
-      description: 'Вместе с ней исчезнут отчёты по месяцам, доступы и памятки. Заявка в CRM останется.',
-      confirmLabel: 'Удалить',
-      tone: 'danger',
-    });
-    if (!confirmed) return;
+    if (!draft?.id || deletingClients.current.has(draft.id)) return;
+    const { id, name } = draft;
+    deletingClients.current.add(id);
+    const requestId = clientRequest.current;
     try {
-      await request({ action: 'delete', id: draft.id });
+      const confirmed = await confirmAsk({
+        title: `Удалить карточку «${name}»?`,
+        description: 'Вместе с ней исчезнут отчёты по месяцам, доступы и памятки. Заявка в CRM останется.',
+        confirmLabel: 'Удалить',
+        tone: 'danger',
+      });
+      if (!confirmed || requestId !== clientRequest.current) return;
+      await request({ action: 'delete', id });
       notify.success('Карточка удалена');
-      setSelectedId(null);
-      setDraft(null);
+      if (activeClient.current === id) {
+        setSelectedId(null);
+        setDraft(null);
+      }
       await load();
     } catch (deleteError) {
       notify.error('Не удалось удалить', deleteError instanceof Error ? deleteError.message : undefined);
+    } finally {
+      deletingClients.current.delete(id);
     }
   };
 
@@ -692,7 +710,10 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                   maxLength={600}
                   placeholder="Загрузите PDF или DOCX — или вставьте ссылку"
                   value={draft.contract_file_url}
-                  onChange={(e) => setDraft({ ...draft, contract_file_url: e.target.value })}
+                  onChange={(e) => {
+                    contractLinkRevision.current++;
+                    setDraft({ ...draft, contract_file_url: e.target.value });
+                  }}
                 />
                 <label className={`admin-button admin-button--quiet${uploading ? ' is-busy' : ''}`}>
                   <Upload aria-hidden="true" /> {uploading ? 'Загружаю…' : 'Загрузить'}
@@ -705,8 +726,16 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                       const file = event.target.files?.[0];
                       event.target.value = '';
                       if (!file) return;
+                      const clientVersion = clientRequest.current;
+                      const linkVersion = ++contractLinkRevision.current;
                       const url = await uploadContract(file);
-                      if (url) setDraft((current) => (current ? { ...current, contract_file_url: url } : current));
+                      if (!url) return;
+                      if (clientVersion === clientRequest.current && linkVersion === contractLinkRevision.current) {
+                        setDraft((current) => current ? { ...current, contract_file_url: url } : current);
+                        notify.success('Договор загружен', 'Не забудьте сохранить карточку.');
+                      } else {
+                        notify.success('Файл загружен в медиатеку');
+                      }
                     }}
                   />
                 </label>
@@ -1019,7 +1048,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
         ))}
       </div>
 
-      {visible.length === 0 ? (
+      {visible.length === 0 ? (!error || clients.length > 0) && (
         <AdminBlank
           title={clients.length ? 'В этом фильтре пусто' : 'Клиентов пока нет'}
           text={clients.length
