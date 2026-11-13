@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-45,P2,Label goals with their saved currency,AdminGoals,COMPLETED,
+ADMIN-20261113-46,P2,Report a goal response for the wrong month,AdminGoals,COMPLETED,
+ADMIN-20261113-47,P2,Expose report text when clipboard is unavailable,AdminReport,COMPLETED,
+ADMIN-20261113-48,P2,Preserve fresh tasks after failed write,TodayPlan,COMPLETED,
+ADMIN-20261113-49,P2,Preserve fresh notes after failed write,TodayNote,COMPLETED,
 ADMIN-20261113-40,P2,Use owner date for publication calendar,ArticleCalendar,COMPLETED,
 ADMIN-20261113-41,P2,Open every publication in a calendar day,ArticleCalendar,COMPLETED,
 ADMIN-20261113-42,P2,Cancel obsolete sitemap reads,AdminPerformance,COMPLETED,

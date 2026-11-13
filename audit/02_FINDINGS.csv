@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-45,P2,DATA,/admin/,AdminGoals,Goal fields show dollars for another currency,Labels are hard coded,FIXED,AdminGoals.tsx,EUR goal labels
+ADMIN-20261113-46,P2,DATA,/admin/,AdminGoals,Wrong month response renders no usable feedback,Period mismatch is only checked at render,FIXED,AdminGoals.tsx,Wrong month and successful retry
+ADMIN-20261113-47,P2,UX,/admin/,AdminReport,Manual copy message points to missing report text,Clipboard failure has no actual text field,FIXED,AdminReport.tsx,Clipboard unavailable
+ADMIN-20261113-48,P2,STATE,/admin/,TodayPlan,Failed task write restores stale tasks,Rollback uses the original list after props change,FIXED,TodayPlan.tsx,Fresh tasks arrive during failed save
+ADMIN-20261113-49,P2,STATE,/admin/,TodayNote,Failed note write restores stale notes,Rollback uses the original list after props change,FIXED,TodayNote.tsx,Fresh notes arrive during failed save
 ADMIN-20261113-40,P2,DATA,/admin/,ArticleCalendar,Grid date and initial month can differ from Tashkent,Browser local month and formatted owner date are mixed,FIXED,ArticleCalendar.tsx,Los Angeles browser at Tashkent month boundary
 ADMIN-20261113-41,P2,UX,/admin/,ArticleCalendar,Publications after the tenth cannot be opened from the day list,List only renders the first ten,FIXED,ArticleCalendar.tsx,Open publication twelve
 ADMIN-20261113-42,P2,STATE,/admin/,AdminPerformance,Old sitemap response replaces current rows and key state,No request cancellation,FIXED,AdminPerformance.tsx,Old response arrives after current response

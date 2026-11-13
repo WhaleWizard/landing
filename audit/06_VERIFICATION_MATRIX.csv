@@ -1,4 +1,5 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Goals report and today drafts,output/playwright/admin-goals-today-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Publication calendar and performance requests,output/playwright/admin-calendar-speed-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Media captions clipboard upload and preview,output/playwright/admin-media-feedback-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 FAQ schedule and page access,output/playwright/admin-publication-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED

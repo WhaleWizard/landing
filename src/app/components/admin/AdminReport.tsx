@@ -69,6 +69,7 @@ export default function AdminReport({ password }: { password: string }) {
   const [data, setData] = useState<ReportResponse | null>(null);
   const [failure, setFailure] = useState<{ period: string; message: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [manualCopy, setManualCopy] = useState('');
   const requestSequence = useRef(0);
 
   const load = useCallback(async () => {
@@ -187,9 +188,10 @@ export default function AdminReport({ password }: { password: string }) {
               onClick={async () => {
                 try {
                   await navigator.clipboard.writeText(plainText);
+                  setManualCopy('');
                   notify.success('Отчёт скопирован', 'Можно вставить в заметки или сообщение');
                 } catch {
-                  notify.error('Не удалось скопировать', 'Выделите текст ниже вручную');
+                  setManualCopy(plainText);
                 }
               }}
             >
@@ -199,6 +201,12 @@ export default function AdminReport({ password }: { password: string }) {
               <Printer aria-hidden="true" /> Распечатать или в PDF
             </button>
           </div>
+          {manualCopy && manualCopy === plainText && (
+            <label className="admin-field">
+              <span className="admin-label">Скопируйте отчёт вручную</span>
+              <textarea className="admin-input" rows={8} readOnly value={manualCopy} onFocus={(event) => event.currentTarget.select()} />
+            </label>
+          )}
 
           <div className="adm-tiles adm-tiles--report">
             {[

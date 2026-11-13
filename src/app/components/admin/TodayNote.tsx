@@ -52,10 +52,13 @@ export default function TodayNote({
   const savePending = useRef(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const latestNotes = useRef(notes);
+  latestNotes.current = notes;
 
   useEffect(() => { setItems(notes); }, [notes]);
 
   const persist = useCallback(async (op: DayNoteOp, previous: DayNote[]) => {
+    const notesAtStart = latestNotes.current;
     savePending.current = true;
     setSaving(true);
     setError('');
@@ -73,7 +76,7 @@ export default function TodayNote({
       onSaved();
     } catch (saveError) {
       // Откат: на экране не должно остаться записи, которой нет в базе.
-      setItems(previous);
+      setItems(latestNotes.current === notesAtStart ? previous : latestNotes.current);
       setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить заметку');
     } finally {
       savePending.current = false;

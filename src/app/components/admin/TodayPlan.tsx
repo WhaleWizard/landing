@@ -82,10 +82,13 @@ export default function TodayPlan({
   const savePending = useRef(false);
   const [error, setError] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
+  const latestTasks = useRef(tasks);
+  latestTasks.current = tasks;
 
   useEffect(() => { setItems(tasks); }, [tasks]);
 
   const persist = useCallback(async (op: PlanTaskOp, previous: PlanTask[]) => {
+    const tasksAtStart = latestTasks.current;
     savePending.current = true;
     setSaving(true);
     setError('');
@@ -103,7 +106,7 @@ export default function TodayPlan({
       onSaved();
     } catch (saveError) {
       // Откат: на экране не должно остаться отметки, которой нет в базе.
-      setItems(previous);
+      setItems(latestTasks.current === tasksAtStart ? previous : latestTasks.current);
       setError(saveError instanceof Error ? saveError.message : 'Не удалось сохранить план');
     } finally {
       savePending.current = false;

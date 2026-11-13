@@ -218,6 +218,9 @@ export default function AdminGoals({ password }: { password: string }) {
         setMigration(payload?.migration || '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
+      if (payload.period !== period || (payload.goal && payload.goal.period !== period)) {
+        throw new Error('Сервер вернул цели за другой месяц. Обновите данные.');
+      }
       setMigration('');
       setData(payload);
       const previous = lastGoal.current;
@@ -438,7 +441,7 @@ export default function AdminGoals({ password }: { password: string }) {
                 числе, от которого считаются кольца и прогноз всего раздела.
               */}
               <label className="admin-field">
-                <span className="admin-label">Выручка, $</span>
+                <span className="admin-label">Выручка, {draft?.currency || currency}</span>
                 <AdminDecimalInput
                   inputMode="decimal"
                   disabled={saving || loading}
@@ -447,7 +450,7 @@ export default function AdminGoals({ password }: { password: string }) {
                 />
               </label>
               <label className="admin-field">
-                <span className="admin-label">Потолок расхода, $</span>
+                <span className="admin-label">Потолок расхода, {draft?.currency || currency}</span>
                 <AdminDecimalInput
                   inputMode="decimal"
                   disabled={saving || loading}
