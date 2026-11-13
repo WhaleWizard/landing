@@ -596,6 +596,24 @@ test('site editor rejects a JSON null body with a controlled validation response
   assert.equal(response.status, 400);
 });
 
+test('client API validates request shape and never confirms an update to a missing client', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const empty = await clients.module.onRequestPost({
+    env: clients.env,
+    request: new Request('https://example.test/api/admin/clients', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': ADMIN_PASSWORD },
+      body: 'null',
+    }),
+  });
+  assert.equal(empty.status, 400);
+  assert.equal((await clients.post({ action: 'update', id: -1, name: 'Проверка' })).status, 400);
+  const missing = await clients.post({ action: 'update', id: 999, name: 'Проверка' });
+  assert.equal(missing.status, 404);
+  assert.equal(missing.payload.success, false);
+});
+
 test('finance history starts eleven months before the owner’s current month', async (t) => {
   t.after(installMemoryCache());
   t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-30T20:30:00Z') });

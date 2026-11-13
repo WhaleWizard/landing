@@ -9,6 +9,8 @@ FULL-20261113-07,P2,Remove calendar dependency on parent screen,CRM calendar,COM
 FULL-20261113-08,P2,Validate CMS request body shape,CMS,COMPLETED,
 FULL-20261113-09,P2,Sort agenda by scheduled time,CRM calendar,COMPLETED,
 FULL-20261113-10,P2,Expose all deals without a due date,CRM calendar,COMPLETED,
+FULL-20261113-11,P2,Validate client request shape and IDs,Clients,COMPLETED,
+FULL-20261113-12,P2,Return a failed update for a deleted client,Clients,COMPLETED,
 SEO-20261113-01,P2,Align validation with generated public routes,SeoAssistant,COMPLETED,
 SEO-20261113-02,P2,Apply canonical slash rules by route kind,SeoAssistant,COMPLETED,
 SEO-20261113-03,P2,Flag unavailable draft and scheduled publications,SeoAssistant,COMPLETED,

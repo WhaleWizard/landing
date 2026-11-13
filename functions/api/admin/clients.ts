@@ -510,7 +510,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   let body: Record<string, unknown>;
   try {
-    body = raw.text ? JSON.parse(raw.text) : {};
+    const parsed: unknown = raw.text ? JSON.parse(raw.text) : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      return json({ success: false, error: 'Некорректный JSON' }, { status: 400, headers: noStore });
+    }
+    body = parsed as Record<string, unknown>;
   } catch {
     return json({ success: false, error: 'Некорректный JSON' }, { status: 400, headers: noStore });
   }
@@ -544,19 +548,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ success: true, id: result.meta?.last_row_id || 0 }, { headers: noStore });
     }
 
-    if (!id) return json({ success: false, error: 'Нужен id клиента' }, { status: 400, headers: noStore });
+    if (!Number.isSafeInteger(id) || id <= 0) {
+      return json({ success: false, error: 'Нужен id клиента' }, { status: 400, headers: noStore });
+    }
 
     if (action === 'update') {
       const { columns, values, status, finishedAt } = clientFields(body, localTodayIso(request));
       // Дата завершения ставится один раз: уже сохранённая не теряется из-за
       // пустого поля в теле запроса, первая отметка «Завершён» без даты
       // получает сегодняшний день, а возврат в работу или на паузу её очищает.
-      await db.prepare(
+      const result = await db.prepare(
         `UPDATE clients SET ${columns.map((column) => `${column} = ?`).join(', ')},
            finished_at = CASE WHEN ? = 'finished' THEN COALESCE(?, finished_at, ?) ELSE NULL END,
            updated_at = datetime('now')
          WHERE id = ?`,
       ).bind(...values, status, finishedAt, todayIso, id).run();
+      if (result.meta?.changes === 0) {
+        return json({ success: false, error: 'Клиент не найден' }, { status: 404, headers: noStore });
+      }
       return json({ success: true }, { headers: noStore });
     }
 

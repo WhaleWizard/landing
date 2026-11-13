@@ -9,6 +9,8 @@ FULL-20261113-07,P2,ARCH,/admin/,CRM calendar,Type dependency cycles through the
 FULL-20261113-08,P2,RELIABILITY,/admin/,CMS,JSON null causes an uncontrolled error,Request body was cast without shape check,FIXED,site-sections.ts,Handler returns 400
 FULL-20261113-09,P2,UX,/admin/,CRM calendar,Agenda is displayed out of time order,Calendar kept CRM input order,FIXED,CrmCalendar.tsx,Agenda time order assertion
 FULL-20261113-10,P2,UX,/admin/,CRM calendar,Only five unscheduled deals can be reached from calendar,Slice has no expansion control,FIXED,CrmCalendar.tsx,Sixth deal reachable in both engines
+FULL-20261113-11,P2,RELIABILITY,/admin/,Clients,Client API crashes on a null body and accepts invalid identifiers,Body and identifiers lacked shape validation,FIXED,clients.ts,API test with null and negative ID
+FULL-20261113-12,P2,DATA,/admin/,Clients,Stale client card confirms a save after deletion,Update result was ignored,FIXED,clients.ts,API test expects 404
 SEO-20261113-01,P2,DATA,/admin/,SeoAssistant,Real pages reported missing and removed paths accepted,Route table drifted from generated site,FIXED,SeoAssistant.tsx,Route-set parity assertion
 SEO-20261113-02,P2,DATA,/admin/,SeoAssistant,Canonical static links flagged and missing links with slash escape validation,All trailing slashes triggered an early warning,FIXED,SeoAssistant.tsx,Static and article paths tested
 SEO-20261113-03,P2,DATA,/admin/,SeoAssistant,Draft and scheduled article links passed,Catalog dropped publication status and date,FIXED,SeoAssistant.tsx,Deterministic publication date fixture
