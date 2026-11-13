@@ -3,7 +3,7 @@ import {
   useWorkspaceNavigation,
   type RegisterLeaveGuard,
 } from "./workspace/useWorkspaceGuard";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowUpRight,
@@ -66,6 +66,18 @@ const defaults: Preferences = {
   compact: false,
   columns: ["service", "due", "money", "status"],
 };
+const PROJECT_TABS = [
+  ["overview", "Обзор"],
+  ["tasks", "Задачи"],
+  ["money", "Счета и оплаты"],
+  ["resources", "Материалы"],
+  ["results", "Результаты"],
+  ["history", "История"],
+] as const;
+
+function projectTab(tab?: string) {
+  return PROJECT_TABS.find(([id]) => id === tab)?.[0] || "overview";
+}
 function readPrefs(): Preferences {
   try {
     return {
@@ -105,7 +117,7 @@ export default function AdminWorkspace({
   const [selected, setSelected] = useState<number | null>(
       target?.workId || null,
     ),
-    [tab, setTab] = useState("overview"),
+    [tab, setTab] = useState(() => projectTab(target?.tab)),
     [form, setForm] = useState<WorkspaceFormState | null>(null),
     [invoiceId, setInvoiceId] = useState<number | null>(
       target?.invoiceId || null,
@@ -117,6 +129,11 @@ export default function AdminWorkspace({
     );
   const changePrefs = (p: Partial<Preferences>) =>
     setPrefs((v) => ({ ...v, ...p }));
+  const viewRevision = useRef<symbol | null>(null);
+  useLayoutEffect(() => {
+    viewRevision.current = Symbol();
+    return () => { viewRevision.current = null; };
+  }, [selected, tab, invoiceId, target?.nonce, target?.workId, target?.invoiceId, target?.tab]);
   useEffect(() => {
     try {
       localStorage.setItem("ww_workspace_view", JSON.stringify(prefs));
@@ -126,7 +143,7 @@ export default function AdminWorkspace({
     setForm(null);
     setSelected(target?.workId || null);
     setInvoiceId(target?.invoiceId || null);
-    setTab(target?.tab || "overview");
+    setTab(projectTab(target?.tab));
   }, [target?.nonce, target?.workId, target?.invoiceId, target?.tab]);
   useWorkspaceGuard(Boolean(form) || invoiceDirty, onRegisterLeaveGuard);
 
@@ -188,7 +205,7 @@ export default function AdminWorkspace({
     const workId = t.workId;
     if (t.section === "projects" && workId) beforeNavigate(() => {
       open(workId);
-      setTab(t.tab || "overview");
+      setTab(projectTab(t.tab));
       setInvoiceId(t.invoiceId || null);
     });
     else onNavigate?.(t);
@@ -275,14 +292,7 @@ export default function AdminWorkspace({
       )}
       {work && (
         <div className="ws-tabs">
-          {[
-            ["overview", "Обзор"],
-            ["tasks", "Задачи"],
-            ["money", "Счета и оплаты"],
-            ["resources", "Материалы"],
-            ["results", "Результаты"],
-            ["history", "История"],
-          ].map(([id, label]) => (
+          {PROJECT_TABS.map(([id, label]) => (
             <button
               key={id}
               className={tab === id ? "is-active" : ""}
@@ -692,6 +702,7 @@ export default function AdminWorkspace({
                   tone="primary"
                   disabled={store.busy}
                   onClick={async () => {
+                    const revision = viewRevision.current;
                     const result = await store.mutate(
                       {
                         action: "issue_work",
@@ -700,7 +711,7 @@ export default function AdminWorkspace({
                       },
                       "Черновик счёта готов",
                     );
-                    if (result?.id) setInvoiceId(Number(result.id));
+                    if (result?.id && revision === viewRevision.current) setInvoiceId(Number(result.id));
                   }}
                 >
                   <Plus />

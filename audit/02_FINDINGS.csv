@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-55,P2,STATE,/admin/,WorkspaceForms,Project cost hard codes USD,Cost label ignores saved currency,FIXED,WorkspaceForms.tsx,Project in EUR
+ADMIN-20261113-56,P2,STATE,/admin/,WorkspaceForms,Monthly result fields hard code USD,Result labels ignore saved currency,FIXED,WorkspaceForms.tsx,Monthly results in RUB
+ADMIN-20261113-57,P2,STATE,/admin/,WorkspaceForms,Closed form can trigger navigation after saving,Async completion invokes old callbacks,FIXED,WorkspaceForms.tsx,Unmount before completion
+ADMIN-20261113-58,P2,STATE,/admin/,AdminWorkspace,Late invoice opens after leaving the tab,Completion ignores view changes,FIXED,AdminWorkspace.tsx,Issue invoice and switch to tasks
+ADMIN-20261113-59,P2,STATE,/admin/,AdminWorkspace,Unknown project tab hides project details,Navigation tab is accepted without validation,FIXED,AdminWorkspace.tsx,Open project with time tab
 ADMIN-20261113-50,P2,STATE,/admin/,WorkspaceInvoice,Cancelled payment note leaks into next form,Opening a payment only resets amount and date,FIXED,WorkspaceInvoice,Cancel and reopen payment
 ADMIN-20261113-51,P2,STATE,/admin/,WorkspaceInvoice,Pending payment allows another form to replace it,Only submit controls observe busy state,FIXED,WorkspaceInvoice,Delayed failed payment
 ADMIN-20261113-52,P2,STATE,/admin/,WorkspaceInvoice,Reopening invoice links restores cancelled choices,Opening link form reuses the previous draft,FIXED,WorkspaceInvoice,Change client cancel and reopen

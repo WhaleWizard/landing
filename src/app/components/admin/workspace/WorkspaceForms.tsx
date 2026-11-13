@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type {
   ClientWork,
   WorkClient,
@@ -36,6 +36,11 @@ export default function WorkspaceForms({
   onSaved?: (result: Record<string, unknown>) => void;
 }) {
   const { kind, work, client } = form;
+  const active = useRef(false);
+  useLayoutEffect(() => {
+    active.current = true;
+    return () => { active.current = false; };
+  }, []);
   const [v, setV] = useState<Record<string, unknown>>(() =>
     kind === "work"
       ? {
@@ -111,7 +116,7 @@ export default function WorkspaceForms({
         type={type}
         value={String(v[key] ?? "")}
         required={required}
-        disabled={key === 'month' && Boolean(form.month)}
+        disabled={store.busy || (key === 'month' && Boolean(form.month))}
         min={key === 'billing_day' ? 1 : undefined}
         max={key === 'billing_day' ? 28 : key === 'report_sent_at' ? data.today : undefined}
         maxLength={type === "text" ? 200 : undefined}
@@ -126,6 +131,7 @@ export default function WorkspaceForms({
         className="admin-input"
         rows={3}
         maxLength={4000}
+        disabled={store.busy}
         value={String(v[key] || "")}
         onChange={(e) => set(key, e.target.value)}
       />
@@ -136,6 +142,7 @@ export default function WorkspaceForms({
       <span className="admin-label">{label}</span>
       <AdminDecimalInput
         className="admin-input"
+        disabled={store.busy}
         value={v[key] === null || v[key] === undefined ? null : Number(v[key])}
         onValueChange={(n) => set(key, n)}
       />
@@ -150,7 +157,7 @@ export default function WorkspaceForms({
       label={label}
       value={String(v[key] ?? "")}
       options={opts}
-      disabled={key === 'client_id' && Boolean(work || client)}
+      disabled={store.busy || (key === 'client_id' && Boolean(work || client))}
       onValueChange={(n) => set(key, n)}
     />
   );
@@ -181,7 +188,7 @@ export default function WorkspaceForms({
             action,
             client_id: kind === "profile" ? client?.id : v.client_id,
           });
-          if (result) {
+          if (result && active.current) {
             onSaved?.(result);
             onClose();
           }
@@ -219,7 +226,7 @@ export default function WorkspaceForms({
                     { value: "one_off", label: "Один раз" },
                   ],
             )}
-            {amount("amount", "Стоимость, USD")}
+            {amount("amount", `Стоимость, ${v.currency}`)}
             {v.billing === "monthly" &&
               input("billing_day", "День выставления (1–28)", "number")}
             {input("due_at", "Ближайший срок", "date")}
@@ -283,10 +290,10 @@ export default function WorkspaceForms({
         {kind === "month" && (
           <>
             {input("month", "Месяц", "month", false, true)}
-            {amount("spend", "Рекламный расход, USD")}
+            {amount("spend", `Рекламный расход, ${v.currency}`)}
             {amount("leads", "Заявки")}
             {amount("sales", "Продажи")}
-            {amount("revenue", "Выручка клиента, USD")}
+            {amount("revenue", `Выручка клиента, ${v.currency}`)}
             {input("report_sent_at", "Дата отправки отчёта", "date")}
             {input("report_url", "Ссылка на отчёт", "url", true)}
             {area("note", "Примечание")}

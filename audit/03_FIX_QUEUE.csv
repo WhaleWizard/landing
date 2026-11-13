@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-55,P2,Show project cost currency,WorkspaceForms,COMPLETED,
+ADMIN-20261113-56,P2,Show monthly result currency,WorkspaceForms,COMPLETED,
+ADMIN-20261113-57,P2,Ignore completion of closed form,WorkspaceForms,COMPLETED,
+ADMIN-20261113-58,P2,Keep project tab after invoice creation,AdminWorkspace,COMPLETED,
+ADMIN-20261113-59,P2,Validate project tabs,AdminWorkspace,COMPLETED,
 ADMIN-20261113-50,P2,Reset note when opening a payment,WorkspaceInvoice,COMPLETED,
 ADMIN-20261113-51,P2,Disable form changes during pending writes,WorkspaceInvoice,COMPLETED,
 ADMIN-20261113-52,P2,Reset links from saved invoice,WorkspaceInvoice,COMPLETED,
