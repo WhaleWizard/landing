@@ -43,6 +43,9 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
   const [baseline, setBaseline] = useState(() => faqSignature(cloneItems(faqs), DEFAULT_SEO));
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
+  const [loadedPassword, setLoadedPassword] = useState<string | null>(null);
+  const ready = loadedPassword === password;
+  const loadSequence = useRef(0);
   const [notice, setNotice] = useState('');
   const [publishArmed, setPublishArmed] = useState(false);
   const itemsRef = useRef(items);
@@ -82,6 +85,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
   };
 
   const load = useCallback(async (preserveNotice = false): Promise<boolean> => {
+    const requestId = ++loadSequence.current;
     const draftAtRequest = faqSignature(itemsRef.current, seoRef.current);
     setLoading(true);
     if (!preserveNotice) setNotice('');
@@ -102,6 +106,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
         } | null;
         versions?: VersionRow[];
       } | null;
+      if (requestId !== loadSequence.current) return false;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       if (faqSignature(itemsRef.current, seoRef.current) !== draftAtRequest) {
         setNotice('Данные получены, но не применены: пока шёл запрос, появились новые несохранённые изменения.');
@@ -120,12 +125,13 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
       setHasPublishedVersion(Boolean(payload.section?.published?.items?.length));
       setVersion(Number(payload.section?.version || 0));
       setVersions(payload.versions || []);
+      setLoadedPassword(password);
       return true;
     } catch (error) {
-      setNotice(error instanceof Error ? error.message : 'Не удалось загрузить FAQ');
+      if (requestId === loadSequence.current) setNotice(error instanceof Error ? error.message : 'Не удалось загрузить FAQ');
       return false;
     } finally {
-      setLoading(false);
+      if (requestId === loadSequence.current) setLoading(false);
     }
   }, [password]);
 
@@ -167,6 +173,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
   };
 
   const save = async (action: 'save' | 'publish') => {
+    if (!ready) return;
     if (items.length === 0) {
       setNotice('Добавьте хотя бы один вопрос перед сохранением.');
       return;
@@ -176,7 +183,8 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
       setQuery('');
       setNotice(`Заполните вопрос и короткий ответ в карточке №${invalidIndex + 1}. Неполная карточка не будет опубликована.`);
       window.setTimeout(() => {
-        const field = document.getElementById(`faq-${invalidIndex}-question`);
+        const invalid = items[invalidIndex];
+        const field = document.getElementById(`faq-${invalidIndex}-${invalid.question.trim() ? 'answer' : 'question'}`);
         field?.closest('details')?.setAttribute('open', '');
         field?.focus();
       }, 0);
@@ -221,6 +229,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
   };
 
   const restore = async (versionId: number) => {
+    if (!ready) return;
     if (isDirty) {
       setNotice('Сначала сохраните или отмените текущие изменения — восстановление версии заменит черновик.');
       return;
@@ -267,7 +276,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
           <input id="faq-search" className="admin-input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Вопрос или категория" />
         </label>
         <span className={status === 'published' ? 'admin-state admin-state--success' : 'admin-state admin-state--warning'}>
-          {status === 'published'
+          {!ready ? (loading ? 'Загрузка FAQ…' : 'FAQ не загружен') : status === 'published'
             ? `Опубликовано · v${version}`
             : status === 'draft'
               ? `Черновик · v${version} · ${hasPublishedVersion ? 'на сайте предыдущая версия' : 'на сайте статический FAQ'}`
@@ -277,14 +286,14 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
         {/* Как в редакторе страниц: «Обновить» заменило бы набранное свежей копией с сервера. */}
         <button type="button" className="admin-button admin-button--secondary" onClick={() => void load()} disabled={loading || isDirty}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Обновить</button>
         {isDirty ? <button type="button" className="admin-button admin-button--quiet" onClick={discardChanges}>Отменить изменения</button> : null}
-        <button type="button" className="admin-button admin-button--secondary" disabled={loading || items.length >= 100} onClick={addItem}><Plus aria-hidden="true" /> Добавить вопрос</button>
+        <button type="button" className="admin-button admin-button--secondary" disabled={!ready || loading || items.length >= 100} onClick={addItem}><Plus aria-hidden="true" /> Добавить вопрос</button>
       </div>
 
       {notice && <div className="admin-notice" role="status" aria-live="polite">{notice}</div>}
 
       <div className="admin-content-layout">
         <section className="admin-card admin-content-editor">
-          <div className="admin-stack">
+          {ready && <div className="admin-stack">
             {indexedItems.map(({ item, index }) => (
               <AdminDisclosure
                 key={item.id}
@@ -307,11 +316,11 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
               </AdminDisclosure>
             ))}
             {indexedItems.length === 0 && <div className="admin-empty"><div><strong>Ничего не найдено</strong><p>Измените запрос поиска.</p></div></div>}
-          </div>
+          </div>}
 
           <div className="admin-sticky-actions">
-            <button type="button" className="admin-button admin-button--secondary" disabled={loading || items.length === 0} onClick={() => void save('save')}><Save aria-hidden="true" /> Сохранить черновик</button>
-            {!publishArmed ? <button type="button" className="admin-button admin-button--primary" disabled={loading || items.length === 0} onClick={() => setPublishArmed(true)}><Send aria-hidden="true" /> Опубликовать</button> : (
+            <button type="button" className="admin-button admin-button--secondary" disabled={!ready || loading || items.length === 0} onClick={() => void save('save')}><Save aria-hidden="true" /> Сохранить черновик</button>
+            {!publishArmed ? <button type="button" className="admin-button admin-button--primary" disabled={!ready || loading || items.length === 0} onClick={() => setPublishArmed(true)}><Send aria-hidden="true" /> Опубликовать</button> : (
               <div className="admin-confirm-inline" role="alert"><span>Опубликовать {items.length} вопросов?</span><button type="button" className="admin-button admin-button--primary" disabled={loading} onClick={() => void save('publish')}>Да, опубликовать</button><button type="button" className="admin-button admin-button--ghost" disabled={loading} onClick={() => setPublishArmed(false)}>Отмена</button></div>
             )}
           </div>

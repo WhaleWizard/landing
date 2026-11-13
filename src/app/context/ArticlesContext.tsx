@@ -26,7 +26,7 @@ interface ArticlesContextType {
   loadAdminArticle: (slug: string, password: string) => Promise<Article>;
   removeArticle: (slug: string, password: string) => Promise<void>;
   setFeaturedArticles: (slugs: string[], password: string) => Promise<void>;
-  scheduleArticles: (items: Array<{ slug: string; publishedAt: string }>, password: string) => Promise<{ scheduled: string[]; skipped: string[] }>;
+  scheduleArticles: (items: Array<{ slug: string; publishedAt: string }>, password: string) => ReturnType<typeof saveSchedule>;
 }
 
 const ArticlesContext = createContext<ArticlesContextType | undefined>(undefined);

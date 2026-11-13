@@ -1,5 +1,5 @@
 import { memo, useMemo, useRef, useState } from 'react';
-import type { Article } from '../hooks/useArticlesApi';
+import type { Article, ScheduleSaveResult } from '../hooks/useArticlesApi';
 import { AdminButton, AdminSelect } from './AdminUI';
 import { notify, useConfirm } from './AdminFeedback';
 import { ownerToday, ownerTomorrow, planSchedule, type ScheduledItem } from '../../utils/publishSchedule';
@@ -45,7 +45,7 @@ function PublishSchedulePanel({
   onSchedule,
 }: {
   articles: Article[];
-  onSchedule: (items: Array<{ slug: string; publishedAt: string }>) => Promise<{ scheduled: string[]; skipped: string[] }>;
+  onSchedule: (items: Array<{ slug: string; publishedAt: string }>) => Promise<ScheduleSaveResult>;
 }) {
   const confirmDialog = useConfirm();
   const candidates = useMemo(() => {
@@ -99,6 +99,7 @@ function PublishSchedulePanel({
     let processed = 0;
     const scheduled: string[] = [];
     const skipped: string[] = [];
+    let skippedPast = 0;
     try {
       const confirmed = await confirmDialog({
         title: `Запланировать ${withPlural(plan.length, ['статью', 'статьи', 'статей'])}?`,
@@ -112,12 +113,16 @@ function PublishSchedulePanel({
         const result = await onSchedule(batch);
         scheduled.push(...result.scheduled);
         skipped.push(...result.skipped);
+        skippedPast += result.skippedPast?.length ?? 0;
         processed += batch.length;
       }
       if (skipped.length > 0) {
         notify.error(
           `Запланировано: ${scheduled.length}, пропущено: ${skipped.length}`,
-          'Пропущены уже вышедшие статьи: их дату публикации не сдвигают.',
+          [
+            skippedPast ? `Время публикации уже прошло: ${skippedPast}. Постройте новый план для этих статей.` : '',
+            skipped.length > skippedPast ? `Недоступно для планирования: ${skipped.length - skippedPast}.` : '',
+          ].filter(Boolean).join(' '),
         );
       } else {
         notify.success(`Запланировано: ${withPlural(scheduled.length, ['статья', 'статьи', 'статей'])}`, 'Выйдут сами в назначенное время.');

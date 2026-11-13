@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-30,P2,DATA,/admin/,AdminFaqControl,Seed content is editable before successful CMS read,Missing readiness state,FIXED,AdminFaqControl.tsx,Failed read and retry
+ADMIN-20261113-31,P2,ACCESSIBILITY,/admin/,AdminFaqControl,Missing answer focuses question,Validation target always points to question,FIXED,AdminFaqControl.tsx,Missing answer keyboard focus
+ADMIN-20261113-32,P2,DATA,/admin/,PublishSchedulePanel,Expired slots are reported as published articles,API client discards skippedPast,FIXED,PublishSchedulePanel.tsx and useArticlesApi.ts,Expired slot and other skip in one response
+ADMIN-20261113-33,P2,STATE,/admin/,AdminPageLocks,Preview shows an old page during a new request,Frame does not track its draft,FIXED,AdminPageLocks.tsx,Switch page with delayed failure
+ADMIN-20261113-34,P2,STATE,/admin/,AdminPageLocks,Repeated subscriber marking sends duplicate writes,Missing in-flight guard,FIXED,AdminPageLocks.tsx,Two clicks during marking
 ADMIN-20261113-25,P2,STATE,/admin/,AdminFinance,Old invoice save closes the next form,Save completion clears any current draft,FIXED,AdminFinance.tsx,Reopen invoice during delayed write
 ADMIN-20261113-26,P2,STATE,/admin/,AdminFinance,Old expense save closes the next form,Save completion clears any current draft,FIXED,AdminFinance.tsx,Reopen expense during delayed write
 ADMIN-20261113-27,P2,STATE,/admin/,AdminFinance,Old time save closes the next form,Save completion clears any current draft,FIXED,AdminFinance.tsx,Reopen time entry during delayed write

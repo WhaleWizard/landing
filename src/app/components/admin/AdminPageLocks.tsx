@@ -146,8 +146,11 @@ export default function AdminPageLocks({ password }: { password: string }) {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [savingPath, setSavingPath] = useState('');
   const writePending = useRef(false);
+  const [markingPath, setMarkingPath] = useState('');
+  const markPending = useRef(false);
   const loadSequence = useRef(0);
-  const [previewHtml, setPreviewHtml] = useState('');
+  const [preview, setPreview] = useState<{ path: string; draft: Draft; html: string } | null>(null);
+  const [previewFailedDraft, setPreviewFailedDraft] = useState<Draft | null>(null);
   const [previewLink, setPreviewLink] = useState('');
   const [showJournal, setShowJournal] = useState(false);
 
@@ -322,22 +325,26 @@ export default function AdminPageLocks({ password }: { password: string }) {
   }, [load, locked.length, post]);
 
   const markNotified = useCallback(async (route: RouteState) => {
+    if (markPending.current) return;
+    markPending.current = true;
+    setMarkingPath(route.path);
     try {
       await post({ action: 'mark_notified', path: route.path });
       notify.success('Отмечено', 'Записи помечены как обработанные');
       await load();
     } catch (markError) {
       notify.error('Не получилось', markError instanceof Error ? markError.message : '');
+    } finally {
+      markPending.current = false;
+      setMarkingPath('');
     }
   }, [load, post]);
 
   // Кадр предпросмотра перерисовывается с задержкой: иначе каждый набранный
   // символ уходил бы на сервер отдельным запросом.
   useEffect(() => {
-    if (!activeRoute || !draft) {
-      setPreviewHtml('');
-      return;
-    }
+    if (!activeRoute || !draft) return;
+    setPreviewFailedDraft(null);
     const request = new AbortController();
     const timer = window.setTimeout(() => {
       void (async () => {
@@ -350,9 +357,11 @@ export default function AdminPageLocks({ password }: { password: string }) {
             body: JSON.stringify({ path: activeRoute.path, ...draft }),
           });
           const payload = await response.json().catch(() => null) as { success?: boolean; html?: string } | null;
-          if (!request.signal.aborted && response.ok && payload?.success && payload.html) setPreviewHtml(payload.html);
+          if (request.signal.aborted) return;
+          if (response.ok && payload?.success && payload.html) setPreview({ path: activeRoute.path, draft, html: payload.html });
+          else setPreviewFailedDraft(draft);
         } catch {
-          // Предпросмотр — подсказка: без него настройки всё равно сохраняются.
+          if (!request.signal.aborted) setPreviewFailedDraft(draft);
         }
       })();
     }, 320);
@@ -613,12 +622,14 @@ export default function AdminPageLocks({ password }: { password: string }) {
                       <div className="plock-editor__preview">
                         <p className="admin-label">Как увидит посетитель</p>
                         <div className="plock-frame">
-                          <iframe
+                          {preview?.path === route.path && preview.draft === draft && previewFailedDraft !== draft ? <iframe
                             title={`Заглушка страницы «${route.label}»`}
                             className="plock-frame__view"
                             sandbox="allow-same-origin"
-                            srcDoc={previewHtml}
-                          />
+                            srcDoc={preview.html}
+                          /> : <p className="admin-hint p-3" role="status">{previewFailedDraft === draft
+                            ? 'Не удалось загрузить предпросмотр.'
+                            : 'Загружаю предпросмотр…'}</p>}
                         </div>
                       </div>
 
@@ -656,7 +667,9 @@ export default function AdminPageLocks({ password }: { password: string }) {
                                 </li>
                               ))}
                           </ul>
-                          <AdminButton compact onClick={() => void markNotified(route)}>Я написал всем</AdminButton>
+                          <AdminButton compact disabled={Boolean(markingPath)} onClick={() => void markNotified(route)}>
+                            {markingPath === route.path ? 'Отмечаю…' : 'Я написал всем'}
+                          </AdminButton>
                         </div>
                       ) : null}
                     </div>
