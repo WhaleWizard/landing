@@ -170,6 +170,7 @@ export default function AdminUnitEconomics() {
     targetRevenue, averageCheck, marginPercent, leadToDealPercent,
     siteConvPercent, cpc, repeatPurchases,
   }), [targetRevenue, averageCheck, marginPercent, leadToDealPercent, siteConvPercent, cpc, repeatPurchases]);
+  const [manualReport, setManualReport] = useState<{ calculation: NonNullable<typeof calculations>; text: string } | null>(null);
 
   // Copy proposal summary
   const handleCopySummary = async () => {
@@ -197,16 +198,17 @@ export default function AdminUnitEconomics() {
     report += `• LTV / CAC соотношение: ${calculations.ltvCacRatio}x (LTV = $${calculations.ltv})\n\n`;
 
     report += `💡 ВЫВОД: ${
-      calculations.netProfit >= 0 && calculations.ltvCacRatio >= 3.0
+      !calculations.isLoss && calculations.hasLtvHeadroom
         ? 'Модель устойчива и масштабируема. Экономика сходится с запасом.'
         : 'Внимание: высокий риск при масштабировании. Рекомендуется поднять конверсию отдела продаж или средний чек.'
     }\n`;
 
     try {
       await navigator.clipboard.writeText(report);
+      setManualReport(null);
       notify.success('Медиаплан скопирован в буфер обмена');
     } catch {
-      notify.error('Не удалось скопировать медиаплан');
+      setManualReport({ calculation: calculations, text: report });
     }
   };
 
@@ -253,6 +255,13 @@ export default function AdminUnitEconomics() {
           </button>
         </div>
       </div>
+
+      {manualReport && manualReport.calculation === calculations && (
+        <label className="admin-field">
+          <span className="admin-label">Скопируйте медиаплан вручную</span>
+          <textarea className="admin-input" rows={8} readOnly value={manualReport.text} onFocus={(event) => event.currentTarget.select()} />
+        </label>
+      )}
 
       {/* Preset Buttons */}
       <div className="admin-unit-econ-presets">
@@ -497,7 +506,7 @@ export default function AdminUnitEconomics() {
               </div>
               <div
                 className={`admin-unit-econ-kpi-val ${
-                  calculations.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400'
+                  calculations.isLoss ? 'text-red-400' : 'text-emerald-400'
                 }`}
               >
                 ${calculations.netProfit.toLocaleString('en-US')}
@@ -515,7 +524,7 @@ export default function AdminUnitEconomics() {
               </div>
               <div
                 className={`admin-unit-econ-kpi-val ${
-                  calculations.ltvCacRatio >= 3.0
+                  calculations.hasLtvHeadroom
                     ? 'text-purple-400'
                     : calculations.ltvCacRatio >= 1.5
                     ? 'text-amber-400'
@@ -576,39 +585,38 @@ export default function AdminUnitEconomics() {
           {/* Diagnostic & Viability Advice */}
           <div
             className={`admin-unit-econ-advice-box ${
-              calculations.netProfit < 0
+              calculations.isLoss
                 ? 'danger'
-                : calculations.ltvCacRatio < 3.0
+                : !calculations.hasLtvHeadroom
                 ? 'warning'
                 : 'success'
             }`}
           >
             <div className="admin-unit-econ-advice-header">
-              {calculations.netProfit < 0 ? (
+              {calculations.isLoss ? (
                 <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0" />
-              ) : calculations.ltvCacRatio < 3.0 ? (
+              ) : !calculations.hasLtvHeadroom ? (
                 <HelpCircle className="h-5 w-5 text-amber-400 flex-shrink-0" />
               ) : (
                 <CheckCircle2 className="h-5 w-5 text-emerald-400 flex-shrink-0" />
               )}
               <div className="admin-unit-econ-advice-title">
-                {calculations.netProfit < 0
+                {calculations.isLoss
                   ? 'Экономика убыточна при текущих ставках'
-                  : calculations.ltvCacRatio < 3.0
+                  : !calculations.hasLtvHeadroom
                   ? 'Пограничная зона эффективности'
                   : 'Отличная юнит-экономика для масштабирования'}
               </div>
             </div>
 
             <p className="admin-unit-econ-advice-desc">
-              {calculations.netProfit < 0 ? (
+              {calculations.isLoss ? (
                 <>
-                  При цене клика ${cpc} стоимость привлечения продажи (${calculations.calculatedCac})
-                  превышает валовую прибыль (${Math.round(averageCheck * (marginPercent / 100))}).
+                  В этом плане расходы на рекламу превышают валовую прибыль с первых покупок.
                   Порог безубыточности первой покупки — CPC ${calculations.breakEvenCpc}.
                   Для запаса снижайте цену клика ниже этого порога или улучшайте конверсию и маржу.
                 </>
-              ) : calculations.ltvCacRatio < 3.0 ? (
+              ) : !calculations.hasLtvHeadroom ? (
                 <>
                   Кампания окупается, но соотношение LTV/CAC ({calculations.ltvCacRatio}x) не оставляет
                   запаса на колебания рекламных аукционов. Рекомендуется работать над повторными продажами

@@ -1,4 +1,9 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+ADMIN-20261113-60,P2,DATA,/admin/,AdminUnitEconomics,Exact funnel quotient rounds up one too many,Binary rounding before ceil,FIXED,adminUnitEconomics.ts and AdminUnitEconomics.tsx,Calculator and browser verification
+ADMIN-20261113-61,P2,DATA,/admin/,AdminUnitEconomics,Exact break-even threshold loses a cent,Absolute epsilon is too small for scaled numbers,FIXED,adminUnitEconomics.ts and AdminUnitEconomics.tsx,Calculator and browser verification
+ADMIN-20261113-62,P2,DATA,/admin/,AdminUnitEconomics,Large inputs yield unsafe metrics,Only intermediate finiteness was checked,FIXED,adminUnitEconomics.ts and AdminUnitEconomics.tsx,Calculator and browser verification
+ADMIN-20261113-63,P2,DATA,/admin/,AdminUnitEconomics,Rounded profit or ratio changes the verdict,Classification used rounded values,FIXED,adminUnitEconomics.ts and AdminUnitEconomics.tsx,Calculator and browser verification
+ADMIN-20261113-64,P2,DATA,/admin/,AdminUnitEconomics,Denied clipboard leaves no media plan text,Clipboard failure only shows a toast,FIXED,adminUnitEconomics.ts and AdminUnitEconomics.tsx,Calculator and browser verification
 ADMIN-20261113-55,P2,STATE,/admin/,WorkspaceForms,Project cost hard codes USD,Cost label ignores saved currency,FIXED,WorkspaceForms.tsx,Project in EUR
 ADMIN-20261113-56,P2,STATE,/admin/,WorkspaceForms,Monthly result fields hard code USD,Result labels ignore saved currency,FIXED,WorkspaceForms.tsx,Monthly results in RUB
 ADMIN-20261113-57,P2,STATE,/admin/,WorkspaceForms,Closed form can trigger navigation after saving,Async completion invokes old callbacks,FIXED,WorkspaceForms.tsx,Unmount before completion

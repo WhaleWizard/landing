@@ -64,6 +64,26 @@ test('admin unit economics: fractional media spend and thresholds retain cents',
   assert.equal(result.targetCplForRomi150, 0.2);
 });
 
+test('admin unit economics: exact decimal boundaries do not add a sale or lose a cent', () => {
+  const fullRates = { marginPercent: 100, leadToDealPercent: 100, siteConvPercent: 100, cpc: 0.01, repeatPurchases: 1 };
+  const exact = calculateAdminUnitEconomics({ ...fullRates, targetRevenue: 0.14, averageCheck: 0.02 });
+  assert.deepEqual([exact.dealsNeeded, exact.leadsNeeded, exact.clicksNeeded], [7, 7, 7]);
+  assert.equal(calculateAdminUnitEconomics({ ...fullRates, targetRevenue: 0.15, averageCheck: 0.02 }).dealsNeeded, 8);
+  const threshold = calculateAdminUnitEconomics({ ...fullRates, targetRevenue: 2.3, averageCheck: 2.3 });
+  assert.equal(threshold.breakEvenCpc, 2.3);
+  assert.equal(calculateAdminUnitEconomics({ ...fullRates, targetRevenue: 2.3, averageCheck: 2.309 }).breakEvenCpc, 2.30);
+});
+
+test('admin unit economics: reject unsafe figures and classify before rounding', () => {
+  assert.equal(calculateAdminUnitEconomics({ ...adminBase, cpc: 1e306 }), null);
+  const loss = calculateAdminUnitEconomics({ ...adminBase, targetRevenue: 1, averageCheck: 1, marginPercent: 50.8, leadToDealPercent: 100, siteConvPercent: 100, cpc: 0.51 });
+  assert.equal(Math.abs(loss.netProfit), 0);
+  assert.equal(loss.isLoss, true);
+  const ratio = calculateAdminUnitEconomics({ ...adminBase, targetRevenue: 10, averageCheck: 10, marginPercent: 50, leadToDealPercent: 100, siteConvPercent: 100, cpc: 1.68, repeatPurchases: 1 });
+  assert.equal(ratio.ltvCacRatio, 3);
+  assert.equal(ratio.hasLtvHeadroom, false);
+});
+
 test('financials calculate ROAS, full-cost ROMI and break-even points', () => {
   const result = calculateFinancials({
     mediaSpend: 1_000,

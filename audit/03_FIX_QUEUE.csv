@@ -1,4 +1,9 @@
 ID,Priority,Title,Component,AssignedStatus,ResolvedInCommit
+ADMIN-20261113-60,P2,Snap decimal boundary before rounding quantities,AdminUnitEconomics,COMPLETED,
+ADMIN-20261113-61,P2,Preserve the exact cent before flooring,AdminUnitEconomics,COMPLETED,
+ADMIN-20261113-62,P2,Reject unsafe results before formatting,AdminUnitEconomics,COMPLETED,
+ADMIN-20261113-63,P2,Classify using unrounded values,AdminUnitEconomics,COMPLETED,
+ADMIN-20261113-64,P2,Show a current plan for manual copy,AdminUnitEconomics,COMPLETED,
 ADMIN-20261113-55,P2,Show project cost currency,WorkspaceForms,COMPLETED,
 ADMIN-20261113-56,P2,Show monthly result currency,WorkspaceForms,COMPLETED,
 ADMIN-20261113-57,P2,Ignore completion of closed form,WorkspaceForms,COMPLETED,

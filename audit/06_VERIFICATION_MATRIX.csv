@@ -1,4 +1,6 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Unit economics decimal and bounds,scripts/calculator-engine.test.js,Node,Formula regression,2,0,PASSED
+Unit economics clipboard and unsafe input,output/playwright/admin-unit-economics-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,2,0,PASSED
 Project forms currencies and navigation,output/playwright/admin-projects-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Payment forms links and workspace refresh,output/playwright/admin-payments-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
 Goals report and today drafts,output/playwright/admin-goals-today-2026-11-13/matrix.mjs,Chromium and WebKit,390 px,10,0,PASSED
