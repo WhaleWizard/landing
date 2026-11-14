@@ -634,10 +634,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
   const [taskPriority, setTaskPriority] = useState<Priority>('normal');
   const [taskDue, setTaskDue] = useState('');
   const [pendingQuality, setPendingQuality] = useState<'target' | 'nontarget' | '' | null>(null);
-  const [leadActionId, setLeadActionId] = useState('');
-  const [noteActionId, setNoteActionId] = useState('');
-  const [taskActionId, setTaskActionId] = useState('');
-  const [tagActionId, setTagActionId] = useState('');
+  const pendingWrites = useRef(new Map<string, { fingerprint: string; actionId: string }>());
   const [qualityActionId, setQualityActionId] = useState('');
 
   const load = useCallback(async (quiet = false) => {
@@ -713,6 +710,16 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
     } finally {
       setSaving(false);
     }
+  };
+
+  const saveWithRetry = async (body: { action: string } & Record<string, unknown>, message: string) => {
+    const fingerprint = JSON.stringify({ leadId: lead.id, ...body });
+    const pending = pendingWrites.current.get(body.action);
+    const actionId = pending?.fingerprint === fingerprint ? pending.actionId : crypto.randomUUID();
+    pendingWrites.current.set(body.action, { fingerprint, actionId });
+    const saved = await post({ ...body, action_id: actionId }, message);
+    if (saved) pendingWrites.current.delete(body.action);
+    return saved;
   };
 
   // Заведён ли уже клиент из этой сделки — чтобы вместо кнопки показать ссылку
@@ -814,16 +821,13 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
       setError(DEAL_VALUE_ERROR);
       return;
     }
-    const actionId = leadActionId || crypto.randomUUID();
-    setLeadActionId(actionId);
-    const ok = await post({
-      action: 'update_lead', action_id: actionId, expected_revision: draft.crm_revision,
+    await saveWithRetry({
+      action: 'update_lead', expected_revision: draft.crm_revision,
       pipeline_stage: draft.pipeline_stage, priority: draft.priority, lead_score: draft.lead_score,
       next_action_at: toUtcIso(draft.next_action_at), next_action_text: draft.next_action_text,
       deal_value: dealValue.value, deal_currency: draft.deal_currency,
       loss_reason: draft.loss_reason, notes: draft.notes,
     }, 'Карточка сделки сохранена.');
-    if (ok) setLeadActionId('');
   };
 
   const prepareQuickAction = (kind: 'start' | 'today' | 'proposal') => {
@@ -893,11 +897,8 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
 
   const createTask = async () => {
     if (!taskTitle.trim()) return;
-    const actionId = taskActionId || crypto.randomUUID();
-    setTaskActionId(actionId);
-    const ok = await post({
+    const ok = await saveWithRetry({
       action: 'create_task',
-      action_id: actionId,
       title: taskTitle.trim(),
       kind: taskKind,
       priority: taskPriority,
@@ -906,7 +907,6 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
     if (ok) {
       setTaskTitle('');
       setTaskDue('');
-      setTaskActionId('');
     }
   };
 
@@ -939,26 +939,19 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
 
   const addNote = async () => {
     if (!newNote.trim()) return;
-    const actionId = noteActionId || crypto.randomUUID();
-    setNoteActionId(actionId);
-    const ok = await post({ action: 'add_note', action_id: actionId, body: newNote.trim() }, 'Заметка добавлена.');
+    const ok = await saveWithRetry({ action: 'add_note', body: newNote.trim() }, 'Заметка добавлена.');
     if (ok) {
       setNewNote('');
-      setNoteActionId('');
     }
   };
 
   const saveTags = async () => {
     if (!draft) return;
-    const actionId = tagActionId || crypto.randomUUID();
-    setTagActionId(actionId);
-    const ok = await post({
+    await saveWithRetry({
       action: 'set_tags',
-      action_id: actionId,
       expected_revision: draft.crm_revision,
       tags: tagDraft.split(',').map((item) => item.trim()).filter(Boolean),
     }, 'Теги сохранены.');
-    if (ok) setTagActionId('');
   };
 
   if (loading) return <AdminDetailSkeleton />;

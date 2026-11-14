@@ -270,6 +270,81 @@ test('массовый этап не меняет ни одной сделки �
   assertUntouched();
 });
 
+test('CRM note and task retries cannot acknowledge changed input or recreate deleted records', async (t) => {
+  t.after(installMemoryCache());
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  t.after(() => crm.sqlite.close());
+  const leadId = insertLead(crm.sqlite);
+  const otherLeadId = insertLead(crm.sqlite);
+  for (const [entity, createAction, field] of [['note', 'add_note', 'body'], ['task', 'create_task', 'title']]) {
+    const base = { lead_id: leadId, [field]: 'Первый текст' };
+    const create = { ...base, action: createAction, action_id: randomUUID() };
+    const created = await crm.post(create);
+    assert.equal(created.status, 200, JSON.stringify(created.payload));
+    assert.equal((await crm.post(create)).payload.idempotent, true);
+    assert.equal((await crm.post({ ...create, [field]: 'Другая запись' })).status, 409);
+
+    const update = { ...base, action: `update_${entity}`, action_id: randomUUID(),
+      [`${entity}_id`]: created.payload[entity].id, expected_revision: 0, [field]: 'Обновлённый текст' };
+    assert.equal((await crm.post(update)).status, 200);
+    assert.equal((await crm.post(update)).payload.idempotent, true);
+    assert.equal((await crm.post({ ...update, [field]: 'Третий текст' })).status, 409);
+    assert.equal((await crm.post(create)).status, 409);
+
+    const remove = { ...update, action: `delete_${entity}`, action_id: randomUUID(), expected_revision: 1 };
+    assert.equal((await crm.post(remove)).status, 200);
+    assert.equal((await crm.post(remove)).payload.idempotent, true);
+    assert.equal((await crm.post({ ...remove, lead_id: otherLeadId })).status, 404);
+    assert.equal((await crm.post(create)).status, 409);
+  }
+  assert.equal(crm.sqlite.prepare('SELECT COUNT(*) AS total FROM crm_notes').get().total, 0);
+  assert.equal(crm.sqlite.prepare('SELECT COUNT(*) AS total FROM crm_tasks').get().total, 0);
+});
+
+test('CRM deal and tag retries compare values and tag edits include name and color', async (t) => {
+  t.after(installMemoryCache());
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  t.after(() => crm.sqlite.close());
+  const leadId = insertLead(crm.sqlite);
+  const update = { action: 'update_lead', lead_id: leadId, action_id: randomUUID(), expected_revision: 0, deal_value: 25 };
+  assert.equal((await crm.post(update)).status, 200);
+  assert.equal((await crm.post(update)).payload.idempotent, true);
+  assert.equal((await crm.post({ ...update, deal_value: 30 })).status, 409);
+  const tags = { action: 'set_tags', lead_id: leadId, action_id: randomUUID(), expected_revision: 1,
+    tags: [{ name: 'Тег', color: '#123456' }] };
+  assert.equal((await crm.post(tags)).status, 200);
+  const edited = { ...tags, tags: [{ name: 'ТЕГ', color: '#654321' }] };
+  assert.equal((await crm.post(edited)).status, 409);
+  const saved = await crm.post({ ...edited, action_id: randomUUID(), expected_revision: 2 });
+  assert.equal(saved.status, 200);
+  assert.equal(saved.payload.tags[0].name, 'ТЕГ');
+  assert.equal(saved.payload.tags[0].color, '#654321');
+  const textOnly = await crm.post({ ...tags, tags: ['ТЕГ', 'Новый'], action_id: randomUUID(), expected_revision: 3 });
+  assert.equal(textOnly.status, 200);
+  assert.equal(textOnly.payload.tags.find((tag) => tag.slug === saved.payload.tags[0].slug).color, '#654321');
+});
+
+test('CRM task scopes use the owner date and omit leads in trash', async (t) => {
+  t.after(installMemoryCache());
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-13T20:00:00.750Z') });
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  t.after(() => crm.sqlite.close());
+  const active = insertLead(crm.sqlite);
+  const deleted = insertLead(crm.sqlite, { deleted_at: '2026-11-13 18:00:00' });
+  const insert = crm.sqlite.prepare('INSERT INTO crm_tasks (lead_id,title,due_at) VALUES (?,?,?)');
+  insert.run(active, 'Сегодня утром', '2026-11-13T21:00:00Z');
+  insert.run(active, 'Просрочено', '2026-11-13T20:00:00.250Z');
+  insert.run(active, 'Завтра', '2026-11-14T20:00:00Z');
+  insert.run(deleted, 'Из корзины', '2026-11-13T22:00:00Z');
+  const query = { resource: 'tasks', timezone_offset: -300 };
+  assert.deepEqual((await crm.get({ ...query, scope: 'today' })).payload.tasks.map((task) => task.title), ['Просрочено', 'Сегодня утром']);
+  assert.deepEqual((await crm.get({ ...query, scope: 'upcoming' })).payload.tasks.map((task) => task.title), ['Завтра']);
+  assert.deepEqual((await crm.get({ ...query, scope: 'overdue' })).payload.tasks.map((task) => task.title), ['Просрочено']);
+  assert.equal((await crm.get(query)).payload.tasks.length, 3);
+  assert.equal((await crm.post({ action: 'create_task', lead_id: deleted, title: 'Ошибка' })).status, 404);
+  assert.equal((await crm.get({ lead_id: '9007199254740993' })).status, 400);
+});
+
 // ─── F-028: расходы не введены — null, а не ноль ─────────────────────────────
 
 test('F-028: без единой строки ad_spend отчёт, цели и воронка не рисуют нулевой расход', async (t) => {

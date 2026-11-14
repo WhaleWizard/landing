@@ -174,3 +174,20 @@ F-073,P0,Admin 2FA Security Strict Enforcement,functions/api/admin/auth.ts,COMPL
 A11Y-001,P2,Static Shell Section Missing Accessible Region Landmark,scripts/generate-pages.js,COMPLETED,c9a1735
 CIRC-001,P2,Decouple 8 Circular Dependency Loops in Module Graph,types/ & utils/ & routerInstance.ts,COMPLETED,c9a1735
 HOOK-001,P2,Eliminate 13 ESLint React Hook Exhaustive-Deps Warnings,src/app/,COMPLETED,c9a1735
+CRM-20261114-01,P2,Note create retry acknowledged changed text or pin state,CRM,COMPLETED,
+CRM-20261114-02,P2,Note update retry acknowledged changed fields,CRM,COMPLETED,
+CRM-20261114-03,P2,Task create retry acknowledged changed data,CRM,COMPLETED,
+CRM-20261114-04,P2,Task update retry acknowledged changed fields,CRM,COMPLETED,
+CRM-20261114-05,P2,Replaying a note creation could create a duplicate or restore a deleted note,CRM,COMPLETED,
+CRM-20261114-06,P2,Replaying a task creation could create a duplicate or restore a deleted task,CRM,COMPLETED,
+CRM-20261114-07,P2,Delete retry could acknowledge a note or task from another deal,CRM,COMPLETED,
+CRM-20261114-08,P2,Deal save retry silently ignored changed values,CRM,COMPLETED,
+CRM-20261114-09,P2,Tags could not be renamed or recolored while retaining their slugs,CRM,COMPLETED,
+CRM-20261114-10,P2,Tag text entry could reset a saved shared color,CRM,COMPLETED,
+CRM-20261114-11,P2,Tag save retry acknowledged a different set,CRM,COMPLETED,
+CRM-20261114-12,P2,Global task list included trashed deals,CRM,COMPLETED,
+CRM-20261114-13,P2,A stale CRM tab could edit a deal already in the trash,CRM,COMPLETED,
+CRM-20261114-14,P2,Today and upcoming task buckets disagreed at local midnight,CRM,COMPLETED,
+CRM-20261114-15,P3,Subsecond overdue tasks could remain in the wrong bucket,CRM,COMPLETED,
+CRM-20261114-16,P3,Out-of-range deal identifiers passed validation,CRM,COMPLETED,
+CRM-20261114-17,P2,Editing a form after a lost response reused the old request ID,CRM,COMPLETED,

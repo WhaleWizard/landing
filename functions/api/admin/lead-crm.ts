@@ -21,6 +21,7 @@ import {
 } from '../../_lib/admin-crm';
 import { json, readCappedJsonBody } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
+import { sqliteLocalModifier, timezoneOffsetFromRequest } from '../../_lib/local-day';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -174,7 +175,7 @@ function getPassword(request: Request, body?: LeadCrmPayload): string {
 
 function parsePositiveInteger(value: unknown): number | null {
   const parsed = Number(value);
-  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
 }
 
 function parseBoundedInteger(value: unknown, min: number, max: number, field: string): number {
@@ -478,7 +479,9 @@ async function updateLead(
   const current = await getCrmLead(db, leadId, capabilities.workspace, capabilities.correctness);
   if (!current) throw Object.assign(new Error('Lead not found'), { name: 'NotFoundError' });
   const actionId = normalizeActionId(body.action_id);
+  const changes = buildChanges(current, patch);
   if (capabilities.correctness && current.crm_action_id === actionId) {
+    if (changes.length) throw conflictError('Повтор операции содержит другие данные');
     return { changed: false, idempotent: true, lead: current, activities_created: 0, action_id: actionId };
   }
   let expectedRevision: number | null = null;
@@ -491,7 +494,6 @@ async function updateLead(
     }
   }
 
-  const changes = buildChanges(current, patch);
   if (changes.length === 0) {
     return { changed: false, lead: current, activities_created: 0 };
   }
@@ -613,8 +615,10 @@ async function addNote(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
   const results = await db.batch([
     db.prepare(
       `INSERT INTO crm_notes (lead_id, body, pinned, revision, action_id)
-       VALUES (?, ?, ?, 0, ?) ON CONFLICT DO NOTHING`,
-    ).bind(leadId, noteBody, pinned ? 1 : 0, actionId),
+       SELECT ?, ?, ?, 0, ?
+       WHERE NOT EXISTS (SELECT 1 FROM lead_activity WHERE action_id = ? AND type = 'note_created')
+       ON CONFLICT DO NOTHING`,
+    ).bind(leadId, noteBody, pinned ? 1 : 0, actionId, actionId),
     db.prepare(
       `INSERT INTO lead_activity
          (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
@@ -627,6 +631,9 @@ async function addNote(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
   const note = await db.prepare('SELECT * FROM crm_notes WHERE lead_id = ? AND action_id = ?')
     .bind(leadId, actionId).first<CrmNoteRow>();
   if (!note) throw conflictError('action_id was already used by another CRM mutation');
+  if (note.body !== noteBody || Boolean(note.pinned) !== pinned) {
+    throw conflictError('Повтор операции содержит другие данные');
+  }
   return { note, action_id: actionId, idempotent: resultChanges(results[0]) === 0 };
 }
 
@@ -646,12 +653,16 @@ async function updateNote(db: D1Database, body: LeadCrmPayload, leadId: number):
   const current = await db.prepare('SELECT * FROM crm_notes WHERE id = ? AND lead_id = ?').bind(noteId, leadId).first<CrmNoteRow>();
   if (!current) throw Object.assign(new Error('Note not found'), { name: 'NotFoundError' });
   const actionId = normalizeActionId(body.action_id);
-  if (current.action_id === actionId) return { changed: false, idempotent: true, note: current, action_id: actionId };
-  const expectedRevision = expectedEntityRevision(body, current, 'note');
-  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Note was changed in another tab. Reload it before saving.');
   const nextBody = body.body === undefined ? current.body : normalizeBoundedText(body.body, 'body', MAX_NOTE_LENGTH, true);
   const nextPinned = body.pinned === undefined ? current.pinned === 1 : parseBoolean(body.pinned, 'pinned');
-  if (nextBody === current.body && nextPinned === (current.pinned === 1)) return { changed: false, note: current };
+  const same = nextBody === current.body && nextPinned === (current.pinned === 1);
+  if (current.action_id === actionId) {
+    if (!same) throw conflictError('Повтор операции содержит другие данные');
+    return { changed: false, idempotent: true, note: current, action_id: actionId };
+  }
+  const expectedRevision = expectedEntityRevision(body, current, 'note');
+  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Note was changed in another tab. Reload it before saving.');
+  if (same) return { changed: false, note: current };
   const results = await db.batch([
     db.prepare(
       `UPDATE crm_notes SET body = ?, pinned = ?, revision = revision + 1, action_id = ?, updated_at = datetime('now')
@@ -685,8 +696,8 @@ async function deleteNote(db: D1Database, body: LeadCrmPayload, leadId: number):
   const actionId = normalizeActionId(body.action_id);
   const current = await db.prepare('SELECT * FROM crm_notes WHERE id = ? AND lead_id = ?').bind(noteId, leadId).first<CrmNoteRow>();
   if (!current) {
-    const prior = await db.prepare("SELECT id FROM lead_activity WHERE action_id = ? AND type = 'note_deleted' AND entity_id = ?")
-      .bind(actionId, noteId).first<{ id: number }>();
+    const prior = await db.prepare("SELECT id FROM lead_activity WHERE action_id = ? AND type = 'note_deleted' AND entity_id = ? AND lead_id = ?")
+      .bind(actionId, noteId, leadId).first<{ id: number }>();
     if (prior) return { deleted: true, idempotent: true, note_id: noteId, action_id: actionId };
     throw Object.assign(new Error('Note not found'), { name: 'NotFoundError' });
   }
@@ -717,8 +728,10 @@ async function createTask(db: D1Database, body: LeadCrmPayload, leadId: number):
   const results = await db.batch([
     db.prepare(
       `INSERT INTO crm_tasks (lead_id, title, kind, priority, due_at, revision, action_id)
-       VALUES (?, ?, ?, ?, ?, 0, ?) ON CONFLICT DO NOTHING`,
-    ).bind(leadId, title, kind, priority, dueAt, actionId),
+       SELECT ?, ?, ?, ?, ?, 0, ?
+       WHERE NOT EXISTS (SELECT 1 FROM lead_activity WHERE action_id = ? AND type = 'task_created')
+       ON CONFLICT DO NOTHING`,
+    ).bind(leadId, title, kind, priority, dueAt, actionId, actionId),
     db.prepare(
       `INSERT INTO lead_activity
          (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
@@ -731,6 +744,9 @@ async function createTask(db: D1Database, body: LeadCrmPayload, leadId: number):
   const task = await db.prepare('SELECT * FROM crm_tasks WHERE lead_id = ? AND action_id = ?')
     .bind(leadId, actionId).first<CrmTaskRow>();
   if (!task) throw conflictError('action_id was already used by another CRM mutation');
+  if (task.title !== title || task.kind !== kind || task.priority !== priority || task.due_at !== dueAt) {
+    throw conflictError('Повтор операции содержит другие данные');
+  }
   return { task, action_id: actionId, idempotent: resultChanges(results[0]) === 0 };
 }
 
@@ -740,9 +756,6 @@ async function updateTask(db: D1Database, body: LeadCrmPayload, leadId: number):
   const current = await db.prepare('SELECT * FROM crm_tasks WHERE id = ? AND lead_id = ?').bind(taskId, leadId).first<CrmTaskRow>();
   if (!current) throw Object.assign(new Error('Task not found'), { name: 'NotFoundError' });
   const actionId = normalizeActionId(body.action_id);
-  if (current.action_id === actionId) return { changed: false, idempotent: true, task: current, action_id: actionId };
-  const expectedRevision = expectedEntityRevision(body, current, 'task');
-  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Task was changed in another tab. Reload it before saving.');
   const next = {
     title: body.title === undefined ? current.title : normalizeBoundedText(body.title, 'title', MAX_TASK_TITLE_LENGTH, true),
     kind: body.kind === undefined ? current.kind : normalizeEnum(body.kind, 'kind', ADMIN_CRM_TASK_KINDS),
@@ -752,6 +765,12 @@ async function updateTask(db: D1Database, body: LeadCrmPayload, leadId: number):
   };
   const same = next.title === current.title && next.kind === current.kind && next.status === current.status
     && next.priority === current.priority && next.due_at === current.due_at;
+  if (current.action_id === actionId) {
+    if (!same) throw conflictError('Повтор операции содержит другие данные');
+    return { changed: false, idempotent: true, task: current, action_id: actionId };
+  }
+  const expectedRevision = expectedEntityRevision(body, current, 'task');
+  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Task was changed in another tab. Reload it before saving.');
   if (same) return { changed: false, task: current };
   const completedAtSql = next.status === 'completed'
     ? "COALESCE(completed_at, datetime('now'))"
@@ -792,8 +811,8 @@ async function deleteTask(db: D1Database, body: LeadCrmPayload, leadId: number):
   const actionId = normalizeActionId(body.action_id);
   const current = await db.prepare('SELECT * FROM crm_tasks WHERE id = ? AND lead_id = ?').bind(taskId, leadId).first<CrmTaskRow>();
   if (!current) {
-    const prior = await db.prepare("SELECT id FROM lead_activity WHERE action_id = ? AND type = 'task_deleted' AND entity_id = ?")
-      .bind(actionId, taskId).first<{ id: number }>();
+    const prior = await db.prepare("SELECT id FROM lead_activity WHERE action_id = ? AND type = 'task_deleted' AND entity_id = ? AND lead_id = ?")
+      .bind(actionId, taskId, leadId).first<{ id: number }>();
     if (prior) return { deleted: true, idempotent: true, task_id: taskId, action_id: actionId };
     throw Object.assign(new Error('Task not found'), { name: 'NotFoundError' });
   }
@@ -819,6 +838,7 @@ interface NormalizedTag {
   name: string;
   slug: string;
   color: string;
+  colorSpecified: boolean;
 }
 
 function normalizeTags(value: unknown): NormalizedTag[] {
@@ -830,7 +850,7 @@ function normalizeTags(value: unknown): NormalizedTag[] {
     const name = normalizeBoundedText(nameValue, `tags[${index}].name`, MAX_TAG_NAME_LENGTH, true);
     const slug = normalizeTagSlug(name);
     if (!slug) throw validationError(`tags[${index}].name must contain a letter or number`);
-    return { name, slug, color: normalizeTagColor(colorValue) };
+    return { name, slug, color: normalizeTagColor(colorValue), colorSpecified: colorValue != null && colorValue !== '' };
   });
   return Array.from(new Map(tags.map((tag) => [tag.slug, tag])).values());
 }
@@ -962,7 +982,10 @@ async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
      WHERE lt.lead_id = ? ORDER BY lower(t.name), t.id`,
   ).bind(leadId).all<CrmTagRow>();
   const current = currentResult.results || [];
+  const sameTags = requested.length === current.length && requested.every((tag) =>
+    current.some((saved) => saved.slug === tag.slug && saved.name === tag.name && (!tag.colorSpecified || saved.color === tag.color)));
   if (lead.crm_action_id === actionId) {
+    if (!sameTags) throw conflictError('Повтор операции содержит другие данные');
     return { changed: false, idempotent: true, tags: current, action_id: actionId };
   }
   if (body.expected_revision === undefined) throw validationError('expected_revision is required');
@@ -971,9 +994,7 @@ async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
     throw conflictError('Lead was changed in another tab. Reload it before saving tags.');
   }
 
-  const currentSlugs = current.map((tag) => tag.slug).sort().join(',');
-  const requestedSlugs = requested.map((tag) => tag.slug).sort().join(',');
-  if (currentSlugs === requestedSlugs) return { changed: false, tags: current };
+  if (sameTags) return { changed: false, tags: current };
 
   // Every statement is guarded by the same lead revision. D1 batch execution is
   // transactional, so a competing tab cannot leave a half-applied tag set.
@@ -985,9 +1006,9 @@ async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
        WHERE EXISTS (SELECT 1 FROM leads WHERE id = ? AND crm_revision = ?)
        ON CONFLICT(slug) DO UPDATE SET
          name = excluded.name,
-         color = excluded.color,
+         color = CASE WHEN ? THEN excluded.color ELSE crm_tags.color END,
          updated_at = datetime('now')`,
-    ).bind(tag.name, tag.slug, tag.color, leadId, expectedRevision));
+    ).bind(tag.name, tag.slug, tag.color, leadId, expectedRevision, Number(tag.colorSpecified)));
   }
   statements.push(db.prepare(
     `DELETE FROM crm_lead_tags
@@ -1019,7 +1040,9 @@ async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
     actionId,
     JSON.stringify({
       before: current.map(({ id, name, slug, color }) => ({ id, name, slug, color })),
-      after: requested,
+      after: requested.map(({ name, slug, color, colorSpecified }) =>
+        colorSpecified ? { name, slug, color } : { name, slug },
+      ),
     }),
     leadId,
     actionId,
@@ -1038,7 +1061,7 @@ async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
   return { changed: true, tags: nextResult.results || [], action_id: actionId };
 }
 
-async function getGlobalTasks(db: D1Database, url: URL): Promise<CrmTaskRow[]> {
+async function getGlobalTasks(db: D1Database, request: Request, url: URL): Promise<CrmTaskRow[]> {
   const status = url.searchParams.get('status') || 'open';
   if (!(ADMIN_CRM_TASK_STATUSES as readonly string[]).includes(status) && status !== 'all') {
     throw validationError(`status must be one of: ${ADMIN_CRM_TASK_STATUSES.join(', ')}, all`);
@@ -1051,10 +1074,18 @@ async function getGlobalTasks(db: D1Database, url: URL): Promise<CrmTaskRow[]> {
   const limit = Number.isInteger(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), MAX_TASK_LIMIT) : DEFAULT_TASK_LIMIT;
   const where: string[] = [];
   const values: Array<string | number> = [];
+  if ((await getLeadsColumns(db)).has('deleted_at')) where.push('l.deleted_at IS NULL');
   if (status !== 'all') { where.push('t.status = ?'); values.push(status); }
-  if (scope === 'overdue') where.push("t.due_at IS NOT NULL AND datetime(t.due_at) < datetime('now')");
-  if (scope === 'today') where.push("t.due_at IS NOT NULL AND date(t.due_at) = date('now')");
-  if (scope === 'upcoming') where.push("t.due_at IS NOT NULL AND datetime(t.due_at) > datetime('now')");
+  if (scope === 'overdue') {
+    where.push('julianday(t.due_at) < julianday(?)');
+    values.push(new Date().toISOString());
+  }
+  if (scope === 'today' || scope === 'upcoming') {
+    const comparison = scope === 'today' ? '=' : '>';
+    const modifier = sqliteLocalModifier(timezoneOffsetFromRequest(request));
+    where.push(`date(t.due_at, ?) ${comparison} date(?, ?)`);
+    values.push(modifier, new Date().toISOString(), modifier);
+  }
   if (scope === 'unscheduled') where.push('t.due_at IS NULL');
   values.push(limit);
   const result = await db.prepare(
@@ -1094,7 +1125,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     }
     if (resource === 'tasks') {
       await assertAdminCrmSchema(env.DB, 'workspace');
-      const tasks = await getGlobalTasks(env.DB, url);
+      const tasks = await getGlobalTasks(env.DB, request, url);
       return json({ success: true, capabilities, tasks }, { headers: noStore });
     }
     if (resource !== 'lead') throw validationError('resource must be one of: lead, tags, tasks');
@@ -1144,7 +1175,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     const requirement = action === 'update_lead' ? 'base' : 'correctness';
     const capabilities = await assertAdminCrmSchema(env.DB, requirement);
-    const exists = await env.DB.prepare('SELECT id FROM leads WHERE id = ?').bind(leadId).first<{ id: number }>();
+    const activeOnly = (await getLeadsColumns(env.DB)).has('deleted_at') ? ' AND deleted_at IS NULL' : '';
+    const exists = await env.DB.prepare(`SELECT id FROM leads WHERE id = ?${activeOnly}`).bind(leadId).first<{ id: number }>();
     if (!exists) return json({ success: false, error: 'Lead not found' }, { status: 404, headers: noStore });
 
     let result: Record<string, unknown>;
