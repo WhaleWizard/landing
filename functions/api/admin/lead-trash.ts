@@ -177,6 +177,8 @@ async function purgeLeads(db: D1Database, ids: number[]): Promise<number> {
   for (const table of LEAD_CHILD_TABLES) {
     if (await tableExists(db, table)) childTables.push(table);
   }
+  const clients = await db.prepare('PRAGMA table_info(clients)').all<{ name: string }>();
+  const hasClientLink = clients.results?.some((column) => column.name === 'lead_id');
 
   let purged = 0;
   for (const part of chunks(ids)) {
@@ -197,6 +199,11 @@ async function purgeLeads(db: D1Database, ids: number[]): Promise<number> {
          )`,
       )
       .bind(...part));
+    if (hasClientLink) statements.push(db.prepare(
+      `UPDATE clients SET lead_id = NULL WHERE lead_id IN (
+        SELECT id FROM leads WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL
+      )`,
+    ).bind(...part));
     statements.push(db
       .prepare(`DELETE FROM leads WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL`)
       .bind(...part));
@@ -307,6 +314,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const warnings: string[] = [];
 
   try {
+    const revision = (action === 'delete' || action === 'restore') && (await leadColumns(db)).has('crm_revision')
+      ? ', crm_revision = crm_revision + 1'
+      : '';
     if (action === 'delete') {
       const ids = parseIds(body.ids);
       const reason = normalizeReason(body.reason);
@@ -316,22 +326,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
 
       const affectedIds = affected.map((row) => row.id);
-      let moved = 0;
+      const movedIds: number[] = [];
       for (const part of chunks(affectedIds)) {
         const placeholders = part.map(() => '?').join(', ');
         const result = await db.prepare(
-          `UPDATE leads SET deleted_at = datetime('now'), deleted_reason = ?, updated_at = datetime('now')
-           WHERE id IN (${placeholders}) AND deleted_at IS NULL`,
-        ).bind(reason, ...part).run() as { meta?: { changes?: number } };
-        moved += Number(result.meta?.changes || 0);
+          `UPDATE leads SET deleted_at = datetime('now'), deleted_reason = ?, updated_at = datetime('now')${revision}
+           WHERE id IN (${placeholders}) AND deleted_at IS NULL RETURNING id`,
+        ).bind(reason, ...part).all<{ id: number }>();
+        movedIds.push(...(result.results || []).map((row) => row.id));
       }
 
-      const cancelled = await cancelQueuedQualityEventsSafely(db, affected, warnings);
-      await auditTrashAction(db, affectedIds, 'lead_trashed', reason ? `Заявка убрана в корзину: ${reason}` : 'Заявка убрана в корзину', warnings);
+      const moved = new Set(movedIds);
+      const cancelled = await cancelQueuedQualityEventsSafely(db, affected.filter((row) => moved.has(row.id)), warnings);
+      await auditTrashAction(db, movedIds, 'lead_trashed', reason ? `Заявка убрана в корзину: ${reason}` : 'Заявка убрана в корзину', warnings);
 
       return json({
         success: true,
-        moved,
+        moved: movedIds.length,
         cancelled_events: cancelled,
         trash_total: await countTrashed(db),
         warnings,
@@ -340,25 +351,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'restore') {
       const ids = parseIds(body.ids);
-      const affected = await selectTargets(db, ids, true);
-      if (!affected.length) {
-        return json({ success: true, restored: 0, trash_total: await countTrashed(db) }, { headers: noStore });
-      }
-
-      const affectedIds = affected.map((row) => row.id);
-      let restored = 0;
-      for (const part of chunks(affectedIds)) {
+      const restoredIds: number[] = [];
+      for (const part of chunks(ids)) {
         const placeholders = part.map(() => '?').join(', ');
         const result = await db.prepare(
-          `UPDATE leads SET deleted_at = NULL, deleted_reason = '', updated_at = datetime('now')
-           WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL`,
-        ).bind(...part).run() as { meta?: { changes?: number } };
-        restored += Number(result.meta?.changes || 0);
+          `UPDATE leads SET deleted_at = NULL, deleted_reason = '', updated_at = datetime('now')${revision}
+           WHERE id IN (${placeholders}) AND deleted_at IS NOT NULL RETURNING id`,
+        ).bind(...part).all<{ id: number }>();
+        restoredIds.push(...(result.results || []).map((row) => row.id));
       }
       // История пишется только по фактически восстановленным заявкам.
-      await auditTrashAction(db, affectedIds, 'lead_restored', 'Заявка восстановлена из корзины', warnings);
+      await auditTrashAction(db, restoredIds, 'lead_restored', 'Заявка восстановлена из корзины', warnings);
 
-      return json({ success: true, restored, trash_total: await countTrashed(db), warnings }, { headers: noStore });
+      return json({ success: true, restored: restoredIds.length, trash_total: await countTrashed(db), warnings }, { headers: noStore });
     }
 
     // Окончательное удаление. Только из корзины: активную заявку стереть нельзя,

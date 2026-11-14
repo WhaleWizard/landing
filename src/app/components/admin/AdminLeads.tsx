@@ -580,6 +580,7 @@ interface TrashResult {
   cancelled_events?: number;
   /** Сколько заявок ещё осталось в корзине — по нему цикл очистки решает, делать ли следующий заход. */
   remaining?: number;
+  warnings?: string[];
 }
 
 async function callTrashApi(password: string, body: Record<string, unknown>): Promise<TrashResult> {
@@ -616,6 +617,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
   const autoScore = useMemo(() => suggestLeadScore(lead), [lead]);
   const [clientLink, setClientLink] = useState<{ id: number; name: string } | null>(null);
   const [clientBusy, setClientBusy] = useState(false);
+  const clientPending = useRef(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -751,65 +753,52 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
    * клиент, который платит, по определению выигранная сделка.
    */
   const convertToClient = async () => {
+    if (!draft || clientPending.current || saving) return;
     // Сумма сделки уйдёт в «Выиграны» вместе с клиентом: нечитаемую строку
     // лучше отклонить до того, как карточка клиента уже заведена.
-    const dealValue = draft ? parseDealValue(draft.deal_value) : { ok: true, value: null };
+    const dealValue = parseDealValue(draft.deal_value);
     if (!dealValue.ok) {
       notify.error('Сумма сделки не разобрана', DEAL_VALUE_ERROR);
       return;
     }
-    const confirmed = await confirmAsk({
-      title: `Завести клиента из сделки «${lead.name || 'без имени'}»?`,
-      description: 'Создам карточку в разделе «Клиенты», перенесу имя и контакт. Сделка перейдёт в «Выиграны». Чек и договор заполните в карточке — их из заявки не угадать.',
-      confirmLabel: 'Завести клиента',
-    });
-    if (!confirmed) return;
-
-    setClientBusy(true);
+    clientPending.current = true;
     try {
-      const response = await fetch('/api/admin/clients', {
+      const confirmed = await confirmAsk({
+        title: `Завести клиента из сделки «${lead.name || 'без имени'}»?`,
+        description: 'Создам карточку в разделе «Клиенты», перенесу имя и контакт. Сделка перейдёт в «Выиграны». Чек и договор заполните в карточке.',
+        confirmLabel: 'Завести клиента',
+      });
+      if (!confirmed) return;
+      setClientBusy(true);
+      const body = {
+        action: 'convert_client', lead_id: lead.id, expected_revision: draft.crm_revision,
+        priority: draft.priority, lead_score: draft.lead_score,
+        next_action_at: toUtcIso(draft.next_action_at), next_action_text: draft.next_action_text,
+        deal_value: dealValue.value, deal_currency: draft.deal_currency,
+        loss_reason: draft.loss_reason, notes: draft.notes,
+      };
+      const fingerprint = JSON.stringify(body);
+      const pending = pendingWrites.current.get(body.action);
+      const actionId = pending?.fingerprint === fingerprint ? pending.actionId : crypto.randomUUID();
+      pendingWrites.current.set(body.action, { fingerprint, actionId });
+      const response = await fetch(`/api/admin/lead-crm?timezone_offset=${new Date().getTimezoneOffset()}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({
-          action: 'create',
-          lead_id: lead.id,
-          name: lead.name || 'Без имени',
-          contact_method: lead.telegram_username ? 'telegram' : lead.phone ? 'телефон' : 'почта',
-          contact_value: lead.telegram_username || lead.phone || lead.email || '',
-          retainer_currency: lead.deal_currency || 'USD',
-          started_at: toIsoDate(new Date()),
-        }),
+        body: JSON.stringify({ ...body, action_id: actionId }),
       });
-      const payload = await response.json().catch(() => null) as { success?: boolean; id?: number; clientId?: number; error?: string } | null;
-
-      if (response.status === 409 && payload?.clientId) {
-        setClientLink({ id: payload.clientId, name: lead.name });
-        notify.info('Клиент из этой сделки уже заведён');
-        return;
-      }
+      const payload = await response.json().catch(() => null) as { success?: boolean; clientId?: number; error?: string } | null;
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
-
-      setClientLink({ id: Number(payload.id || 0), name: lead.name });
-
-      if (draft && draft.pipeline_stage !== 'won') {
-        const won = await post({
-          action: 'update_lead', action_id: crypto.randomUUID(), expected_revision: draft.crm_revision,
-          pipeline_stage: 'won', priority: draft.priority, lead_score: draft.lead_score,
-          next_action_at: toUtcIso(draft.next_action_at), next_action_text: draft.next_action_text,
-          deal_value: dealValue.value, deal_currency: draft.deal_currency,
-          loss_reason: draft.loss_reason, notes: draft.notes,
-        }, 'Сделка переведена в «Выиграны».');
-        if (!won) {
-          notify.info('Карточка клиента создана', 'Этап сделки не сохранился. Обновите сделку и установите «Выиграна» в карточке.');
-          return;
-        }
-      }
-
+      if (!payload.clientId) throw new Error('Обновите сделку, чтобы проверить связь с клиентом.');
+      pendingWrites.current.delete(body.action);
+      setClientLink({ id: payload.clientId, name: lead.name });
+      await load(true);
+      onChanged();
       notify.success('Клиент заведён', 'Карточка ждёт в разделе «Клиенты» — заполните чек и договор.');
     } catch (convertError) {
       notify.error('Не удалось завести клиента', convertError instanceof Error ? convertError.message : undefined);
     } finally {
+      clientPending.current = false;
       setClientBusy(false);
     }
   };
@@ -1056,7 +1045,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
             <Users aria-hidden="true" /> Открыть карточку клиента
           </button>
         ) : (
-          <button type="button" className="admin-button admin-button--primary" disabled={clientBusy || !editingReady} onClick={() => void convertToClient()}>
+          <button type="button" className="admin-button admin-button--primary" disabled={clientBusy || saving || !editingReady} onClick={() => void convertToClient()}>
             <UserPlus aria-hidden="true" /> {clientBusy ? 'Завожу…' : 'Стал клиентом'}
           </button>
         )}
@@ -1200,7 +1189,7 @@ const TRASH_PAGE_SIZE = 25;
 // Держим запас: массовое действие уходит пачками по 100.
 const TRASH_IDS_PER_REQUEST = 100;
 
-type TrashConfirm = { kind: 'purge_selected'; count: number } | { kind: 'purge_all'; count: number };
+type TrashConfirm = { kind: 'purge_selected'; ids: number[]; count: number } | { kind: 'purge_all'; count: number };
 
 function TrashPanel({ password, onChanged, refreshToken }: { password: string; onChanged: () => void; refreshToken: number }) {
   const [open, setOpen] = useState(false);
@@ -1215,6 +1204,8 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [checkedIds, setCheckedIds] = useState<number[]>([]);
+  const requestVersion = useRef(0);
+  const workingRef = useRef(false);
 
   const [confirming, setConfirming] = useState<TrashConfirm | null>(null);
 
@@ -1234,10 +1225,13 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
   }, [password, query]);
 
   const load = useCallback(async () => {
+    const version = ++requestVersion.current;
     setLoading(true);
+    setLoadingMore(false);
     setError('');
     try {
       const payload = await fetchPage(0);
+      if (version !== requestVersion.current) return;
       const nextLeads = payload.leads || [];
       setLeads(nextLeads);
       setTotal(Number(payload.total || 0));
@@ -1246,9 +1240,10 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
       // перезагрузки действие задело бы заявки, которых на экране уже нет.
       setCheckedIds((current) => current.filter((id) => nextLeads.some((item) => item.id === id)));
     } catch (loadError) {
+      if (version !== requestVersion.current) return;
       setError(loadError instanceof Error ? loadError.message : 'Не удалось открыть корзину');
     } finally {
-      setLoading(false);
+      if (version === requestVersion.current) setLoading(false);
     }
   }, [fetchPage]);
 
@@ -1281,10 +1276,12 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
   }, [open, password, refreshToken]);
 
   const loadMore = async () => {
+    const version = ++requestVersion.current;
     setLoadingMore(true);
     setError('');
     try {
       const payload = await fetchPage(leads.length);
+      if (version !== requestVersion.current) return;
       const more = payload.leads || [];
       setLeads((current) => {
         const seen = new Set(current.map((item) => item.id));
@@ -1293,30 +1290,35 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
       setTotal(Number(payload.total || 0));
       setMatched(Number(payload.matched ?? payload.total ?? 0));
     } catch (moreError) {
+      if (version !== requestVersion.current) return;
       setError(moreError instanceof Error ? moreError.message : 'Не удалось загрузить ещё');
     } finally {
-      setLoadingMore(false);
+      if (version === requestVersion.current) setLoadingMore(false);
     }
   };
 
-  const finish = async (message: string) => {
+  const finish = async (message: string, details: string[] = []) => {
     setCheckedIds([]);
-    setNotice(message);
     setConfirming(null);
     await load();
+    setNotice(message);
+    if (details.length) setError([...new Set(details)].join(' '));
     onChanged();
   };
 
   const runBulk = async (action: 'restore' | 'purge', ids: number[]) => {
-    if (!ids.length) return;
+    if (!ids.length || workingRef.current) return;
+    workingRef.current = true;
     setBusy(action);
     setError('');
     setNotice('');
+    let done = 0;
+    const warnings: string[] = [];
     try {
-      let done = 0;
       for (let index = 0; index < ids.length; index += TRASH_IDS_PER_REQUEST) {
         const part = ids.slice(index, index + TRASH_IDS_PER_REQUEST);
         const payload = await callTrashApi(password, { action, ids: part });
+        warnings.push(...(payload.warnings || []));
         done += Number((action === 'restore' ? payload.restored : payload.purged) || 0);
         if (ids.length > TRASH_IDS_PER_REQUEST) {
           setProgress(`Обработано ${Math.min(index + part.length, ids.length)} из ${ids.length}…`);
@@ -1324,10 +1326,13 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
       }
       await finish(action === 'restore'
         ? `Восстановлено заявок: ${done}`
-        : `Удалено навсегда: ${done}`);
+        : `Удалено навсегда: ${done}`, warnings);
     } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : 'Действие не выполнено');
+      await finish(done ? `Подтверждено обработанных заявок: ${done}` : '', [
+        ...warnings, actionError instanceof Error ? actionError.message : 'Не удалось подтвердить действие',
+      ]);
     } finally {
+      workingRef.current = false;
       setBusy('');
       setProgress('');
     }
@@ -1336,23 +1341,35 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
   // Полная очистка идёт порциями на сервере: повторяем запрос, пока корзина
   // не опустеет, и показываем остаток, чтобы не выглядело зависанием.
   const purgeAll = async () => {
+    if (workingRef.current) return;
+    workingRef.current = true;
     setBusy('purge_all');
     setError('');
     setNotice('');
+    let removed = 0;
+    let remaining: number | undefined;
+    const warnings: string[] = [];
     try {
-      let removed = 0;
       for (let round = 0; round < 100; round += 1) {
         const payload = await callTrashApi(password, { action: 'purge_all' });
         const purged = Number(payload.purged || 0);
-        const remaining = Number(payload.remaining || 0);
+        remaining = payload.remaining;
+        warnings.push(...(payload.warnings || []));
         removed += purged;
-        if (remaining <= 0 || purged === 0) break;
+        if (remaining === undefined || remaining <= 0 || purged === 0) break;
         setProgress(`Удалено ${removed}, осталось ${remaining}…`);
       }
-      await finish(`Корзина очищена · удалено заявок: ${removed}`);
+      if (remaining === 0) await finish(`Корзина очищена · удалено заявок: ${removed}`, warnings);
+      else await finish(removed ? `Удалено заявок: ${removed}` : '', [
+        ...warnings, remaining === undefined ? 'Сервер не сообщил, сколько заявок осталось.'
+          : `Корзина очищена частично. Осталось заявок: ${remaining}.`,
+      ]);
     } catch (purgeError) {
-      setError(purgeError instanceof Error ? purgeError.message : 'Не удалось очистить корзину');
+      await finish(removed ? `Подтверждено удалённых заявок: ${removed}` : '', [
+        ...warnings, purgeError instanceof Error ? purgeError.message : 'Не удалось подтвердить очистку корзины',
+      ]);
     } finally {
+      workingRef.current = false;
       setBusy('');
       setProgress('');
     }
@@ -1370,7 +1387,7 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
           <h3>Корзина<span className={`admin-trash__count ${total ? 'is-filled' : ''}`}>{total}</span></h3>
           <p className="admin-meta">Убранные заявки не видны в списке, счётчиках и отчётах по источникам. Пока они здесь — их можно вернуть.</p>
         </div>
-        <button className="admin-button" type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+        <button className="admin-button" type="button" disabled={working} onClick={() => { requestVersion.current += 1; setConfirming(null); setOpen(!open); }} aria-expanded={open}>
           <Trash2 aria-hidden="true" /> {open ? 'Свернуть' : 'Открыть корзину'}
         </button>
       </div>
@@ -1384,12 +1401,13 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
               <Search aria-hidden="true" />
               <input
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                disabled={working || Boolean(confirming)}
+                onChange={(event) => { requestVersion.current += 1; setQuery(event.target.value); }}
                 placeholder="Имя, контакт, услуга или причина"
                 aria-label="Поиск по корзине"
               />
               {searching ? (
-                <button type="button" className="admin-trash__search-clear" aria-label="Очистить поиск" onClick={() => setQuery('')}><X aria-hidden="true" /></button>
+                <button type="button" className="admin-trash__search-clear" disabled={working || Boolean(confirming)} aria-label="Очистить поиск" onClick={() => { requestVersion.current += 1; setQuery(''); }}><X aria-hidden="true" /></button>
               ) : null}
             </label>
             <button className="admin-button admin-button--quiet" type="button" onClick={() => void load()} disabled={loading || working}>
@@ -1421,7 +1439,7 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
                   disabled={working}
                   onClick={() => {
                     if (confirming.kind === 'purge_all') void purgeAll();
-                    else void runBulk('purge', checkedIds);
+                    else void runBulk('purge', confirming.ids);
                   }}
                 >
                   <Trash2 aria-hidden="true" /> Да, удалить
@@ -1468,7 +1486,7 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
                     className="admin-button admin-button--danger"
                     type="button"
                     disabled={working || !checkedIds.length}
-                    onClick={() => setConfirming({ kind: 'purge_selected', count: checkedIds.length })}
+                    onClick={() => setConfirming({ kind: 'purge_selected', ids: checkedIds, count: checkedIds.length })}
                   >
                     <Trash2 aria-hidden="true" /> {busy === 'purge' ? 'Удаляю…' : 'Удалить навсегда'}
                   </button>
@@ -1517,7 +1535,7 @@ function TrashPanel({ password, onChanged, refreshToken }: { password: string; o
                           disabled={working}
                           aria-label={`Удалить навсегда заявку ${leadLabel(lead)}`}
                           title="Удалить навсегда"
-                          onClick={() => { setCheckedIds([lead.id]); setConfirming({ kind: 'purge_selected', count: 1 }); }}
+                          onClick={() => { setCheckedIds([lead.id]); setConfirming({ kind: 'purge_selected', ids: [lead.id], count: 1 }); }}
                         >
                           <Trash2 aria-hidden="true" />
                         </button>

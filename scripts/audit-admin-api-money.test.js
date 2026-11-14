@@ -438,6 +438,75 @@ test('CRM merge protects linked clients and won sales and clients reject stale s
   assert.equal((await trash.post({ action: 'restore', ids: ['9007199254740993'] })).status, 400);
 });
 
+test('CRM converts to a client and wins the deal in one batch with safe retries', async (t) => {
+  t.after(installMemoryCache());
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-13T21:00:00Z') });
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  const { sqlite } = crm;
+  t.after(() => sqlite.close());
+  const lead = insertLead(sqlite, { name: 'Клиент', phone: '123456', deal_value: 10 });
+  const params = { timezone_offset: -300 };
+  const request = { action: 'convert_client', action_id: 'convert-this', lead_id: lead, expected_revision: 0, deal_value: 55, deal_currency: 'EUR' };
+  assert.equal((await crm.post({ ...request, expected_revision: 2 }, params)).status, 409);
+  sqlite.exec("CREATE TRIGGER fail_client BEFORE INSERT ON clients BEGIN SELECT RAISE(ABORT, 'fixture failure'); END");
+  assert.equal((await crm.post(request, params)).status, 500);
+  assert.equal(sqlite.prepare('SELECT pipeline_stage FROM leads').get().pipeline_stage, 'new');
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM lead_activity').get().n, 0);
+  sqlite.exec('DROP TRIGGER fail_client');
+  const results = await Promise.all([crm.post(request, params), crm.post(request, params)]);
+  assert.ok(results.every((result) => result.status === 200));
+  assert.equal(results[0].payload.clientId, results[1].payload.clientId);
+  assert.equal((await crm.post({ ...request, deal_value: 80 }, params)).status, 409);
+  const client = sqlite.prepare('SELECT lead_id,contact_value,retainer_currency,started_at FROM clients').get();
+  assert.deepEqual({ ...client }, { lead_id: lead, contact_value: '123456', retainer_currency: 'EUR', started_at: '2026-11-14' });
+  assert.equal(sqlite.prepare('SELECT pipeline_stage FROM leads').get().pipeline_stage, 'won');
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM clients').get().n, 1);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM lead_activity WHERE type='pipeline_stage_changed'").get().n, 1);
+});
+
+test('trash revisions invalidate old CRM forms and purge detaches the client without removing its work', async (t) => {
+  t.after(installMemoryCache());
+  const trash = await harness('functions/api/admin/lead-trash.ts');
+  const { sqlite } = trash;
+  t.after(() => sqlite.close());
+  const crm = await harness('functions/api/admin/lead-crm.ts', { sqlite });
+  const lead = insertLead(sqlite);
+  const client = Number(sqlite.prepare("INSERT INTO clients (name, lead_id) VALUES ('Клиент', ?)").run(lead).lastInsertRowid);
+  sqlite.prepare("INSERT INTO client_notes(client_id,body) VALUES (?, 'Рабочая история')").run(client);
+  const deletes = await Promise.all([1, 2].map(() => trash.post({ action: 'delete', ids: [lead] })));
+  assert.deepEqual(deletes.map((item) => item.payload.moved).sort(), [0, 1]);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM lead_activity WHERE type='lead_trashed'").get().n, 1);
+  const restores = await Promise.all([1, 2].map(() => trash.post({ action: 'restore', ids: [lead] })));
+  assert.deepEqual(restores.map((item) => item.payload.restored).sort(), [0, 1]);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM lead_activity WHERE type='lead_restored'").get().n, 1);
+  assert.equal((await crm.post({ action: 'update_lead', lead_id: lead, expected_revision: 0, deal_value: 30 })).status, 409);
+  assert.equal((await trash.post({ action: 'purge', ids: [lead] })).payload.purged, 0);
+  assert.equal(sqlite.prepare('SELECT lead_id FROM clients').get().lead_id, lead);
+  await trash.post({ action: 'delete', ids: [lead] });
+  assert.equal((await trash.post({ action: 'purge', ids: [lead] })).payload.purged, 1);
+  assert.equal(sqlite.prepare('SELECT lead_id FROM clients').get().lead_id, null);
+  assert.equal(sqlite.prepare('SELECT body FROM client_notes').get().body, 'Рабочая история');
+});
+
+test('client deletion protects a project added just before the transaction', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const { sqlite } = clients;
+  t.after(() => sqlite.close());
+  const id = Number(sqlite.prepare("INSERT INTO clients (name) VALUES ('Клиент')").run().lastInsertRowid);
+  sqlite.prepare("INSERT INTO client_notes (client_id, body) VALUES (?, 'Заметка')").run(id);
+  const batch = clients.env.DB.batch.bind(clients.env.DB);
+  clients.env.DB.batch = (statements) => {
+    sqlite.prepare("INSERT INTO client_work (client_id, kind, title) VALUES (?, 'project', 'Проект')").run(id);
+    return batch(statements);
+  };
+  assert.equal((await clients.post({ action: 'delete', id })).status, 409);
+  assert.equal(sqlite.prepare('SELECT id FROM clients').get().id, id);
+  assert.equal(sqlite.prepare('SELECT body FROM client_notes').get().body, 'Заметка');
+  clients.env.DB.batch = batch;
+  assert.equal((await clients.post({ action: 'delete', id: id + 1 })).status, 404);
+});
+
 // ─── F-028: расходы не введены — null, а не ноль ─────────────────────────────
 
 test('F-028: без единой строки ad_spend отчёт, цели и воронка не рисуют нулевой расход', async (t) => {

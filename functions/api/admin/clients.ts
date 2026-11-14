@@ -670,18 +670,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'delete') {
-      if(await hasWorkspace(db)){
-        const linked=await db.prepare('SELECT (SELECT count(*) FROM client_work WHERE client_id=?) + (SELECT count(*) FROM client_tasks WHERE client_id=?) + (SELECT count(*) FROM invoices WHERE client_id=?) AS n').bind(id,id,id).first<{n:number}>();
-        if(linked?.n)return json({success:false,error:'У клиента есть связанные проекты, задачи или счета. Переведите карточку в «Завершён», чтобы сохранить историю.'},{status:409,headers:noStore});
-      }
+      const workspace = await hasWorkspace(db);
+      const guard = workspace ? ` AND NOT EXISTS (SELECT 1 FROM client_work WHERE client_id = ?)
+        AND NOT EXISTS (SELECT 1 FROM client_tasks WHERE client_id = ?)
+        AND NOT EXISTS (SELECT 1 FROM invoices WHERE client_id = ?)` : '';
+      const bindings = workspace ? [id, id, id, id] : [id];
       // Карточка клиента — это история отношений; удаление уносит и её,
       // поэтому оно всегда осознанное действие из интерфейса с подтверждением.
-      await db.batch([
-        db.prepare('DELETE FROM client_months WHERE client_id = ?').bind(id),
-        db.prepare('DELETE FROM client_access WHERE client_id = ?').bind(id),
-        db.prepare('DELETE FROM client_notes WHERE client_id = ?').bind(id),
-        db.prepare('DELETE FROM clients WHERE id = ?').bind(id),
+      const [deleted] = await db.batch([
+        db.prepare(`DELETE FROM clients WHERE id = ?${guard}`).bind(...bindings),
+        ...['client_months', 'client_access', 'client_notes'].map((table) => db.prepare(
+          `DELETE FROM ${table} WHERE client_id = ? AND NOT EXISTS (SELECT 1 FROM clients WHERE id = ?)`,
+        ).bind(id, id)),
       ]);
+      if (!deleted.meta?.changes) {
+        const current = await db.prepare('SELECT id FROM clients WHERE id = ?').bind(id).first<{ id: number }>();
+        if (current) return json({ success: false, error: 'У клиента есть связанные проекты, задачи или счета. Переведите карточку в «Завершён», чтобы сохранить историю.' }, { status: 409, headers: noStore });
+        return json({ success: false, error: 'Клиент уже удалён' }, { status: 404, headers: noStore });
+      }
       return json({ success: true }, { headers: noStore });
     }
 

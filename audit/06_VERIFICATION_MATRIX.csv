@@ -1,4 +1,6 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+CRM conversion and trash integrity,scripts/audit-admin-api-money.test.js and scripts/lead-reliability.test.js,Node and SQLite,Full schema,79,0,PASSED
+CRM conversion after response loss and partial trash result,output/playwright/full-site-audit-2026-11-14/crm-trash-convert.mjs,Chromium and WebKit and SQLite,1440 px,2,0,PASSED
 CRM merge atomicity and linked client guard,scripts/audit-admin-api-money.test.js,Node and SQLite,Full schema,50,0,PASSED
 CRM merge partial refresh and client after reload,output/playwright/full-site-audit-2026-11-14/crm-merge.mjs,Chromium and WebKit and SQLite,1440 px,2,0,PASSED
 CRM deal note task tag retries and deadlines,scripts/audit-admin-api-money.test.js,Node and SQLite,Full schema,47,0,PASSED

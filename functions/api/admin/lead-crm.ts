@@ -21,7 +21,7 @@ import {
 } from '../../_lib/admin-crm';
 import { json, readCappedJsonBody } from '../../_lib/http';
 import { enforceRateLimit } from '../../_lib/rate-limit';
-import { sqliteLocalModifier, timezoneOffsetFromRequest } from '../../_lib/local-day';
+import { localTodayIso, sqliteLocalModifier, timezoneOffsetFromRequest } from '../../_lib/local-day';
 import type { Env } from '../../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -419,7 +419,8 @@ function createGuardedLeadActivityStatement(
     `INSERT INTO lead_activity
        (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
      SELECT id, ?, ?, ?, ?, 'admin', 'lead', id, ?, ?
-     FROM leads WHERE id = ? AND crm_action_id = ?`,
+     FROM leads WHERE id = ? AND crm_action_id = ?
+       AND NOT EXISTS (SELECT 1 FROM lead_activity WHERE lead_id = leads.id AND action_id = ? AND metadata_json = ?)`,
   ).bind(
     change.type,
     change.field === 'notes' ? null : change.from,
@@ -429,6 +430,8 @@ function createGuardedLeadActivityStatement(
     JSON.stringify({ field: change.field, before: change.from, after: change.to }),
     leadId,
     actionId,
+    actionId,
+    JSON.stringify({ field: change.field, before: change.from, after: change.to }),
   );
 }
 
@@ -472,6 +475,7 @@ async function updateLead(
   body: LeadCrmPayload,
   leadId: number,
   capabilities: AdminCrmCapabilities,
+  convertOn?: string,
 ): Promise<Record<string, unknown>> {
   if (capabilities.workspace && !capabilities.correctness) {
     throw new AdminCrmMigrationRequiredError('correctness');
@@ -479,11 +483,15 @@ async function updateLead(
   const patch = normalizeLeadPatch(body, capabilities.workspace);
   const current = await getCrmLead(db, leadId, capabilities.workspace, capabilities.correctness);
   if (!current) throw Object.assign(new Error('Lead not found'), { name: 'NotFoundError' });
-  const actionId = normalizeActionId(body.action_id);
+  const requestId = normalizeActionId(body.action_id);
+  const actionId = convertOn ? `client:${requestId}` : requestId;
+  const findClient = () => db.prepare('SELECT id FROM clients WHERE lead_id = ?').bind(leadId).first<{ id: number }>();
   const changes = buildChanges(current, patch);
   if (capabilities.correctness && current.crm_action_id === actionId) {
     if (changes.length) throw conflictError('Повтор операции содержит другие данные');
-    return { changed: false, idempotent: true, lead: current, activities_created: 0, action_id: actionId };
+    const client = convertOn ? await findClient() : null;
+    if (convertOn && !client) throw conflictError('Карточка клиента больше недоступна. Обновите сделку.');
+    return { changed: false, idempotent: true, lead: current, activities_created: 0, action_id: actionId, ...(client ? { clientId: client.id } : {}) };
   }
   let expectedRevision: number | null = null;
   if (capabilities.workspace) {
@@ -495,7 +503,7 @@ async function updateLead(
     }
   }
 
-  if (changes.length === 0) {
+  if (changes.length === 0 && !convertOn) {
     return { changed: false, lead: current, activities_created: 0 };
   }
 
@@ -514,11 +522,23 @@ async function updateLead(
   }
   setParts.push("updated_at = datetime('now')");
 
+  const activeOnly = await columnExists(db, 'leads', 'deleted_at') ? ' AND deleted_at IS NULL' : '';
   const update = capabilities.correctness
-    ? db.prepare(`UPDATE leads SET ${setParts.join(', ')} WHERE id = ? AND crm_revision = ?`)
+    ? db.prepare(`UPDATE leads SET ${setParts.join(', ')} WHERE id = ? AND crm_revision = ?${activeOnly}`)
       .bind(...updateValues, leadId, expectedRevision)
-    : db.prepare(`UPDATE leads SET ${setParts.join(', ')} WHERE id = ?`).bind(...updateValues, leadId);
+    : db.prepare(`UPDATE leads SET ${setParts.join(', ')} WHERE id = ?${activeOnly}`).bind(...updateValues, leadId);
   const statements: D1PreparedStatement[] = [update];
+  if (convertOn) {
+    statements.push(db.prepare(
+      `INSERT INTO clients (lead_id, name, contact_method, contact_value, retainer_currency, started_at)
+       SELECT id, substr(COALESCE(NULLIF(trim(name), ''), 'Без имени'), 1, 160),
+          CASE WHEN telegram_username <> '' THEN 'telegram' WHEN phone <> '' THEN 'телефон' ELSE 'почта' END,
+          substr(COALESCE(NULLIF(telegram_username, ''), NULLIF(phone, ''), email, ''), 1, 200),
+          COALESCE(NULLIF(deal_currency, ''), 'USD'), ?
+       FROM leads WHERE id = ? AND crm_revision = ? AND crm_action_id = ?${activeOnly}
+       ON CONFLICT(lead_id) WHERE lead_id IS NOT NULL DO NOTHING`,
+    ).bind(convertOn, leadId, Number(expectedRevision) + 1, actionId));
+  }
   if (capabilities.correctness) {
     statements.push(...changes.map((change) => createGuardedLeadActivityStatement(db, leadId, change, actionId)));
   } else {
@@ -535,11 +555,19 @@ async function updateLead(
     }, capabilities.auditContext)));
   }
   const results = await db.batch(statements);
-  if (capabilities.correctness && resultChanges(results[0]) === 0) {
+  if (resultChanges(results[0]) === 0) {
+    if (convertOn) {
+      const latest = await getCrmLead(db, leadId, capabilities.workspace, capabilities.correctness);
+      if (latest?.crm_action_id === actionId && !buildChanges(latest, patch).length) {
+        const client = await findClient();
+        if (client) return { changed: false, idempotent: true, lead: latest, activities_created: 0, action_id: actionId, clientId: client.id };
+      }
+    }
     throw conflictError('Lead was changed in another tab. Reload it before saving.');
   }
   const lead = await getCrmLead(db, leadId, capabilities.workspace, capabilities.correctness);
-  return { changed: true, lead, activities_created: changes.length, action_id: actionId };
+  const client = convertOn ? await findClient() : null;
+  return { changed: true, lead, activities_created: changes.length, action_id: actionId, ...(client ? { clientId: client.id } : {}) };
 }
 
 async function bulkUpdateStage(db: D1Database, body: LeadCrmPayload) {
@@ -1214,6 +1242,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     let result: Record<string, unknown>;
     if (action === 'update_lead') result = await updateLead(env.DB, body, leadId, capabilities);
+    else if (action === 'convert_client') {
+      if (!(await columnExists(env.DB, 'clients', 'lead_id'))) {
+        return json({ success: false, migration: '0032_clients.sql', error: 'Примените миграцию 0032_clients.sql, чтобы завести клиента.' }, { status: 503, headers: noStore });
+      }
+      result = await updateLead(env.DB, { ...body, pipeline_stage: 'won' }, leadId, capabilities, localTodayIso(request));
+    }
     else if (action === 'add_note') result = await addNote(env.DB, body, leadId);
     else if (action === 'update_note') result = await updateNote(env.DB, body, leadId);
     else if (action === 'delete_note') result = await deleteNote(env.DB, body, leadId);
