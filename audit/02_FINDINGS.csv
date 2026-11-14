@@ -191,3 +191,17 @@ CRM-20261114-14,P2,DATA,/admin/,CRM,Today and upcoming task buckets disagreed at
 CRM-20261114-15,P3,DATA,/admin/,CRM,Subsecond overdue tasks could remain in the wrong bucket,SQLite datetime truncated fractional seconds,FIXED,lead-crm.ts,SQLite deadline comparison
 CRM-20261114-16,P3,RELIABILITY,/admin/,CRM,Out-of-range deal identifiers passed validation,Identifier checked integer shape only,FIXED,lead-crm.ts,SQLite safe-integer validation
 CRM-20261114-17,P2,RELIABILITY,/admin/,CRM,Editing a form after a lost response reused the old request ID,Admin stored an ID without the attempted content,FIXED,AdminLeads.tsx,Desktop browser CRM retry
+MERGE-20261114-01,P2,DATA,/admin/,CRM,Two merges could overwrite the same submission total,No primary revision guard,FIXED,CRM merge and related routes,SQLite parallel merges
+MERGE-20261114-02,P2,DATA,/admin/,CRM,A changed duplicate could be merged from a stale list,No duplicate revision guard,FIXED,CRM merge and related routes,SQLite stale duplicate revision
+MERGE-20261114-03,P2,RELIABILITY,/admin/,CRM,Two retries could produce two merge notes or a false error,Merge did not record and replay a request ID,FIXED,CRM merge and related routes,SQLite same-action race
+MERGE-20261114-04,P2,DATA,/admin/,CRM,Merge could remove a won deal from revenue,Selection favored oldest lead regardless of sales stage,FIXED,CRM merge and related routes,SQLite won stage conflict
+MERGE-20261114-05,P2,DATA,/admin/,CRM,Merge could leave a client attached to a trashed lead,Client relation was outside merge guards,FIXED,CRM merge and related routes,SQLite linked client conflict and desktop choice
+MERGE-20261114-06,P2,DATA,/admin/,CRM,Old form receipts could disappear when purging the duplicate,Lead ingestion records did not follow the merge,FIXED,CRM merge and related routes,SQLite ingestion association
+MERGE-20261114-07,P2,DATA,/admin/,CRM,Merge could mix UTM from separate visits and omit content or term,UTM copied field by field and without two fields,FIXED,CRM merge and related routes,SQLite attribution with and without existing UTM
+MERGE-20261114-08,P2,DATA,/admin/,CRM,Mixed timestamp formats could keep the wrong latest submission,Merge compared time as strings,FIXED,CRM merge and related routes,SQLite UTC-equivalent comparison
+MERGE-20261114-09,P2,DATA,/admin/,CRM,Re-merging a restored duplicate could double its contributions,Restore retained prior transfer without checking history,FIXED,CRM merge and related routes,SQLite restore and re-merge
+MERGE-20261114-10,P2,UX,/admin/,CRM,Partial merges or lost responses left stale groups on screen,Only the success path refreshed the list,FIXED,CRM merge and related routes,Chromium and WebKit
+MERGE-20261114-11,P2,DATA,/admin/,CRM,Client creation could accept an absent or trashed lead,Insert did not verify the source deal in the same statement,FIXED,CRM merge and related routes,SQLite stale source ID
+MERGE-20261114-12,P2,VALIDATION,/admin/,CRM,Malformed lead links could silently create an unlinked client,Falsy number conversion treated invalid input as missing,FIXED,CRM merge and related routes,SQLite invalid source ID
+MERGE-20261114-13,P3,VALIDATION,/admin/,CRM,JSON null could crash the trash handler,Request body shape unchecked,FIXED,CRM merge and related routes,SQLite handler validation
+MERGE-20261114-14,P3,VALIDATION,/admin/,CRM,Trash actions accepted lead IDs beyond exact integer range,Checks used isInteger,FIXED,CRM merge and related routes,SQLite unsafe IDs

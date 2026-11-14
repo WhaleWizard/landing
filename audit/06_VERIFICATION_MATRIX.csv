@@ -1,4 +1,6 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+CRM merge atomicity and linked client guard,scripts/audit-admin-api-money.test.js,Node and SQLite,Full schema,50,0,PASSED
+CRM merge partial refresh and client after reload,output/playwright/full-site-audit-2026-11-14/crm-merge.mjs,Chromium and WebKit and SQLite,1440 px,2,0,PASSED
 CRM deal note task tag retries and deadlines,scripts/audit-admin-api-money.test.js,Node and SQLite,Full schema,47,0,PASSED
 CRM lost response tasks and tags after reload,output/playwright/full-site-audit-2026-11-14/crm-mutations.mjs,Chromium and WebKit and SQLite,1440 px,2,0,PASSED
 Finance and workspace record integrity,scripts/audit-admin-api-money.test.js and scripts/admin-workspace.test.js,Node and SQLite,Full and legacy schemas,60,0,PASSED

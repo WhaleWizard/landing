@@ -345,6 +345,99 @@ test('CRM task scopes use the owner date and omit leads in trash', async (t) => 
   assert.equal((await crm.get({ lead_id: '9007199254740993' })).status, 400);
 });
 
+test('CRM merge preserves work, attribution and ingestion history and replays one result', async (t) => {
+  t.after(installMemoryCache());
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  const { sqlite } = crm;
+  t.after(() => sqlite.close());
+  const primary = insertLead(sqlite, { name: 'Основная', submissions_count: 2, utm_source: 'google',
+    last_submitted_at: '2026-11-13T13:00:00+05:00' });
+  const duplicate = insertLead(sqlite, { email: 'merge@example.test', submissions_count: 3,
+    utm_source: 'meta', utm_campaign: 'other', last_submitted_at: '2026-11-13 10:00:00' });
+  sqlite.prepare("INSERT INTO clients (name, lead_id) VALUES ('Клиент', ?)").run(primary);
+  sqlite.prepare("INSERT INTO crm_notes (lead_id, body) VALUES (?, 'Запись')").run(duplicate);
+  sqlite.prepare("INSERT INTO crm_tasks (lead_id, title) VALUES (?, 'Задача')").run(duplicate);
+  sqlite.exec("INSERT INTO crm_tags (id, name, slug) VALUES (1, 'Общий', 'shared'), (2, 'Новый', 'new')");
+  sqlite.prepare('INSERT INTO crm_lead_tags (lead_id, tag_id) VALUES (?, 1), (?, 1), (?, 2)').run(primary, duplicate, duplicate);
+  sqlite.prepare("INSERT INTO lead_ingestions (event_id, claim_token, lead_id) VALUES ('merge-receipt', 'token', ?)").run(duplicate);
+  const request = { action: 'merge_lead', lead_id: primary, duplicate_id: duplicate, action_id: 'retry-one',
+    expected_revision: 0, duplicate_revision: 0 };
+  const responses = await Promise.all([crm.post(request), crm.post(request)]);
+  assert.deepEqual(responses.map((item) => item.status), [200, 200]);
+  assert.equal(responses.filter((item) => item.payload.idempotent === true).length, 1);
+  assert.ok(responses.every((item) => item.payload.revision === 1));
+  assert.equal((await crm.post({ ...request, duplicate_id: primary + duplicate })).status, 409);
+  const result = sqlite.prepare('SELECT * FROM leads WHERE id = ?').get(primary);
+  assert.equal(result.submissions_count, 5);
+  assert.equal(result.last_submitted_at, '2026-11-13 10:00:00');
+  assert.equal(result.email, 'merge@example.test');
+  assert.equal(result.utm_source, 'google');
+  assert.equal(result.utm_campaign, '');
+  assert.equal(sqlite.prepare('SELECT lead_id FROM clients').get().lead_id, primary);
+  assert.equal(sqlite.prepare('SELECT lead_id FROM lead_ingestions').get().lead_id, primary);
+  assert.equal(sqlite.prepare('SELECT lead_id FROM crm_tasks').get().lead_id, primary);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM crm_notes WHERE lead_id = ?').get(primary).n, 2);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM crm_lead_tags WHERE lead_id = ?').get(primary).n, 2);
+  const trash = await harness('functions/api/admin/lead-trash.ts', { sqlite });
+  assert.equal((await trash.post({ action: 'restore', ids: [duplicate] })).payload.restored, 1);
+  assert.equal((await crm.post({ ...request, action_id: 'new-retry', expected_revision: 1, duplicate_revision: 1 })).status, 409);
+  assert.equal((await crm.post(request)).payload.idempotent, true);
+  assert.equal(sqlite.prepare('SELECT submissions_count FROM leads WHERE id = ?').get(primary).submissions_count, 5);
+});
+
+test('CRM merge rejects competing edits and rolls back changes if a later write fails', async (t) => {
+  t.after(installMemoryCache());
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  const { sqlite } = crm;
+  t.after(() => sqlite.close());
+  const primary = insertLead(sqlite);
+  const first = insertLead(sqlite, { submissions_count: 4 });
+  const second = insertLead(sqlite, { submissions_count: 6 });
+  const request = { action: 'merge_lead', lead_id: primary, expected_revision: 0, duplicate_revision: 0 };
+  sqlite.prepare("INSERT INTO crm_tasks (lead_id, title) VALUES (?, 'Срок'), (?, 'Срок')").run(first, second);
+  const results = await Promise.all([first, second].map((id) => crm.post({ ...request, duplicate_id: id, action_id: `race-${id}` })));
+  assert.deepEqual(results.map((item) => item.status).sort(), [200, 409]);
+  const remaining = results[0].status === 409 ? first : second;
+  assert.equal(sqlite.prepare('SELECT lead_id FROM crm_tasks WHERE lead_id = ?').get(remaining).lead_id, remaining);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM lead_activity WHERE type = ?').get('lead_merged').n, 1);
+  assert.equal(sqlite.prepare('SELECT submissions_count FROM leads WHERE id = ?').get(primary).submissions_count, remaining === first ? 7 : 5);
+  sqlite.exec("CREATE TRIGGER reject_merge_note BEFORE INSERT ON crm_notes BEGIN SELECT RAISE(ABORT, 'test write failure'); END");
+  assert.equal((await crm.post({ ...request, duplicate_id: remaining, expected_revision: 1 })).status, 500);
+  assert.equal(sqlite.prepare('SELECT deleted_at FROM leads WHERE id = ?').get(remaining).deleted_at, null);
+  assert.equal(sqlite.prepare('SELECT lead_id FROM crm_tasks WHERE lead_id = ?').get(remaining).lead_id, remaining);
+  assert.equal(sqlite.prepare('SELECT crm_revision FROM leads WHERE id = ?').get(primary).crm_revision, 1);
+});
+
+test('CRM merge protects linked clients and won sales and clients reject stale source IDs', async (t) => {
+  t.after(installMemoryCache());
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  const { sqlite } = crm;
+  t.after(() => sqlite.close());
+  const clients = await harness('functions/api/admin/clients.ts', { sqlite });
+  const list = await harness('functions/api/admin/crm-leads.ts', { sqlite });
+  const primary = insertLead(sqlite);
+  const duplicate = insertLead(sqlite, { utm_source: 'meta', utm_campaign: 'sale', utm_content: 'video', utm_term: 'audience' });
+  const won = insertLead(sqlite, { pipeline_stage: 'won', deal_value: 150 });
+  const linked = insertLead(sqlite);
+  assert.equal((await clients.post({ action: 'create', name: 'Связанный', lead_id: linked })).status, 200);
+  assert.equal((await list.get({ id: linked })).payload.leads[0].has_client, 1);
+  const request = { action: 'merge_lead', lead_id: primary };
+  assert.equal((await crm.post({ ...request, duplicate_id: won })).status, 409);
+  assert.equal((await crm.post({ ...request, duplicate_id: linked })).status, 409);
+  assert.equal((await crm.post({ ...request, duplicate_id: duplicate, duplicate_revision: 99 })).status, 409);
+  assert.equal((await crm.post({ ...request, duplicate_id: duplicate })).status, 200);
+  const transferred = sqlite.prepare('SELECT utm_source, utm_campaign, utm_content, utm_term FROM leads WHERE id = ?').get(primary);
+  assert.deepEqual({ ...transferred }, { utm_source: 'meta', utm_campaign: 'sale', utm_content: 'video', utm_term: 'audience' });
+  for (const id of [duplicate, 99999]) {
+    assert.equal((await clients.post({ action: 'create', name: 'Отклонить', lead_id: id })).status, 409);
+  }
+  assert.equal((await clients.post({ action: 'create', name: 'Отклонить', lead_id: 'oops' })).status, 400);
+  assert.equal((await clients.post({ action: 'create', name: 'Без заявки' })).status, 200);
+  const trash = await harness('functions/api/admin/lead-trash.ts', { sqlite });
+  assert.equal((await trash.post(null)).status, 400);
+  assert.equal((await trash.post({ action: 'restore', ids: ['9007199254740993'] })).status, 400);
+});
+
 // ─── F-028: расходы не введены — null, а не ноль ─────────────────────────────
 
 test('F-028: без единой строки ad_spend отчёт, цели и воронка не рисуют нулевой расход', async (t) => {

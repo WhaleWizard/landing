@@ -7,6 +7,7 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { ACCOUNTING_CURRENCY, parseMoney, parseMoneyOrZero } from '../../_lib/money';
 import { localTodayIso } from '../../_lib/local-day';
+import { hasLeadSoftDelete } from '../../_lib/leads';
 import type { Env } from '../../_lib/types';
 
 /**
@@ -532,18 +533,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   try {
     if (action === 'create') {
       const { columns, values, status, finishedAt } = clientFields(body, localTodayIso(request));
-      const leadId = Number(body.lead_id || 0) || null;
+      const leadId = body.lead_id == null || body.lead_id === '' ? null : Number(body.lead_id);
+      if (leadId !== null && (!Number.isSafeInteger(leadId) || leadId <= 0)) {
+        return json({ success: false, error: 'Некорректный номер заявки' }, { status: 400, headers: noStore });
+      }
       if (!String(values[0] || '').trim()) {
         return json({ success: false, error: 'Без имени клиента карточка бессмысленна' }, { status: 400, headers: noStore });
       }
       const allColumns = ['lead_id', ...columns, 'finished_at'];
+      const active = leadId !== null && await hasLeadSoftDelete(db) ? ' AND deleted_at IS NULL' : '';
+      const source = leadId === null ? '' : ` WHERE EXISTS (SELECT 1 FROM leads WHERE id = ?${active})`;
       const result = await db.prepare(
-        `INSERT INTO clients (${allColumns.join(', ')}) VALUES (${allColumns.map(() => '?').join(', ')})
+        `INSERT INTO clients (${allColumns.join(', ')}) SELECT ${allColumns.map(() => '?').join(', ')}${source || ' WHERE 1'}
          ON CONFLICT(lead_id) WHERE lead_id IS NOT NULL DO NOTHING`,
-      ).bind(leadId, ...values, finishedAtValue(status, finishedAt, todayIso)).run();
+      ).bind(leadId, ...values, finishedAtValue(status, finishedAt, todayIso), ...(leadId === null ? [] : [leadId])).run();
       if (leadId && result.meta?.changes === 0) {
         const existing = await db.prepare('SELECT id FROM clients WHERE lead_id = ?').bind(leadId).first<{ id: number }>();
-        return json({ success: false, error: 'Из этой сделки клиент уже заведён', clientId: existing?.id }, { status: 409, headers: noStore });
+        if (existing) return json({ success: false, error: 'Из этой сделки клиент уже заведён', clientId: existing.id }, { status: 409, headers: noStore });
+        return json({ success: false, error: 'Заявка отсутствует или уже в корзине. Обновите список.' }, { status: 409, headers: noStore });
       }
       return json({ success: true, id: result.meta?.last_row_id || 0 }, { headers: noStore });
     }

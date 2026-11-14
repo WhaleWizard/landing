@@ -52,7 +52,7 @@ function chunks<T>(values: T[], size = SQL_PARAM_CHUNK): T[][] {
 function parseIds(value: unknown): number[] {
   if (!Array.isArray(value)) throw new Error('ids must be an array');
   const ids = value.map((item) => Number(item));
-  if (ids.some((id) => !Number.isInteger(id) || id <= 0)) throw new Error('ids must be positive integers');
+  if (ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) throw new Error('ids must be positive integers');
   const unique = Array.from(new Set(ids));
   if (unique.length === 0) throw new Error('ids must not be empty');
   if (unique.length > MAX_IDS_PER_REQUEST) throw new Error(`ids must contain at most ${MAX_IDS_PER_REQUEST} items`);
@@ -282,7 +282,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const body = await readCappedJsonBody(request) as {
+  const parsed = await readCappedJsonBody(request);
+  const validBody = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed);
+  const body = (validBody ? parsed : {}) as {
     password?: string;
     action?: string;
     ids?: unknown;
@@ -291,6 +293,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (!verifyAdminPassword(getPassword(request, body), env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
+  if (!validBody) return json({ success: false, error: 'Некорректный JSON' }, { status: 400, headers: noStore });
   if (!env.DB) {
     return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'База D1 не подключена' }, { status: 503, headers: noStore });
   }

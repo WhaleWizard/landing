@@ -66,6 +66,7 @@ interface LeadCrmPayload {
   note_id?: unknown;
   task_id?: unknown;
   duplicate_id?: unknown;
+  duplicate_revision?: unknown;
   expected_revision?: unknown;
   expected_updated_at?: unknown;
   action_id?: unknown;
@@ -869,6 +870,20 @@ async function mergeLead(db: D1Database, body: LeadCrmPayload, leadId: number): 
   const duplicateId = parsePositiveInteger(body.duplicate_id);
   if (!duplicateId) throw validationError('A valid duplicate_id is required');
   if (duplicateId === leadId) throw validationError('Нельзя объединить заявку саму с собой');
+  const actionId = `merge:${normalizeActionId(body.action_id)}`;
+  const replay = async () => {
+    const prior = await db.prepare(
+      `SELECT lead_id, entity_id, note, metadata_json FROM lead_activity WHERE type = 'lead_merged' AND action_id = ?`,
+    ).bind(actionId).first<{ lead_id: number; entity_id: number; note: string; metadata_json: string }>();
+    if (!prior) return null;
+    if (prior.lead_id !== leadId || prior.entity_id !== duplicateId) {
+      throw conflictError('Повтор объединения содержит другие заявки.');
+    }
+    const metadata = JSON.parse(prior.metadata_json) as { filled: string[]; revision: number };
+    return { merged: duplicateId, summary: prior.note, ...metadata, idempotent: true };
+  };
+  const prior = await replay();
+  if (prior) return prior;
 
   // Состав колонок спрашивается один раз. Раньше `leadHasColumn` вызывался
   // в цикле и выполнял `PRAGMA table_info(leads)` шесть раз подряд, получая
@@ -876,22 +891,44 @@ async function mergeLead(db: D1Database, body: LeadCrmPayload, leadId: number): 
   const leadColumns = await getLeadsColumns(db);
   if (!leadColumns.has('deleted_at')) throw validationError('Нужна миграция 0020: без корзины слияние необратимо');
 
-  const columns = ['id', 'name', 'email', 'phone', 'telegram_username', 'contact_method', 'budget', 'message', 'service', 'page_path'];
-  const optional = ['submissions_count', 'last_submitted_at', 'utm_source', 'utm_medium', 'utm_campaign'];
-  for (const column of optional) {
-    if (leadColumns.has(column)) columns.push(column);
-  }
-  const select = columns.join(', ');
+  const fillable = ['name', 'email', 'phone', 'telegram_username', 'contact_method', 'budget', 'message', 'service', 'page_path'];
+  const attribution = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'utm_term'].filter((column) => leadColumns.has(column));
+  const submissionColumns = ['submissions_count', 'last_submitted_at'].filter((column) => leadColumns.has(column));
+  const select = ['crm_revision', 'pipeline_stage', 'created_at', ...fillable, ...attribution, ...submissionColumns].join(', ');
 
-  const [primary, duplicate] = await Promise.all([
+  const [primary, duplicate, clientSchema, ingestionSchema] = await Promise.all([
     db.prepare(`SELECT ${select} FROM leads WHERE id = ? AND deleted_at IS NULL`).bind(leadId).first<Record<string, unknown>>(),
     db.prepare(`SELECT ${select} FROM leads WHERE id = ? AND deleted_at IS NULL`).bind(duplicateId).first<Record<string, unknown>>(),
+    db.prepare('PRAGMA table_info(clients)').all<{ name: string }>(),
+    db.prepare('PRAGMA table_info(lead_ingestions)').all<{ name: string }>(),
   ]);
-  if (!primary) throw validationError('Основная заявка не найдена или уже в корзине');
-  if (!duplicate) throw validationError('Дубль не найден или уже в корзине');
+  const stale = () => conflictError('Одна из заявок изменилась, уже в корзине или связана с клиентом. Обновите список.');
+  if (!primary || !duplicate) {
+    const duplicateReplay = await replay();
+    if (duplicateReplay) return duplicateReplay;
+    throw stale();
+  }
+  const primaryRevision = Number(primary.crm_revision);
+  const duplicateRevision = Number(duplicate.crm_revision);
+  if ((body.expected_revision !== undefined && body.expected_revision !== primaryRevision)
+    || (body.duplicate_revision !== undefined && body.duplicate_revision !== duplicateRevision)) throw stale();
+  if (duplicate.pipeline_stage === 'won') {
+    throw conflictError('Выигранная сделка должна остаться основной. Если выиграны обе, объединение недоступно.');
+  }
+  const hasClients = clientSchema.results?.some((column) => column.name === 'lead_id');
+  const hasIngestions = ingestionSchema.results?.some((column) => column.name === 'lead_id');
+  const previousMerge = await db.prepare(
+    `SELECT id FROM lead_activity WHERE type = 'lead_merged' AND "from" = ?`,
+  ).bind(String(duplicateId)).first<{ id: number }>();
+  if (previousMerge) {
+    const duplicateReplay = await replay();
+    if (duplicateReplay) return duplicateReplay;
+    throw conflictError('Данные этой заявки уже переносились при объединении. Повтор может посчитать старые обращения дважды.');
+  }
 
   // Переносим только пустые поля: то, что уже заполнено руками, — приоритетнее.
-  const fillable = columns.filter((column) => column !== 'id' && column !== 'submissions_count' && column !== 'last_submitted_at');
+  // UTM describes one visit. Filling individual gaps would mix two campaigns.
+  if (!attribution.some((column) => String(primary[column] ?? '').trim())) fillable.push(...attribution);
   const updates: string[] = [];
   const values: unknown[] = [];
   const filled: string[] = [];
@@ -904,70 +941,66 @@ async function mergeLead(db: D1Database, body: LeadCrmPayload, leadId: number): 
     filled.push(column);
   }
 
-  if (columns.includes('submissions_count')) {
+  if (submissionColumns.includes('submissions_count')) {
     const total = (Number(primary.submissions_count) || 1) + (Number(duplicate.submissions_count) || 1);
     updates.push('submissions_count = ?');
     values.push(total);
   }
-  if (columns.includes('last_submitted_at')) {
-    const latest = [String(primary.last_submitted_at || ''), String(duplicate.last_submitted_at || '')]
-      .filter(Boolean)
-      .sort()
-      .pop();
-    if (latest) {
-      updates.push('last_submitted_at = ?');
-      values.push(latest);
-    }
+  if (submissionColumns.includes('last_submitted_at')) {
+    const duplicateDate = duplicate.last_submitted_at ?? duplicate.created_at;
+    updates.push(`last_submitted_at = CASE
+      WHEN julianday(?) > julianday(COALESCE(last_submitted_at, created_at)) THEN ?
+      ELSE last_submitted_at END`);
+    values.push(duplicateDate, duplicateDate);
   }
 
   const summary = [
     `Объединено с заявкой #${duplicateId}${duplicate.name ? ` («${String(duplicate.name).slice(0, 80)}»)` : ''}.`,
     filled.length ? `Перенесены пустые поля: ${filled.join(', ')}.` : 'Все поля основной заявки уже были заполнены.',
-    'Дубль отправлен в корзину — его можно вернуть.',
+    'Дубль отправлен в корзину. Восстановление записи не отменяет перенос данных.',
   ].join(' ');
 
+  const unrecorded = "NOT EXISTS (SELECT 1 FROM lead_activity WHERE type = 'lead_merged' AND action_id = ?)";
+  // Mark the duplicate only when both revisions still match. All later
+  // statements depend on that marker inside the same D1 transaction.
+  const marked = `EXISTS (SELECT 1 FROM leads WHERE id = ? AND crm_revision = ? AND crm_action_id = ? AND deleted_at IS NOT NULL) AND ${unrecorded}`;
+  const marker = [duplicateId, duplicateRevision + 1, actionId, actionId];
   const statements = [
-    db.prepare('UPDATE crm_notes SET lead_id = ? WHERE lead_id = ?').bind(leadId, duplicateId),
-    db.prepare('UPDATE crm_tasks SET lead_id = ? WHERE lead_id = ?').bind(leadId, duplicateId),
-    // Теги переезжают вместе с заметками и задачами. Раньше их не переносили,
-    // и после слияния тег оставался на карточке, ушедшей в корзину: в фильтрах
-    // и фасетах объединённая заявка по нему не находилась.
-    //
-    // `INSERT OR IGNORE` из-за случая, когда один и тот же тег стоит и на
-    // основной карточке, и на дубле: пара (lead_id, tag_id) уникальна.
     db.prepare(
-      `INSERT OR IGNORE INTO crm_lead_tags (lead_id, tag_id)
-       SELECT ?, tag_id FROM crm_lead_tags WHERE lead_id = ?`,
-    ).bind(leadId, duplicateId),
-    db.prepare('DELETE FROM crm_lead_tags WHERE lead_id = ?').bind(duplicateId),
+      `UPDATE leads SET deleted_at = datetime('now'), deleted_reason = ?, updated_at = datetime('now'),
+         crm_revision = crm_revision + 1, crm_action_id = ?
+       WHERE id = ? AND deleted_at IS NULL AND crm_revision = ? AND ${unrecorded}
+         AND EXISTS (SELECT 1 FROM leads WHERE id = ? AND deleted_at IS NULL AND crm_revision = ?)
+         AND NOT EXISTS (SELECT 1 FROM lead_activity WHERE type = 'lead_merged' AND "from" = ?)
+         ${hasClients ? 'AND NOT EXISTS (SELECT 1 FROM clients WHERE lead_id = leads.id)' : ''}`,
+    ).bind(`Объединена с заявкой #${leadId}`, actionId, duplicateId, duplicateRevision, actionId, leadId, primaryRevision, String(duplicateId)),
     db.prepare(
-      `UPDATE leads SET deleted_at = datetime('now'), deleted_reason = ?, updated_at = datetime('now')
-       WHERE id = ? AND deleted_at IS NULL`,
-    ).bind(`Объединена с заявкой #${leadId}`, duplicateId),
-    db.prepare('INSERT INTO crm_notes (lead_id, body, pinned) VALUES (?, ?, 0)').bind(leadId, summary),
+      `UPDATE leads SET ${[...updates, 'crm_revision = crm_revision + 1', "updated_at = datetime('now')"].join(', ')}
+       WHERE id = ? AND ${marked}`,
+    ).bind(...values, leadId, ...marker),
+    db.prepare(`UPDATE crm_notes SET lead_id = ? WHERE lead_id = ? AND ${marked}`).bind(leadId, duplicateId, ...marker),
+    db.prepare(`UPDATE crm_tasks SET lead_id = ? WHERE lead_id = ? AND ${marked}`).bind(leadId, duplicateId, ...marker),
+    db.prepare(`INSERT OR IGNORE INTO crm_lead_tags (lead_id, tag_id)
+      SELECT ?, tag_id FROM crm_lead_tags WHERE lead_id = ? AND ${marked}`).bind(leadId, duplicateId, ...marker),
+    db.prepare(`DELETE FROM crm_lead_tags WHERE lead_id = ? AND ${marked}`).bind(duplicateId, ...marker),
+    db.prepare(`INSERT INTO crm_notes (lead_id, body, pinned) SELECT ?, ?, 0 WHERE ${marked}`).bind(leadId, summary, ...marker),
   ];
-  // Номер версии карточки растёт всегда, даже если полей для переноса не
-  // нашлось: второй открытый редактор должен заметить, что карточка изменилась,
-  // а не перезаписать её своим устаревшим состоянием.
-  if (leadColumns.has('crm_revision')) updates.push('crm_revision = crm_revision + 1');
-  if (updates.length) {
-    statements.unshift(
-      db.prepare(`UPDATE leads SET ${updates.join(', ')}, updated_at = datetime('now') WHERE id = ?`).bind(...values, leadId),
-    );
+  if (hasIngestions) {
+    statements.push(db.prepare(`UPDATE lead_ingestions SET lead_id = ? WHERE lead_id = ? AND ${marked}`).bind(leadId, duplicateId, ...marker));
   }
-  // Слияние попадает в историю карточки: раньше в ленте активности его не
-  // было, и понять, откуда взялись чужие заметки, было негде.
-  statements.push(createCrmActivityStatement(db, {
-    leadId,
-    type: 'lead_merged',
-    from: String(duplicateId),
-    to: String(leadId),
-    note: summary,
-    actionId: normalizeActionId(body.action_id),
-  }, leadColumns.has('crm_action_id')));
+  const revision = primaryRevision + 1;
+  statements.push(db.prepare(
+    `INSERT INTO lead_activity (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
+     SELECT ?, 'lead_merged', ?, ?, ?, 'admin', 'lead', ?, ?, ? WHERE ${marked}`,
+  ).bind(leadId, String(duplicateId), String(leadId), summary, duplicateId, actionId, JSON.stringify({ filled, revision }), ...marker));
 
-  await db.batch(statements);
-  return { merged: duplicateId, filled, summary };
+  const [moved] = await db.batch(statements);
+  if (!resultChanges(moved)) {
+    const duplicateReplay = await replay();
+    if (duplicateReplay) return duplicateReplay;
+    throw stale();
+  }
+  return { merged: duplicateId, filled, summary, revision };
 }
 
 async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Promise<Record<string, unknown>> {

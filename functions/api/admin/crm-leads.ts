@@ -285,9 +285,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     appliedFilters.sort = sort;
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const clientColumns = await env.DB.prepare('PRAGMA table_info(clients)').all<{ name: string }>();
+    const clientLink = clientColumns.results?.some((column) => column.name === 'lead_id')
+      ? 'EXISTS (SELECT 1 FROM clients c WHERE c.lead_id = l.id)'
+      : '0';
     const [rows, totalRow, summary, facets] = await Promise.all([
       env.DB.prepare(
-        `SELECT l.*,
+        `SELECT l.*, ${clientLink} AS has_client,
            (SELECT COUNT(*) FROM crm_tasks ot WHERE ot.lead_id = l.id AND ot.status = 'open') AS open_tasks_count,
            (SELECT COUNT(*) FROM crm_tasks od WHERE od.lead_id = l.id AND od.status = 'open' AND od.due_at IS NOT NULL AND datetime(od.due_at) < datetime('now')) AS overdue_tasks_count
          FROM leads l ${whereSql} ORDER BY ${sorts[sort]} LIMIT ? OFFSET ?`,

@@ -152,6 +152,7 @@ export interface LeadRow {
   overdue_tasks_count?: number;
   crm_tags?: CrmTag[];
   crm_revision?: number;
+  has_client?: number;
 }
 
 interface CrmLeadPatch {
@@ -1649,6 +1650,8 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
   // видит, и никаких скрытых действий над невидимыми записями.
   const duplicateGroups = useMemo(() => findDuplicateGroups(leads), [leads]);
   const [merging, setMerging] = useState(0);
+  const mergePending = useRef(false);
+  const mergeRequests = useRef(new Map<string, string>());
 
   useEffect(() => { if (target?.section === 'leads' && target.leadId) { setQuery(String(target.leadId)); setStage('all'); setPriority('all'); setDue('all'); setView('list'); setSelectedId(target.leadId); } }, [target?.nonce, target?.leadId, target?.section]);
 
@@ -1751,38 +1754,53 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
     }
   };
 
-  /**
-   * Слияние группы: все дубли по очереди складываются в первую заявку.
-   * Ничего не удаляется — дубли уходят в корзину, и любой можно вернуть.
-   */
-  const mergeGroup = useCallback(async (primaryId: number, duplicateIds: number[], who: string) => {
-    const confirmed = await confirmAsk({
-      title: `Объединить заявки от «${who}»?`,
-      description: `Заметки и задачи переедут в заявку #${primaryId}, пустые поля дозаполнятся из ${duplicateIds.length === 1 ? 'дубля' : 'дублей'}. ${duplicateIds.length === 1 ? 'Дубль отправится' : 'Дубли отправятся'} в корзину заявок — оттуда их можно вернуть.`,
-      confirmLabel: 'Объединить',
-    });
-    if (!confirmed) return;
-
-    setMerging(primaryId);
+  const mergeGroup = useCallback(async (primary: LeadRow, duplicates: LeadRow[]) => {
+    if (mergePending.current) return;
+    mergePending.current = true;
+    const mergedIds = new Set<number>();
     try {
-      for (const duplicateId of duplicateIds) {
+      const confirmed = await confirmAsk({
+        title: `Объединить заявки от «${primary.name || 'Без имени'}»?`,
+        description: `Заметки, задачи и теги переедут в заявку #${primary.id}. Дубли уйдут в корзину. Восстановление из корзины сохраняет перенесённые данные в основной заявке.`,
+        confirmLabel: 'Объединить',
+      });
+      if (!confirmed) return;
+      setMerging(primary.id);
+      let revision = Number(primary.crm_revision || 0);
+      for (const duplicate of duplicates) {
+        const key = `${primary.id}:${duplicate.id}`;
+        const actionId = mergeRequests.current.get(key) ?? crypto.randomUUID();
+        mergeRequests.current.set(key, actionId);
         const response = await fetch('/api/admin/lead-crm', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
           credentials: 'same-origin',
-          body: JSON.stringify({ action: 'merge_lead', lead_id: primaryId, duplicate_id: duplicateId }),
+          body: JSON.stringify({
+            action: 'merge_lead', lead_id: primary.id, duplicate_id: duplicate.id, action_id: actionId,
+            expected_revision: revision, duplicate_revision: Number(duplicate.crm_revision || 0),
+          }),
         });
-        const payload = await response.json().catch(() => null) as { success?: boolean; error?: string } | null;
+        const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; revision?: number } | null;
         if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+        mergeRequests.current.delete(key);
+        mergedIds.add(duplicate.id);
+        revision = payload.revision ?? revision + 1;
       }
       notify.success(
-        duplicateIds.length === 1 ? 'Заявки объединены' : `Объединено заявок: ${duplicateIds.length + 1}`,
-        `Всё собрано в заявке #${primaryId}.`,
+        duplicates.length === 1 ? 'Заявки объединены' : `Объединено заявок: ${duplicates.length + 1}`,
+        `Всё собрано в заявке #${primary.id}.`,
       );
-      await load(true);
     } catch (mergeError) {
-      notify.error('Не удалось объединить', mergeError instanceof Error ? mergeError.message : undefined);
+      notify.error(
+        mergedIds.size ? `Объединение остановилось. Перенесено дублей: ${mergedIds.size}` : 'Не удалось подтвердить объединение',
+        mergeError instanceof Error ? mergeError.message : undefined,
+      );
     } finally {
+      if (mergeRequests.current.size || mergedIds.size) {
+        setBoardLead((current) => current && mergedIds.has(current.id) ? null : current);
+        await load(true);
+      }
+      mergePending.current = false;
       setMerging(0);
     }
   }, [load, password]);
@@ -1893,13 +1911,14 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
           <header>
             <strong><Users aria-hidden="true" /> Похоже на дубли: {duplicateGroups.length}</strong>
             <span className="admin-hint">
-              Совпал телефон, почта или телеграм. При объединении заметки и задачи переезжают в первую заявку,
-              пустые поля дозаполняются, а дубль уходит в корзину — оттуда его можно вернуть.
+              Совпал телефон, почта или телеграм. Заметки, задачи и теги перейдут в основную заявку, а дубли уйдут в корзину.
             </span>
           </header>
           <ul>
             {duplicateGroups.map((group) => {
-              const [primary, ...rest] = group;
+              const protectedLeads = group.filter((item) => item.has_client || item.pipeline_stage === 'won');
+              const primary = protectedLeads[0] ?? group[0];
+              const rest = group.filter((item) => item.id !== primary.id);
               return (
                 <li key={primary.id}>
                   <span className="crm-dupes__who">
@@ -1909,14 +1928,16 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
                   <span className="crm-dupes__ids">
                     #{primary.id} + {rest.map((item) => `#${item.id}`).join(', ')}
                   </span>
-                  <button
+                  {protectedLeads.length > 1 ? (
+                    <span className="admin-hint">В группе несколько выигранных сделок или клиентов.</span>
+                  ) : <button
                     type="button"
                     className="admin-button admin-button--compact"
-                    disabled={merging === primary.id}
-                    onClick={() => void mergeGroup(primary.id, rest.map((item) => item.id), primary.name || 'Без имени')}
+                    disabled={merging !== 0 || !editingReady}
+                    onClick={() => void mergeGroup(primary, rest)}
                   >
                     {merging === primary.id ? 'Объединяю…' : 'Объединить'}
-                  </button>
+                  </button>}
                 </li>
               );
             })}
