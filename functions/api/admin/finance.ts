@@ -2,10 +2,10 @@ import { json, readRequestText } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
-import { ACCOUNTING_CURRENCY, parseMoneyOrZero } from '../../_lib/money';
+import { ACCOUNTING_CURRENCY, parseMoney, parseMoneyOrZero } from '../../_lib/money';
 import type { Env } from '../../_lib/types';
 import { localTodayIso } from '../../_lib/local-day';
-import { hasWorkspace, readLedgerInvoices, workspaceMutation, WorkspaceError } from '../../_lib/admin-workspace';
+import { hasWorkspace, readLedgerInvoices, strictDate, workspaceMutation, WorkspaceError } from '../../_lib/admin-workspace';
 
 /**
  * Финансы: счета, свои расходы, часы по клиентам и настройки.
@@ -48,14 +48,12 @@ function cleanText(value: unknown, maxLength: number): string {
 }
 
 function cleanDate(value: unknown): string | null {
-  const text = String(value ?? '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return null;
-  return Number.isNaN(new Date(`${text}T00:00:00Z`).getTime()) ? null : text;
+  return strictDate(String(value ?? '').trim());
 }
 
 function cleanMonth(value: unknown): string {
   const text = String(value ?? '').trim();
-  return /^\d{4}-\d{2}$/.test(text) ? text : '';
+  return /^\d{4}-(0[1-9]|1[0-2])$/.test(text) ? text : '';
 }
 
 /**
@@ -94,14 +92,15 @@ function cleanInvoiceKind(value: unknown): string {
  */
 const INVOICE_COLUMNS_TTL_MS = 60 * 1000;
 
-let invoiceColumnsCache: { columns: Set<string>; expiresAt: number } | null = null;
+const invoiceColumnsCache = new WeakMap<D1Database, { columns: Set<string>; expiresAt: number }>();
 
 async function getInvoiceColumns(db: D1Database): Promise<Set<string>> {
   const now = Date.now();
-  if (invoiceColumnsCache && invoiceColumnsCache.expiresAt > now) return invoiceColumnsCache.columns;
+  const cached = invoiceColumnsCache.get(db);
+  if (cached && cached.expiresAt > now) return cached.columns;
   const result = await db.prepare('PRAGMA table_info(invoices)').all<{ name: string }>();
   const columns = new Set((result.results || []).map((column) => column.name).filter(Boolean));
-  invoiceColumnsCache = { columns, expiresAt: now + INVOICE_COLUMNS_TTL_MS };
+  invoiceColumnsCache.set(db, { columns, expiresAt: now + INVOICE_COLUMNS_TTL_MS });
   return columns;
 }
 
@@ -201,7 +200,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   let body: Record<string, unknown>;
   try {
-    body = raw.text ? JSON.parse(raw.text) : {};
+    const parsed: unknown = raw.text ? JSON.parse(raw.text) : {};
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw new Error('Invalid body');
+    body = parsed as Record<string, unknown>;
   } catch {
     return json({ success: false, error: 'Некорректный JSON' }, { status: 400, headers: noStore });
   }
@@ -213,26 +214,30 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const db = env.DB;
   const action = String(body.action || '');
-  const id = Number(body.id || 0);
-
   try {
+    const id = Number(body.id ?? 0);
+    if (!Number.isSafeInteger(id) || id < 0) throw new WorkspaceError('Некорректная ссылка на запись');
     if (['save_invoice','mark_paid','delete_invoice','issue_month','save_time'].includes(action) && await hasWorkspace(db)) {
       return json(await workspaceMutation(db, { ...body, request_key: body.request_key || crypto.randomUUID() }, localTodayIso(request)), { headers: noStore });
     }
     if (action === 'save_invoice') {
       const clientId = Number(body.client_id || 0) || null;
       const status = cleanInvoiceStatus(body.status);
+      const amount = parseMoney(body.amount);
+      if (amount === null) throw new WorkspaceError('Укажите корректную сумму счёта');
+      const period = cleanMonth(body.period);
+      if (body.period && !period) throw new WorkspaceError('Укажите существующий месяц');
       // Дата оплаты есть только у оплаченного счёта: без неё «оплачен» не
       // попадал в «Получено» и «Прибыль», а у выставленного она была бы ложью.
       const paidAt = status === 'paid'
         ? (cleanDate(body.paid_at) || cleanDate(body.issued_at) || localTodayIso(request))
         : null;
+      if (paidAt && paidAt > localTodayIso(request)) throw new WorkspaceError('Дата полученной оплаты не может быть в будущем');
       const values = [
         clientId,
         cleanText(body.number, 60),
-        cleanMonth(body.period),
-        cleanAmount(body.amount),
-        ACCOUNTING_CURRENCY,
+        period,
+        amount,
         cleanDate(body.issued_at),
         cleanDate(body.due_at),
         paidAt,
@@ -245,17 +250,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const extraColumns = oneOff ? [cleanInvoiceKind(body.kind), cleanText(body.payer, 120)] : [];
 
       if (id) {
-        await db.prepare(
-          `UPDATE invoices SET client_id = ?, number = ?, period = ?, amount = ?, currency = ?,
+        const result = await db.prepare(
+          `UPDATE invoices SET client_id = ?, number = ?, period = ?, amount = ?,
              issued_at = ?, due_at = ?, paid_at = ?, status = ?, note = ?${oneOff ? ', kind = ?, payer = ?' : ''},
              updated_at = datetime('now')
            WHERE id = ?`,
         ).bind(...values, ...extraColumns, id).run();
+        if (result.meta?.changes === 0) throw new WorkspaceError('Счёт не найден', 404);
       } else {
         await db.prepare(
-          `INSERT INTO invoices (client_id, number, period, amount, currency, issued_at, due_at, paid_at, status, note${oneOff ? ', kind, payer' : ''})
+          `INSERT INTO invoices (client_id, number, period, amount, issued_at, due_at, paid_at, status, note, currency${oneOff ? ', kind, payer' : ''})
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?${oneOff ? ', ?, ?' : ''})`,
-        ).bind(...values, ...extraColumns).run();
+        ).bind(...values, ACCOUNTING_CURRENCY, ...extraColumns).run();
       }
       return json({ success: true, oneOffSales: oneOff }, { headers: noStore });
     }
@@ -263,9 +269,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'mark_paid') {
       if (!id) return json({ success: false, error: 'Нужен id счёта' }, { status: 400, headers: noStore });
       const paidAt = cleanDate(body.paid_at) || localTodayIso(request);
-      await db.prepare(
+      if (paidAt > localTodayIso(request)) throw new WorkspaceError('Дата полученной оплаты не может быть в будущем');
+      const result = await db.prepare(
         `UPDATE invoices SET status = 'paid', paid_at = ?, updated_at = datetime('now') WHERE id = ?`,
       ).bind(paidAt, id).run();
+      if (result.meta?.changes === 0) throw new WorkspaceError('Счёт не найден', 404);
       return json({ success: true, paid_at: paidAt }, { headers: noStore });
     }
 
@@ -329,19 +337,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'save_expense') {
+      const amount = parseMoney(body.amount);
+      if (amount === null) throw new WorkspaceError('Укажите корректную сумму расхода');
       const values = [
         cleanDate(body.day) || localTodayIso(request),
         cleanText(body.category, 80),
-        cleanAmount(body.amount),
-        ACCOUNTING_CURRENCY,
+        amount,
         cleanText(body.note, 300),
       ];
       if (id) {
-        await db.prepare('UPDATE finance_expenses SET day = ?, category = ?, amount = ?, currency = ?, note = ? WHERE id = ?')
+        const result = await db.prepare('UPDATE finance_expenses SET day = ?, category = ?, amount = ?, note = ? WHERE id = ?')
           .bind(...values, id).run();
+        if (result.meta?.changes === 0) throw new WorkspaceError('Расход не найден', 404);
       } else {
-        await db.prepare('INSERT INTO finance_expenses (day, category, amount, currency, note) VALUES (?, ?, ?, ?, ?)')
-          .bind(...values).run();
+        await db.prepare("INSERT INTO finance_expenses (day, category, amount, note, currency) VALUES (?, ?, ?, ?, ?)")
+          .bind(...values, ACCOUNTING_CURRENCY).run();
       }
       return json({ success: true }, { headers: noStore });
     }
@@ -354,18 +364,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'save_time') {
       const hours = Number(String(body.hours ?? '').replace(',', '.'));
-      if (!Number.isFinite(hours) || hours <= 0 || hours > 24) {
-        return json({ success: false, error: 'Часы — число от 0 до 24' }, { status: 400, headers: noStore });
+      const roundedHours = Math.round(hours * 100) / 100;
+      if (!Number.isFinite(hours) || roundedHours <= 0 || hours > 24) {
+        return json({ success: false, error: 'Укажите от 0,01 до 24 часов' }, { status: 400, headers: noStore });
       }
       const values = [
         Number(body.client_id || 0) || null,
         cleanDate(body.day) || localTodayIso(request),
-        Math.round(hours * 100) / 100,
+        roundedHours,
         cleanText(body.note, 300),
       ];
       if (id) {
-        await db.prepare('UPDATE time_entries SET client_id = ?, day = ?, hours = ?, note = ? WHERE id = ?')
+        const result = await db.prepare('UPDATE time_entries SET client_id = ?, day = ?, hours = ?, note = ? WHERE id = ?')
           .bind(...values, id).run();
+        if (result.meta?.changes === 0) throw new WorkspaceError('Запись времени не найдена', 404);
       } else {
         await db.prepare('INSERT INTO time_entries (client_id, day, hours, note) VALUES (?, ?, ?, ?)')
           .bind(...values).run();

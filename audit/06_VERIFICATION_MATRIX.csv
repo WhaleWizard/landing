@@ -1,4 +1,5 @@
 TestName,SuitePath,Engine,DeviceOrViewport,PassCount,FailCount,ExecutionStatus
+Finance and workspace record integrity,scripts/audit-admin-api-money.test.js and scripts/admin-workspace.test.js,Node and SQLite,Full and legacy schemas,60,0,PASSED
 Lead to report and service editor to public page,output/playwright/full-site-audit-2026-11-13/,Chromium and WebKit and SQLite,1440 px,20,0,PASSED
 CRM calendar across timezones,output/playwright/full-site-audit-2026-11-13/calendar.mjs,Chromium and WebKit,1440 px and three timezones,6,0,PASSED
 Publication checks with long URLs,output/playwright/seo-assistant-2026-11-13/matrix.mjs,Chromium and WebKit,320 to 1440 px in light and dark,16,0,PASSED

@@ -315,7 +315,7 @@ export async function workspaceMutation(
     } else
       await db
         .prepare(
-          "INSERT OR IGNORE INTO client_tasks(client_id,work_id,title,due_at,note,request_key) VALUES(?,?,?,?,?,?)",
+          "INSERT OR IGNORE INTO client_tasks(client_id,work_id,title,due_at,note,done,request_key) VALUES(?,?,?,?,?,?,?)",
         )
         .bind(
           clientId,
@@ -323,6 +323,7 @@ export async function workspaceMutation(
           title,
           due,
           textValue(body.note),
+          done,
           requestKey(body.request_key),
         )
         .run();
@@ -455,13 +456,14 @@ export async function workspaceMutation(
       )
       .bind(workId, month)
       .first<{ revision: number; currency: string }>();
-    if (old && old.revision !== Number(body.revision))
+    if (old ? old.revision !== Number(body.revision) : Number(body.revision ?? 0) !== 0)
       throw new WorkspaceError("Результаты этого месяца уже изменены", 409);
-    const leads = amountValue(body.leads, true),
-      sales = amountValue(body.sales, true);
+    const countValue = (value: unknown): number | null =>
+      value === null || value === undefined || value === "" ? null : Number(value);
+    const leads = countValue(body.leads), sales = countValue(body.sales);
     if (
-      (leads !== null && !Number.isInteger(leads)) ||
-      (sales !== null && !Number.isInteger(sales))
+      (leads !== null && (!Number.isSafeInteger(leads) || leads < 0 || leads > 1_000_000_000)) ||
+      (sales !== null && (!Number.isSafeInteger(sales) || sales < 0 || sales > 1_000_000_000))
     )
       throw new WorkspaceError("Количество заявок и продаж должно быть целым");
     const values = [
@@ -483,13 +485,15 @@ export async function workspaceMutation(
           .bind(...values, workId, month, old.revision)
           .run(),
       );
-    else
-      await db
+    else {
+      const result = await db
         .prepare(
-          "INSERT INTO client_work_months(spend,currency,leads,sales,revenue,report_url,report_sent_at,note,work_id,month) VALUES(?,?,?,?,?,?,?,?,?,?)",
+          "INSERT INTO client_work_months(spend,currency,leads,sales,revenue,report_url,report_sent_at,note,work_id,month) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(work_id,month) DO NOTHING",
         )
         .bind(...values, workId, month)
         .run();
+      checkChanges(result);
+    }
     return { success: true };
   }
   if (action === "save_invoice") {
@@ -608,11 +612,25 @@ export async function workspaceMutation(
     if (id && !previous) throw new WorkspaceError('Запись времени не найдена',404);
     const workId = positiveId(body.work_id === undefined ? previous?.work_id : body.work_id,true);
     await clientExists(db,clientId);await workExists(db,workId,clientId);
-    const hours = Number(String(body.hours ?? '').replace(',','.'));
-    if (!Number.isFinite(hours) || hours<=0 || hours>24) throw new WorkspaceError('Часы — число от 0 до 24');
-    const values = [clientId,workId,strictDate(body.day || today,false),Math.round(hours*100)/100,textValue(body.note,300)];
-    if(id)await db.prepare('UPDATE time_entries SET client_id=?,work_id=?,day=?,hours=?,note=? WHERE id=?').bind(...values,id).run();
-    else await db.prepare('INSERT OR IGNORE INTO time_entries(client_id,work_id,day,hours,note,request_key) VALUES(?,?,?,?,?,?)').bind(...values,requestKey(body.request_key)).run();
+    const hours = Number(String(body.hours ?? '').replace(',', '.'));
+    const roundedHours = Math.round(hours * 100) / 100;
+    if (!Number.isFinite(hours) || roundedHours <= 0 || hours > 24) throw new WorkspaceError('Укажите от 0,01 до 24 часов');
+    const values = [clientId, workId, strictDate(body.day || today, false), roundedHours, textValue(body.note, 300)] as const;
+    if (id) {
+      const result = await db.prepare('UPDATE time_entries SET client_id=?,work_id=?,day=?,hours=?,note=? WHERE id=?').bind(...values, id).run();
+      if (result.meta?.changes === 0) throw new WorkspaceError('Запись времени не найдена', 404);
+    } else {
+      const key = requestKey(body.request_key);
+      const inserted = await db.prepare('INSERT INTO time_entries(client_id,work_id,day,hours,note,request_key) VALUES(?,?,?,?,?,?) ON CONFLICT(request_key) WHERE request_key IS NOT NULL DO NOTHING')
+        .bind(...values, key).run();
+      if (inserted.meta?.changes === 0) {
+        const previous = await db.prepare('SELECT client_id,work_id,day,hours,note FROM time_entries WHERE request_key=?').bind(key)
+          .first<{client_id: number | null; work_id: number | null; day: string; hours: number; note: string}>();
+        if (!previous || values.some((value, index) => value !== [
+          previous.client_id, previous.work_id, previous.day, previous.hours, previous.note,
+        ][index])) throw new WorkspaceError('Эта операция уже записана с другими данными', 409);
+      }
+    }
     return {success:true};
   }
   if (action === "issue_work") {

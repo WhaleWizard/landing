@@ -532,6 +532,34 @@ test('task edits, reports, time and recurring invoices retain project/client lin
   const replacement=await logic.workspaceMutation(db,{action:'issue_work',work_id:work,period:'2026-10',request_key:randomUUID()},today);assert.notEqual(first.id,replacement.id);assert.equal(sqlite.prepare("SELECT count(*) AS n FROM invoices WHERE status!='cancelled'").get().n,1);sqlite.close();
 });
 
+test('workspace creates completed tasks and checks exact counts and revisions for monthly reports', async () => {
+  const { sqlite, db } = create();
+  try {
+    const clientId = client(sqlite);
+    const { id: workId } = await logic.workspaceMutation(db, {
+      action: 'save_work', client_id: clientId, kind: 'project', title: 'Проект',
+      status: 'active', billing: 'monthly', amount: 100, request_key: randomUUID(),
+    }, today);
+    await logic.workspaceMutation(db, {
+      action: 'save_task', client_id: clientId, work_id: workId, title: 'Готово',
+      done: true, request_key: randomUUID(),
+    }, today);
+    assert.equal(sqlite.prepare('SELECT done FROM client_tasks').get().done, 1);
+    const report = { action: 'save_month', work_id: workId, month: '2026-10', leads: 10 };
+    await assert.rejects(logic.workspaceMutation(db, { ...report, leads: 0.001 }, today), /целым/);
+    await assert.rejects(logic.workspaceMutation(db, { ...report, revision: 1 }, today), /изменены/);
+    const results = await Promise.allSettled([
+      logic.workspaceMutation(db, report, today),
+      logic.workspaceMutation(db, report, today),
+    ]);
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(results.find((result) => result.status === 'rejected').reason.status, 409);
+    assert.equal(sqlite.prepare('SELECT leads FROM client_work_months').get().leads, 10);
+  } finally {
+    sqlite.close();
+  }
+});
+
 test('client summary uses projects, excludes one-off retainers and explains linked deletion',async()=>{
   const {sqlite,db}=create(),api=await load('functions/api/admin/clients.ts');const cid=client(sqlite),oneoff=client(sqlite,'Консультация');
   sqlite.prepare("UPDATE clients SET relationship_type='one_off',retainer_amount=600 WHERE id=?").run(oneoff);sqlite.prepare('UPDATE clients SET retainer_amount=3000 WHERE id=?').run(cid);

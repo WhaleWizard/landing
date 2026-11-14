@@ -1119,10 +1119,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
-  const body = await readCappedJsonBody(request) as LeadCrmPayload;
+  const parsed = await readCappedJsonBody(request);
+  const validBody = parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed);
+  const body: LeadCrmPayload = validBody ? parsed as LeadCrmPayload : {};
   if (!verifyAdminPassword(getPassword(request, body), env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
+  if (!validBody) return json({ success: false, error: 'Некорректный JSON' }, { status: 400, headers: noStore });
   if (!env.DB) {
     return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'D1 is not configured' }, { status: 503, headers: noStore });
   }

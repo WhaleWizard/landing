@@ -614,6 +614,81 @@ test('client API validates request shape and never confirms an update to a missi
   assert.equal(missing.payload.success, false);
 });
 
+test('finance preserves stored currency and rejects invalid or stale expense updates', async (t) => {
+  t.after(installMemoryCache());
+  const finance = await harness('functions/api/admin/finance.ts');
+  const expense = { action: 'save_expense', day: '2026-11-01', amount: 23, category: 'Сервис' };
+  const invalidJson = await invoke(finance.module.onRequestPost, finance.env, new Request('https://example.test/api/admin/finance', {
+    method: 'POST', headers: { 'X-Admin-Password': ADMIN_PASSWORD }, body: 'null',
+  }));
+  assert.equal(invalidJson.status, 400);
+  assert.equal((await finance.post({ ...expense, id: -1 })).status, 400);
+  assert.equal((await finance.post({ ...expense, day: '2026-02-30' })).status, 400);
+  assert.equal((await finance.post({ ...expense, amount: 'не число' })).status, 400);
+  assert.equal((await finance.post({ ...expense, id: 999 })).status, 404);
+  finance.sqlite.prepare("INSERT INTO finance_expenses (day,amount,currency) VALUES ('2026-11-01',20,'EUR')").run();
+  assert.equal((await finance.post({ ...expense, id: 1 })).status, 200);
+  const saved = finance.sqlite.prepare('SELECT amount,currency FROM finance_expenses').get();
+  assert.equal(saved.amount, 23);
+  assert.equal(saved.currency, 'EUR');
+});
+
+test('finance legacy writes reject impossible months, future receipts and missing rows', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = new DatabaseSync(':memory:');
+  for (const migration of ALL_MIGRATIONS.filter((name) => name < '0044')) {
+    sqlite.exec(readFileSync(`migrations/${migration}`, 'utf8'));
+  }
+  t.after(() => sqlite.close());
+  const finance = await harness('functions/api/admin/finance.ts', { sqlite });
+  assert.equal((await finance.post({ action: 'issue_month', period: '2026-13' })).status, 400);
+  assert.equal((await finance.post({ action: 'mark_paid', id: 999 })).status, 404);
+  assert.equal((await finance.post({ action: 'mark_paid', id: 999, paid_at: '2099-01-01' })).status, 400);
+  const invoice = { action: 'save_invoice', status: 'issued', amount: 50 };
+  assert.equal((await finance.post({ ...invoice, id: 999 })).status, 404);
+  assert.equal((await finance.post({ ...invoice, amount: 'не число' })).status, 400);
+  assert.equal((await finance.post({ ...invoice, status: 'paid', paid_at: '2099-01-01' })).status, 400);
+  sqlite.prepare("INSERT INTO invoices(amount,currency) VALUES (20,'EUR')").run();
+  assert.equal((await finance.post({ ...invoice, id: 1 })).status, 200);
+  assert.equal(sqlite.prepare('SELECT currency FROM invoices WHERE id=1').get().currency, 'EUR');
+  assert.equal((await finance.post(invoice)).status, 200);
+  assert.equal(sqlite.prepare('SELECT currency FROM invoices WHERE id=2').get().currency, 'USD');
+  assert.equal((await finance.post({ action: 'save_time', id: 999, hours: 1 })).status, 404);
+  assert.equal((await finance.post({ action: 'save_time', hours: 0.001 })).status, 400);
+  const freshDb = new DatabaseSync(':memory:');
+  t.after(() => freshDb.close());
+  for (const migration of ALL_MIGRATIONS.filter((name) => name < '0041')) {
+    freshDb.exec(readFileSync(`migrations/${migration}`, 'utf8'));
+  }
+  assert.equal((await finance.get()).payload.oneOffSales, true);
+  const fresh = await finance.module.onRequestGet({
+    env: { ...finance.env, DB: new D1Database(freshDb) },
+    request: adminRequest('finance'),
+  });
+  assert.equal(fresh.status, 200);
+  assert.equal((await fresh.json()).oneOffSales, false);
+});
+
+test('workspace time retries match the original hours and reject changed data', async (t) => {
+  t.after(installMemoryCache());
+  const finance = await harness('functions/api/admin/finance.ts');
+  const time = { action: 'save_time', hours: 1, day: '2026-11-01', note: 'Первый', request_key: randomUUID() };
+  assert.equal((await finance.post({ ...time, hours: 0.001 })).status, 400);
+  assert.equal((await finance.post(time)).status, 200);
+  assert.equal((await finance.post(time)).status, 200);
+  assert.equal((await finance.post({ ...time, hours: 2 })).status, 409);
+  assert.equal(finance.sqlite.prepare('SELECT COUNT(*) AS n FROM time_entries').get().n, 1);
+});
+
+test('CRM rejects a JSON null body with a controlled error', async (t) => {
+  t.after(installMemoryCache());
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  const response = await invoke(crm.module.onRequestPost, crm.env, new Request('https://example.test/api/admin/lead-crm', {
+    method: 'POST', headers: { 'X-Admin-Password': ADMIN_PASSWORD }, body: 'null',
+  }));
+  assert.equal(response.status, 400);
+});
+
 test('finance history starts eleven months before the owner’s current month', async (t) => {
   t.after(installMemoryCache());
   t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-30T20:30:00Z') });

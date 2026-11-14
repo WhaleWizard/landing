@@ -1,4 +1,18 @@
 ID,Severity,Category,Route,Component,Description,RootCause,Status,FixReference,Evidence
+FULL-20261114-01,P2,RELIABILITY,/admin/,Finance,Null request body can crash finance write,JSON shape unchecked,FIXED,finance.ts,API regression
+FULL-20261114-02,P2,DATA,/admin/,Finance,Invalid record ID can be treated as valid,Missing integer validation,FIXED,finance.ts,API regression
+FULL-20261114-03,P2,DATA,/admin/,Finance,Impossible dates and months can enter records,Loose date parsers,FIXED,finance.ts,API regression on full and legacy schema
+FULL-20261114-04,P2,DATA,/admin/,Finance,Incorrect amounts can be saved as zero,Expense and legacy invoice parser defaulted invalid values,FIXED,finance.ts,API regression
+FULL-20261114-05,P2,DATA,/admin/,Finance,Expense and legacy invoice edits replace old currency,Update SQL hard coded accounting currency,FIXED,finance.ts,EUR edit preserved
+FULL-20261114-06,P2,DATA,/admin/,Finance,Stale expense and legacy invoice or time updates report success,Write results ignored,FIXED,finance.ts,Missing record returns 404
+FULL-20261114-07,P2,DATA,/admin/,Finance,Legacy paths accept a future receipt,No local date check,FIXED,finance.ts,API regression
+FULL-20261114-08,P2,RELIABILITY,/admin/,Finance,Tiny positive time rounds to forbidden zero,Validation preceded rounding,FIXED,finance.ts and admin-workspace.ts,API regression on full and legacy schema
+FULL-20261114-09,P2,DATA,/admin/,Finance,Time retry can confirm different hours with the same key,Insert ignored all conflicts,FIXED,admin-workspace.ts,Replay and conflict test
+FULL-20261114-10,P2,DATA,/admin/,Finance,Schema detection is shared across database bindings,Cache keyed only by time,FIXED,finance.ts,Two database bindings one module
+FULL-20261114-11,P2,RELIABILITY,/admin/,CRM,Null request body can crash CRM write,JSON shape unchecked,FIXED,lead-crm.ts,API regression
+FULL-20261114-12,P2,STATE,/admin/,Workspace,New completed task appears open,Insert omitted completion flag,FIXED,admin-workspace.ts,SQLite task state
+FULL-20261114-13,P2,DATA,/admin/,Workspace,Fractional lead and sale counts can round to integers,Money parser used for counts,FIXED,admin-workspace.ts,SQLite report validation
+FULL-20261114-14,P2,STATE,/admin/,Workspace,Concurrent creation or missing edit target leads to incorrect report result,Insert did not handle version or uniqueness conflict,FIXED,admin-workspace.ts,Concurrent report test
 FULL-20261113-01,P2,DATA,/admin/,Monthly report,Drafts and later publications counted as live,Report used only the local date,FIXED,report.ts,SQLite regression
 FULL-20261113-02,P2,DATA,/admin/,CRM calendar,Month and date depend on browser timezone,Local calendar dates mixed with owner timezone,FIXED,CrmCalendar.tsx,Browser matrix across three timezones
 FULL-20261113-03,P2,DATA,/admin/,CRM calendar,Legacy dates shift or hide an open deal,Legacy database timestamps interpreted in browser timezone,FIXED,CrmCalendar.tsx,Legacy and invalid timestamp fixtures
