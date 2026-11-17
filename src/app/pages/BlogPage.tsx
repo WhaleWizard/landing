@@ -49,6 +49,7 @@ import { useIsHydrating } from '../hooks/useIsHydrating';
 import { preloadable } from '../utils/preloadable';
 import { loadCaseArticleView } from '../utils/caseArticlePreload';
 import ClientOnly from '../components/ClientOnly';
+import '../../styles/article-extras.css';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
 const Footer = lazy(() => import('../components/Footer'));
@@ -453,6 +454,28 @@ function CaseZipWarning({ download, onClose, onConfirm, dialogRef }: {
 }
 
 const articleHtmlCache = new Map<string, { source: string; articleHtml: string; toc: { id: string; text: string }[] }>();
+
+// Обложка в блоке «Похожие статьи»: копии нужной ширины, а без своей обложки
+// или при ошибке загрузки — фирменная картинка, как в списке блога.
+function RelatedCover({ image, sizes }: { image?: string | null; sizes: string }) {
+  return (
+    <span className="ww-arel__cover">
+      <DeferredImage
+        {...(image && hasCustomCover(image)
+          ? articleImageAttributes(image, sizes)
+          : { src: '/images/brand/whale-wizard.webp' })}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        onError={(event) => {
+          event.currentTarget.removeAttribute('srcset');
+          event.currentTarget.removeAttribute('sizes');
+          event.currentTarget.src = '/images/brand/whale-wizard.webp';
+        }}
+      />
+    </span>
+  );
+}
 
 function BlogPageComponent() {
   const { slug } = useParams();
@@ -1031,44 +1054,73 @@ function BlogPageComponent() {
             )}
 
             {Array.isArray(selectedArticle.faq) && selectedArticle.faq.length > 0 && (
-              <section className="mt-10 rounded-2xl border border-border bg-card/30 p-6">
-                <h2 className="text-xl font-semibold mb-4">Частые вопросы</h2>
-                <div className="space-y-4">
-                  {selectedArticle.faq.map((item, index) => (
-                    <details key={`${item.question}-${index}`} className="group rounded-xl border border-border/70 bg-background/40 px-4 py-3">
-                      <summary className="blog-touch-target cursor-pointer list-none font-medium text-foreground group-open:text-primary">
-                        {item.question}
-                      </summary>
-                      <p className="mt-2 text-sm md:text-base text-muted-foreground leading-relaxed">{item.answer}</p>
-                    </details>
-                  ))}
+              <section className="ww-afaq" aria-labelledby="article-faq-title">
+                <div className="ww-afaq__grid">
+                  <div>
+                    <h2 id="article-faq-title" className="ww-afaq__title">
+                      Частые <span className="ww-afaq__accent">вопросы</span>
+                    </h2>
+                    <p className="ww-afaq__lead">
+                      Коротко о&nbsp;том, что чаще всего спрашивают после {isCasesRoute ? 'этого кейса' : 'этой статьи'}.
+                    </p>
+                  </div>
+                  <div>
+                    {selectedArticle.faq.map((item, index) => (
+                      <details key={`${item.question}-${index}`} className="ww-afaq__item">
+                        <summary>
+                          <span className="ww-afaq__num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                          <span>{item.question}</span>
+                          <span className="ww-afaq__toggle" aria-hidden="true">+</span>
+                        </summary>
+                        <p className="ww-afaq__answer">{item.answer}</p>
+                      </details>
+                    ))}
+                  </div>
                 </div>
               </section>
             )}
 
-            {relatedArticles.length > 0 && (
-              <aside className="mt-12 rounded-2xl border border-border bg-card/30 p-6">
-                <h2 className="text-xl font-semibold mb-4">{isCasesRoute ? 'Похожие кейсы' : 'Похожие статьи'}</h2>
-                <ul className="space-y-3">
-                  {relatedArticles.map((article) => (
-                    <li key={article.slug}>
-                      {/* Ссылка, а не кнопка: у кнопки нет адреса, поэтому её не
-                          видит поисковик, её нельзя открыть в новой вкладке и
-                          нельзя скопировать. Вид и движение прежние. */}
-                      <m.span whileHover={{ x: 4 }} transition={{ type: 'spring', stiffness: 320, damping: 24 }} className="block">
-                        <Link
-                          to={`${routeBase}/${article.slug}${preservedCaseSearch}`}
-                          state={withReturnTo(location)}
-                          className="text-left text-primary hover:underline"
-                        >
-                          {article.title}
-                        </Link>
-                      </m.span>
-                    </li>
-                  ))}
-                </ul>
-              </aside>
-            )}
+            {relatedArticles.length > 0 && (() => {
+              // Ссылки, а не кнопки: у кнопки нет адреса, поэтому её не видит
+              // поисковик, её нельзя открыть в новой вкладке и нельзя скопировать.
+              const [featured, ...rest] = relatedArticles;
+              const hrefFor = (slug: string) => `${routeBase}/${slug}${preservedCaseSearch}`;
+              return (
+                <aside className="ww-arel" aria-labelledby="article-related-title">
+                  <h2 id="article-related-title" className="ww-arel__title">{isCasesRoute ? 'Похожие кейсы' : 'Похожие статьи'}</h2>
+                  <Link to={hrefFor(featured.slug)} state={withReturnTo(location)} className="ww-arel__feat">
+                    <RelatedCover image={featured.image} sizes="(max-width: 699px) calc(100vw - 56px), 380px" />
+                    <span>
+                      <span className="ww-arel__chip">{categoryDisplayLabel(featured.category)}</span>
+                      <span className="ww-arel__feat-title">{featured.title}</span>
+                      {featured.description && <span className="ww-arel__excerpt">{featured.description}</span>}
+                      <span className="ww-arel__meta">
+                        {formatReadTime(featured.readTime)}
+                        <span className="ww-arel__arrow" aria-hidden="true">→</span>
+                      </span>
+                    </span>
+                  </Link>
+                  {rest.length > 0 && (
+                    <ul className="ww-arel__rows">
+                      {rest.map((article) => (
+                        <li key={article.slug}>
+                          <Link to={hrefFor(article.slug)} state={withReturnTo(location)} className="ww-arel__row">
+                            <RelatedCover image={article.image} sizes="72px" />
+                            <span className="min-w-0">
+                              <span className="ww-arel__row-title">{article.title}</span>
+                              <span className="ww-arel__meta">
+                                {formatReadTime(article.readTime)}
+                                <span className="ww-arel__arrow" aria-hidden="true">→</span>
+                              </span>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </aside>
+              );
+            })()}
 
             {/* Финальный CTA с плексус-сетью — после текста, чтению не мешает */}
             <div className="relative mt-12 overflow-hidden rounded-3xl border border-primary/25 bg-gradient-to-b from-primary/10 via-card/60 to-card/80 px-5 py-10 text-center sm:px-8 md:py-12">
