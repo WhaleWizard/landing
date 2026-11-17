@@ -30,6 +30,7 @@ import {
   type ContentTypography,
   withMobileTitleLines,
 } from '../utils/contentTypography';
+import '../../styles/service-practice.css';
 
 const loadServices = memoizedImport(() => import('../components/Services'));
 const Services = lazy(loadServices);
@@ -1013,6 +1014,33 @@ function DeferredSection({
   );
 }
 
+// Полоса полезных ссылок между формой заявки и подвалом. Нужна поиску как
+// внутренняя перелинковка, поэтому видна всем; стили — service-practice.css.
+function ServicePracticeLinks({ service, theme }: Pick<ServiceLandingPageProps, 'service' | 'theme'>) {
+  const content = serviceSearchContent[service];
+  const style = { '--practice-from': theme.primary, '--practice-to': theme.accent } as CSSProperties;
+  return (
+    <section aria-labelledby="service-practice-title" className="ww-practice" style={style}>
+      <div className="ww-practice__strip">
+        <h2 id="service-practice-title" className="ww-practice__title">
+          <span className="ww-practice__dot" aria-hidden="true" />
+          {content.title}
+        </h2>
+        <ul className="ww-practice__links">
+          {content.links.map(({ href, label }) => (
+            <li key={href}>
+              <Link to={href} className="ww-practice__link">
+                <span>{label}</span>
+                <span className="ww-practice__arrow" aria-hidden="true">→</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </section>
+  );
+}
+
 function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProps, 'service' | 'contact' | 'theme'>) {
   const sectionRef = useRef<HTMLElement>(null);
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(withMobileTitleLines(contact.typography), { minFontSize: 16 });
@@ -1170,25 +1198,6 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
             moreHref={`/cases/?from=${service}`}
           />
         </DeferredSection>],
-        [null, <section key="practice" aria-labelledby="service-practice-title" className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 md:py-12">
-          <div className="rounded-3xl border border-border bg-card/40 p-5 sm:p-8">
-            <h2 id="service-practice-title" className="text-balance text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-              {serviceSearchContent[service].title}
-            </h2>
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground sm:text-base">
-              {serviceSearchContent[service].description}
-            </p>
-            <ul className="mt-4 grid gap-2 sm:grid-cols-2">
-              {serviceSearchContent[service].links.map(({ href, label }) => (
-                <li key={href}>
-                  <Link to={href} className="flex min-h-11 items-center rounded-xl border border-border px-3 py-2 text-sm font-medium text-primary underline-offset-4 hover:underline">
-                    {label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>],
         ['cta', <DeferredSection key="cta" heights={{ mobile: 410, tablet: 390, desktop: 371 }}>
           <CallToAction content={config.cta} />
         </DeferredSection>],
@@ -1211,6 +1220,7 @@ export function ServiceLandingPage({ service }: { service: ServiceType }) {
           <ContactSection service={service} contact={config.contact} theme={theme} />
         </DeferredSection>],
       ], config)}
+      <ServicePracticeLinks service={service} theme={theme} />
       <DeferredSection heights={{ mobile: 1070, tablet: 515, desktop: 430 }}>
         <Footer />
       </DeferredSection>

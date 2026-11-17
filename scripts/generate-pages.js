@@ -1926,10 +1926,6 @@ function renderServicePageSections(config, applyLandingLayout) {
       bodyHtml: `${renderBadgeHtml(config.cases.badge)}<p style="${contentStyles.body};margin-bottom:14px">${escapeHtml(config.cases.description)}</p>${renderCaseItemsHtml(config.cases.items)}`,
     },
     {
-      heading: config.practice.title,
-      bodyHtml: `<p style="${contentStyles.body}">${escapeHtml(config.practice.description)}</p><ul>${config.practice.links.map(({ href, label }) => `<li><a href="${escapeHtml(href)}">${escapeHtml(label)}</a></li>`).join('')}</ul>`,
-    },
-    {
       layoutSection: 'cta',
       heading: config.cta.title,
       bodyHtml: `${renderBadgeHtml(config.cta.badge)}<p style="${contentStyles.body}">${escapeHtml(config.cta.description)}</p>${hidden.includes('contact') ? '' : renderActionLabelsHtml([config.cta.button])}`,
@@ -1945,7 +1941,13 @@ function renderServicePageSections(config, applyLandingLayout) {
       bodyHtml: `${renderBadgeHtml(config.contact.badge)}<p style="${contentStyles.body};margin-bottom:10px">${escapeHtml(config.contact.description)}</p><ul style="margin:0;padding-left:20px;${contentStyles.body}">${config.contact.bullets.map((b) => `<li>${escapeHtml(b)}</li>`).join('')}</ul>`,
     },
   ];
-  return applyLandingLayout(sections.map((section) => [section.layoutSection ?? null, section]), config);
+  // Полоса полезных ссылок стоит после формы заявки и перед подвалом, как в
+  // ServiceLandingPage, и несёт ровно тот текст, что видит человек.
+  const practice = {
+    heading: config.practice.title,
+    bodyHtml: `<ul>${config.practice.links.map(({ href, label }) => `<li><a href="${escapeHtml(href)}">${escapeHtml(label)}</a></li>`).join('')}</ul>`,
+  };
+  return [...applyLandingLayout(sections.map((section) => [section.layoutSection ?? null, section]), config), practice];
 }
 
 function renderHomeSections(content, latestArticles, layout, applyLandingLayout) {
