@@ -401,4 +401,13 @@ export const MIGRATION_SIGNATURES: readonly MigrationSignature[] = [
     indexes: ['idx_finance_expenses_request'],
     triggers: [],
   },
+  {
+    file: '0048_campaign_stats_spend_known.sql',
+    tables: [],
+    columns: {
+      campaign_stats: ['spend_known'],
+    },
+    indexes: [],
+    triggers: [],
+  },
 ];

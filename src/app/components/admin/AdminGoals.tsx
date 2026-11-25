@@ -19,8 +19,9 @@ interface Goal {
 
 interface PeriodFact {
   leads: number;
-  qualified: number;
-  won: number;
+  /** null — сервер не может посчитать (нет поля в базе), а не ноль. */
+  qualified: number | null;
+  won: number | null;
   revenue: number | null;
   spend: number | null;
 }
@@ -283,7 +284,7 @@ export default function AdminGoals({ password }: { password: string }) {
   const money = useCallback((value: number | null) => formatMoney(value, currency), [currency]);
 
   const history = useMemo(() => (visible?.history || []).filter((item) => (
-    item.goal || item.fact.leads > 0 || item.fact.won > 0 || item.fact.spend !== null
+    item.goal || item.fact.leads > 0 || (item.fact.won ?? 0) > 0 || item.fact.spend !== null
   )), [visible]);
 
   useGoalCelebration(period, goal, fact, data?.today);

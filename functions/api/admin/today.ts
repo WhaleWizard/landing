@@ -204,7 +204,9 @@ async function topSources(db: D1Database, schema: SchemaCache): Promise<Array<{
   if (!hasUtm || !hasCreatedAt) return [];
 
   const rows = await db.prepare(
-    `SELECT COALESCE(NULLIF(TRIM(utm_source), ''), '') AS source, COUNT(*) AS leads
+    // Источник без учёта регистра (DA-84): «Meta» и «meta» — один источник,
+    // и общий расход делится на все его заявки, а не показывается дважды.
+    `SELECT LOWER(COALESCE(NULLIF(TRIM(utm_source), ''), '')) AS source, COUNT(*) AS leads
      FROM leads
      WHERE created_at >= date('now', '-29 day')${hasSoftDelete ? ' AND deleted_at IS NULL' : ''}
      GROUP BY source ORDER BY leads DESC, source ASC LIMIT 3`,

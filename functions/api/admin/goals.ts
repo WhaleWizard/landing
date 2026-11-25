@@ -24,8 +24,10 @@ interface Goal {
 
 interface PeriodFact {
   leads: number;
-  qualified: number;
-  won: number;
+  /** null — в базе нет поля качества заявки: целевых не считаем, а не «0» (DA-113). */
+  qualified: number | null;
+  /** null — в базе нет этапов сделки: выигрыши неизвестны, а не равны нулю. */
+  won: number | null;
   revenue: number | null;
   spend: number | null;
 }
@@ -88,13 +90,14 @@ async function readFact(
   const from = bounds.from;
   const to = today < bounds.to ? today : bounds.to;
   const timeColumn = columns.has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
-  const qualified = columns.has('quality') ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : '0';
+  const hasQuality = columns.has('quality');
+  const qualified = hasQuality ? "SUM(CASE WHEN quality = 'target' THEN 1 ELSE 0 END)" : 'NULL';
 
   const row = await db.prepare(`
     SELECT COUNT(*) AS leads, ${qualified} AS qualified
     FROM leads
     WHERE date(${timeColumn}, ?) BETWEEN date(?) AND date(?) AND ${activeCond}
-  `).bind(localModifier, from, to).first<{ leads: number; qualified: number }>();
+  `).bind(localModifier, from, to).first<{ leads: number; qualified: number | null }>();
 
   const { won, revenue } = await readWonPeriod(db, columns, activeCond, localModifier, from, to, currency);
 
@@ -114,8 +117,8 @@ async function readFact(
 
   return {
     leads: number(row?.leads),
-    qualified: number(row?.qualified),
-    won: won ?? 0,
+    qualified: hasQuality ? number(row?.qualified) : null,
+    won,
     revenue,
     spend,
   };
@@ -146,7 +149,7 @@ function forecast(fact: PeriodFact, period: string, today: string): {
     elapsedDays: elapsed,
     totalDays: days,
     leads: Math.round(fact.leads * scale),
-    qualified: Math.round(fact.qualified * scale),
+    qualified: fact.qualified === null ? null : Math.round(fact.qualified * scale),
     revenue: fact.revenue === null ? null : round(fact.revenue * scale),
     spend: fact.spend === null ? null : round(fact.spend * scale),
     isCurrent,
@@ -226,6 +229,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         'Выручка и выигранные сделки считаются по дате выигрыша сделки, заявки — по дате заявки. Выручка — суммы выигранных сделок в валюте цели; сделки в других валютах не приводятся к ней, курсов в системе нет.',
         'Фактические поступления учитываются в «Финансах».',
         ...(fact.revenue === null && fact.won ? ['Для итоговой суммы заполните суммы выигранных сделок в валюте цели.'] : []),
+        ...(fact.qualified === null ? ['Целевые заявки не считаются: в базе нет поля качества заявки (оценка «целевой/нецелевой» в «Заявках»).'] : []),
+        ...(fact.won === null ? ['Выигранные сделки и выручка не считаются: в базе нет этапов сделки CRM.'] : []),
         'Прогноз линейный: текущий темп, умноженный на длину месяца. Он не учитывает сезонность и выходные.',
       ],
     }, { headers: noStore });

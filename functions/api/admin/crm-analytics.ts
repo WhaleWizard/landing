@@ -76,8 +76,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         SELECT pipeline_stage,
           COUNT(*) AS count,
           SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END) AS value,
-          SUM(CASE WHEN deal_value IS NOT NULL AND deal_value > 0 AND deal_currency != ? THEN 1 ELSE 0 END) AS other_currency,
-          SUM(CASE WHEN deal_currency = ? AND deal_value IS NOT NULL AND deal_value > 0 THEN 1 ELSE 0 END) AS priced
+          SUM(CASE WHEN deal_value IS NOT NULL AND deal_currency != ? THEN 1 ELSE 0 END) AS other_currency,
+          -- Явный 0 — это указанная сумма, а пустая — неизвестная (DA-07).
+          SUM(CASE WHEN deal_currency = ? AND deal_value IS NOT NULL THEN 1 ELSE 0 END) AS priced
         FROM leads WHERE ${activeCond}
         GROUP BY pipeline_stage
       `).bind(currency, currency, currency).all<{ pipeline_stage: string; count: number; value: number; other_currency: number; priced: number }>(),
@@ -125,12 +126,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       db.prepare(`
         SELECT strftime('%Y-%m', ${hasClosedAt ? "COALESCE(closed_at, updated_at)" : 'updated_at'}, ?) AS month,
           COUNT(*) AS deals,
-          SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END) AS value
+          SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END) AS value,
+          SUM(CASE WHEN deal_currency = ? AND deal_value IS NOT NULL THEN 1 ELSE 0 END) AS priced
         FROM leads
         WHERE ${activeCond} AND pipeline_stage = 'won'
           AND date(${hasClosedAt ? "COALESCE(closed_at, updated_at)" : 'updated_at'}, ?) >= date('now', ?, 'start of month', '-11 months')
         GROUP BY month ORDER BY month ASC
-      `).bind(localTimeModifier, currency, localTimeModifier, localTimeModifier).all<{ month: string; deals: number; value: number }>(),
+      `).bind(localTimeModifier, currency, currency, localTimeModifier, localTimeModifier).all<{ month: string; deals: number; value: number; priced: number }>(),
 
       db.prepare(`
         SELECT TRIM(loss_reason) AS reason, COUNT(*) AS count
@@ -146,11 +148,12 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
             ELSE LOWER(TRIM(${columns.has('utm_source') ? 'utm_source' : "''"})) END AS source,
           COUNT(*) AS deals,
           SUM(CASE WHEN deal_currency = ? THEN COALESCE(deal_value, 0) ELSE 0 END) AS value,
-          SUM(CASE WHEN deal_value IS NOT NULL AND deal_value > 0 AND deal_currency != ? THEN 1 ELSE 0 END) AS other_currency
+          SUM(CASE WHEN deal_value IS NOT NULL AND deal_currency != ? THEN 1 ELSE 0 END) AS other_currency,
+          SUM(CASE WHEN deal_currency = ? AND deal_value IS NOT NULL THEN 1 ELSE 0 END) AS priced
         FROM leads
         WHERE ${activeCond} AND pipeline_stage = 'won'
         GROUP BY source ORDER BY value DESC, deals DESC LIMIT 8
-      `).bind(currency, currency).all<{ source: string; deals: number; value: number; other_currency: number }>(),
+      `).bind(currency, currency, currency).all<{ source: string; deals: number; value: number; other_currency: number; priced: number }>(),
 
       hasFirstResponse
         ? db.prepare(`
@@ -274,16 +277,21 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       quality: qualityRows
         ? { target: number(qualityRows.target), nontarget: number(qualityRows.nontarget), unrated: number(qualityRows.unrated) }
         : null,
+      // `value: null` — в месяце нет ни одной сделки с указанной суммой:
+      // это «неизвестно», а не ноль (DA-07). `withoutValue` — сколько таких.
       revenueByMonth: (revenueRows.results || []).map((row) => ({
         month: String(row.month),
         deals: number(row.deals),
-        value: round(number(row.value)),
+        value: number(row.priced) > 0 ? round(number(row.value)) : null,
+        priced: number(row.priced),
+        withoutValue: Math.max(0, number(row.deals) - number(row.priced)),
       })),
       lossReasons: (lossRows.results || []).map((row) => ({ reason: String(row.reason), count: number(row.count) })),
       wonBySource: (sourceRows.results || []).map((row) => ({
         source: String(row.source || 'Без источника'),
         deals: number(row.deals),
-        value: round(number(row.value)),
+        value: number(row.priced) > 0 ? round(number(row.value)) : null,
+        priced: number(row.priced),
         // Сделки с суммой в другой валюте: в `value` их нет, курсов в системе нет.
         otherCurrencyDeals: number(row.other_currency),
       })),

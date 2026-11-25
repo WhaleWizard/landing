@@ -540,6 +540,27 @@ test('workspace API authenticates, explains missing schema, and returns persiste
   current.sqlite.close();old.sqlite.close();
 });
 
+test('DA-09: задача сделки из корзины не видна в рабочем месте клиента', async () => {
+  const api = await load('functions/api/admin/workspace.ts');
+  const { sqlite, db } = create();
+  try {
+    const leadId = Number(sqlite.prepare("INSERT INTO leads (event_id, name) VALUES ('ws-trash', 'Сделка')").run().lastInsertRowid);
+    sqlite.prepare("INSERT INTO clients (name, lead_id) VALUES ('Клиент', ?)").run(leadId);
+    sqlite.prepare("INSERT INTO crm_tasks (lead_id, title) VALUES (?, 'Позвонить')").run(leadId);
+    const read = async () => (await api.onRequestGet({
+      env: { DB: db, ADMIN_PASSWORD: 'test-only' },
+      request: new Request('https://example.test/api/admin/workspace', { headers: { 'X-Admin-Password': 'test-only' } }),
+    })).json();
+    const before = await read();
+    assert.equal(before.common.crmTasks.filter((item) => item.title === 'Позвонить').length, 1, 'задача видна, пока сделка активна');
+    sqlite.prepare("UPDATE leads SET deleted_at = datetime('now') WHERE id = ?").run(leadId);
+    const after = await read();
+    assert.equal(after.common.crmTasks.filter((item) => item.title === 'Позвонить').length, 0, 'после корзины задачи нет');
+  } finally {
+    sqlite.close();
+  }
+});
+
 test('old undated paid invoice can be linked without inventing a receipt date',async()=>{
   const {sqlite,db}=create(true);sqlite.exec("INSERT INTO invoices(amount,status,paid_at,kind,payer) VALUES(300,'paid',NULL,'consultation','Старый покупатель')");sqlite.exec(readFileSync('migrations/0044_connected_workspace.sql','utf8'));
   const cid=client(sqlite),[old]=await logic.readLedgerInvoices(db);await logic.workspaceMutation(db,{...old,action:'save_invoice',client_id:cid},today);

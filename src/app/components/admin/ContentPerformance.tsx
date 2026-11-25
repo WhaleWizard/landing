@@ -128,11 +128,11 @@ export default function ContentPerformance({
                 <button type="button" onClick={() => onOpen(row.article)} title={`Открыть в редакторе «${row.article.title || row.slug}»`}>
                   <span className="content-perf__title">{row.article.title || row.slug}</span>
                   <span className="content-perf__numbers">
-                    <span title="Просмотры с маркетинговым согласием"><Eye aria-hidden="true" /> {formatNumber(row.views)}</span>
+                    <span title="Просмотры тех, кто разрешил cookie аналитики или маркетинга"><Eye aria-hidden="true" /> {formatNumber(row.views)}</span>
                     <span title="Все заявки со страницы" className={(row.leads ?? 0) > 0 ? 'is-good' : ''}>
                       <Inbox aria-hidden="true" /> {formatNumber(row.leads)}
                     </span>
-                    <span title="Конверсия по просмотрам и заявкам с согласием">{formatPercent(row.conversion)}</span>
+                    <span title="Заявки с маркетинговым согласием к просмотрам с согласием на cookie — оценка снизу: заявки посетителей, разрешивших только аналитику, в неё не входят">{formatPercent(row.conversion)}</span>
                   </span>
                   <Pencil aria-hidden="true" />
                 </button>

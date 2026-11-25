@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { classifyChannel } from '../../../../shared/marketing-channel';
 import {
   AlertCircle,
   ArrowRight,
@@ -31,6 +32,9 @@ export interface ChannelStat {
   cpl: number | null;
   cpq: number | null;
   romi: number | null;
+  /** Чего не хватает для денег канала (CL-23): цифры тогда не считаются. */
+  revenueIncomplete?: boolean;
+  spendIncomplete?: boolean;
   qualificationRate: number | null;
   winRate: number | null;
   leadShare: number;
@@ -60,14 +64,16 @@ export function aggregateChannels(
     revenue: number;
     spend: number;
     hasSpend: boolean;
+    revenueUnknown: boolean;
+    leadsWithoutSpend: number;
   }> = {
-    meta: { id: 'meta', name: 'Meta Ads (Inst / FB)', icon: 'meta', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
-    google: { id: 'google', name: 'Google Ads (Search/PMax)', icon: 'google', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
-    telegram: { id: 'telegram', name: 'Telegram Ads & Посевы', icon: 'telegram', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
-    organic: { id: 'organic', name: 'Органика по меткам', icon: 'organic', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
-    direct: { id: 'direct', name: 'Прямой трафик по меткам', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
-    unknown: { id: 'unknown', name: 'Источник не определён', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
-    other: { id: 'other', name: 'Прочие каналы', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false },
+    meta: { id: 'meta', name: 'Meta Ads (Inst / FB)', icon: 'meta', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false, revenueUnknown: false, leadsWithoutSpend: 0 },
+    google: { id: 'google', name: 'Google Ads (Search/PMax)', icon: 'google', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false, revenueUnknown: false, leadsWithoutSpend: 0 },
+    telegram: { id: 'telegram', name: 'Telegram Ads & Посевы', icon: 'telegram', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false, revenueUnknown: false, leadsWithoutSpend: 0 },
+    organic: { id: 'organic', name: 'Органика по меткам', icon: 'organic', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false, revenueUnknown: false, leadsWithoutSpend: 0 },
+    direct: { id: 'direct', name: 'Прямой трафик по меткам', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false, revenueUnknown: false, leadsWithoutSpend: 0 },
+    unknown: { id: 'unknown', name: 'Источник не определён', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false, revenueUnknown: false, leadsWithoutSpend: 0 },
+    other: { id: 'other', name: 'Прочие каналы', icon: 'other', leads: 0, qualified: 0, won: 0, revenue: 0, spend: 0, hasSpend: false, revenueUnknown: false, leadsWithoutSpend: 0 },
   };
 
   for (const row of rows) {
@@ -79,22 +85,29 @@ export function aggregateChannels(
       target = 'direct';
     } else if (/^(?:без (?:источника|utm)|\(?none\)?|—)?$/i.test(k.trim())) {
       target = 'unknown';
-    } else if (/meta|facebook|fb|instagram|inst|ig\b/i.test(k)) {
-      target = 'meta';
-    } else if (/google|gads|adwords|cpc|pmax/i.test(k)) {
-      target = 'google';
-    } else if (/tg|telegram/i.test(k)) {
-      target = 'telegram';
+    } else {
+      // То же правило, что у «UTM-кампаний» (CL-01). Ключ — «источник /
+      // кампания»; источник важнее названия кампании.
+      const [source, ...rest] = k.split(' / ');
+      const channel = classifyChannel(source, '', rest.join(' '));
+      if (channel !== 'other') target = channel;
     }
 
     const b = buckets[target];
     b.leads += row.leads || 0;
     b.qualified += row.qualified || 0;
     b.won += row.won || 0;
-    b.revenue += row.revenue || 0;
+    // Выигранные сделки без суммы — неизвестная выручка, а не 0 (CL-23).
+    if (row.revenue === null || !Number.isFinite(row.revenue)) {
+      if ((row.won || 0) > 0) b.revenueUnknown = true;
+    } else {
+      b.revenue += row.revenue;
+    }
     if (row.spend !== null && Number.isFinite(row.spend)) {
       b.spend += row.spend;
       b.hasSpend = true;
+    } else {
+      b.leadsWithoutSpend += row.leads || 0;
     }
   }
 
@@ -102,9 +115,13 @@ export function aggregateChannels(
     .filter((b) => b.leads > 0 || b.hasSpend)
     .map((b) => {
       const spend = b.hasSpend ? b.spend : null;
-      const cpl = spend !== null && b.leads > 0 ? spend / b.leads : null;
-      const cpq = spend !== null && b.qualified > 0 ? spend / b.qualified : null;
-      const romi = spend !== null && spend > 0 ? ((b.revenue - spend) / spend) * 100 : null;
+      // Расход известен не по всем меткам канала — цена заявки по нему была
+      // бы занижена (CL-23): не считаем, интерфейс говорит почему.
+      const spendIncomplete = spend !== null && b.leadsWithoutSpend > 0;
+      const cpl = spend !== null && !spendIncomplete && b.leads > 0 ? spend / b.leads : null;
+      const cpq = spend !== null && !spendIncomplete && b.qualified > 0 ? spend / b.qualified : null;
+      // ROMI −100 % при неизвестной выручке был выдумкой (CL-23, как DA-109).
+      const romi = spend !== null && spend > 0 && !b.revenueUnknown ? ((b.revenue - spend) / spend) * 100 : null;
       const qualificationRate = b.leads > 0 ? (b.qualified / b.leads) * 100 : null;
       const winRate = b.leads > 0 ? (b.won / b.leads) * 100 : null;
       const leadShare = totalLeads > 0 ? (b.leads / totalLeads) * 100 : 0;
@@ -121,6 +138,8 @@ export function aggregateChannels(
         cpl,
         cpq,
         romi,
+        revenueIncomplete: b.revenueUnknown,
+        spendIncomplete,
         qualificationRate,
         winRate,
         leadShare,
@@ -400,13 +419,15 @@ export function ChannelBattleCards({
 
                 <div className="adm-channel-metric">
                   <span className="adm-channel-metric__label">Цена лида (CPL)</span>
-                  <strong className="adm-channel-metric__val">{formatMoney(channel.cpl, currency)}</strong>
+                  <strong className="adm-channel-metric__val" title={channel.spendIncomplete ? 'Расход введён не по всем меткам канала — цена заявки была бы занижена' : undefined}>
+                    {channel.spendIncomplete ? 'расход неполный' : formatMoney(channel.cpl, currency)}
+                  </strong>
                 </div>
 
                 <div className="adm-channel-metric">
                   <span className="adm-channel-metric__label">Окупаемость</span>
                   <strong className={`adm-channel-metric__val ${channel.romi !== null && channel.romi >= 0 ? 'text-[var(--adm-success)]' : 'text-zinc-400'}`}>
-                    {channel.romi !== null ? formatPercent(channel.romi) : '—'}
+                    {channel.romi !== null ? formatPercent(channel.romi) : channel.revenueIncomplete ? 'выручка не указана' : '—'}
                   </strong>
                 </div>
               </div>

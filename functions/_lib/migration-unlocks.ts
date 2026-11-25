@@ -59,4 +59,5 @@ export const MIGRATION_UNLOCKS: Readonly<Record<string, string>> = {
   '0045_google_organic_landing.sql': 'Заявки из органического поиска Google по первой странице открытого документа.',
   '0046_campaign_stats.sql': 'Сквозная аналитика UTM-кампаний: показы, клики, расходы и связка с лидами, квалификацией и выручкой.',
   '0047_finance_expense_request_key.sql': 'Повтор расхода в «Финансах» после потерянного ответа не удваивает сумму.',
+  '0048_campaign_stats_spend_known.sql': 'В «UTM-кампаниях» пустой расход — «не введён», а не бесплатные клики.',
 };

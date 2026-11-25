@@ -51,6 +51,8 @@ interface PeriodNumbers {
   qualified: number | null;
   won: number | null;
   revenue: number | null;
+  /** Выигрыши с суммой в другой валюте: в выручку не входят (DA-06). */
+  revenueOtherCurrency: number;
   spend: number | null;
 }
 
@@ -72,7 +74,7 @@ async function readPeriod(
     WHERE date(${timeColumn}, ?) BETWEEN date(?) AND date(?) AND ${activeCond}
   `).bind(localModifier, from, to).first<{ leads: number; qualified: number | null }>();
 
-  const { won, revenue } = await readWonPeriod(db, columns, activeCond, localModifier, from, to, currency);
+  const { won, revenue, otherCurrency } = await readWonPeriod(db, columns, activeCond, localModifier, from, to, currency);
 
   let views: number | null = null;
   if (available.pageStats) {
@@ -82,7 +84,10 @@ async function readPeriod(
   }
 
   let visitors: number | null = null;
-  if (available.visitors) {
+  // Суточные отпечатки посетителей хранятся 90 дней. Месяц, начало которого
+  // старше, считался бы нулём или частью месяца (DA-13) — это «нет данных».
+  const visitorsRetained = await db.prepare("SELECT date(?) >= date('now', '-89 day') AS ok").bind(from).first<{ ok: number }>();
+  if (available.visitors && Number(visitorsRetained?.ok) === 1) {
     const stats = await db.prepare('SELECT COUNT(*) AS total FROM visitor_hashes_daily WHERE day >= date(?) AND day <= date(?)')
       .bind(from, to).first<{ total: number }>();
     visitors = number(stats?.total);
@@ -106,6 +111,7 @@ async function readPeriod(
     qualified: row?.qualified === null || row?.qualified === undefined ? null : number(row.qualified),
     won,
     revenue,
+    revenueOtherCurrency: otherCurrency,
     spend,
   };
 }
@@ -185,10 +191,13 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         `).bind(new Date().toISOString(), localModifier, from, to).first<{ total: number }>()
       : null;
 
-    const profit = current.revenue !== null && current.spend !== null ? round(current.revenue - current.spend) : null;
+    // Прибыль и ROMI — только когда вся выручка месяца в валюте отчёта (DA-06):
+    // выигрыш в другой валюте сделал бы их заниженными, а сложить нельзя.
+    const moneyComplete = current.revenueOtherCurrency === 0;
+    const profit = moneyComplete && current.revenue !== null && current.spend !== null ? round(current.revenue - current.spend) : null;
     const cpl = current.spend !== null && current.leads > 0 ? round(current.spend / current.leads) : null;
     const cpq = current.spend !== null && current.qualified ? round(current.spend / current.qualified) : null;
-    const romi = current.revenue !== null && current.spend !== null && current.spend > 0
+    const romi = moneyComplete && current.revenue !== null && current.spend !== null && current.spend > 0
       ? round(((current.revenue - current.spend) / current.spend) * 100, 1)
       : null;
 
@@ -212,9 +221,11 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       pages: (pages.results || []).map((row) => ({ path: String(row.page_path), views: number(row.views) })),
       publishedArticles: published ? number(published.total) : null,
       notes: [
+        ...(current.visitors === null && hasVisitors ? ['Посетители за этот месяц не считаются: суточные отпечатки хранятся 90 дней. Просмотры остаются.'] : []),
         'Отчёт собран из тех же данных, что показывает админка: ничего не досчитывается и не округляется в свою пользу.',
         'Выручка считается по дате выигрыша и суммам сделок. Фактические поступления учитываются в «Финансах». Заявки считаются по местной дате последней заявки контакта.',
-        ...(current.revenue === null && current.won ? ['Для итоговой суммы заполните суммы выигранных сделок в валюте отчёта.'] : []),
+        ...(current.revenue === null && current.won ? ['Выручка не считается: у части выигранных сделок нет суммы или все суммы в другой валюте. Заполните суммы в валюте отчёта — курсов в системе нет.'] : []),
+        ...(current.revenueOtherCurrency > 0 ? [`Выигрышей в другой валюте: ${current.revenueOtherCurrency}. Их суммы не входят в выручку, поэтому прибыль и ROMI не считаются.`] : []),
         current.spend === null
           ? 'Расходы за месяц не заведены, поэтому цена лида и окупаемость не рассчитаны.'
           : `Деньги считаются в ${currency}; суммы в других валютах к ней не приводятся.`,

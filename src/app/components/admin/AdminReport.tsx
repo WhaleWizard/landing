@@ -117,7 +117,7 @@ export default function AdminReport({ password }: { password: string }) {
       `Отчёт за ${periodLabel(period).toLowerCase()}`,
       ...(openMonth && through ? [`Данные по ${through}`] : []),
       '',
-      `Посетители: ${formatNumber(current.visitors)}`,
+      `Посетители (сумма по дням): ${formatNumber(current.visitors)}`,
       `Просмотры: ${formatNumber(current.views)}`,
       `Заявки: ${formatNumber(current.leads)}${leadsChange ? ` (${leadsChange})` : ''}`,
       `Целевые заявки: ${formatNumber(current.qualified)}`,
@@ -210,7 +210,8 @@ export default function AdminReport({ password }: { password: string }) {
 
           <div className="adm-tiles adm-tiles--report">
             {[
-              { label: 'Посетители', value: formatNumber(current?.visitors ?? null), note: change(current?.visitors ?? null, previous?.visitors ?? null) },
+              // Сумма суточных уникальных: один человек в разные дни считается каждый день (DA-13).
+              { label: 'Посетители, сумма по дням', value: formatNumber(current?.visitors ?? null), note: change(current?.visitors ?? null, previous?.visitors ?? null) },
               { label: 'Заявки', value: formatNumber(current?.leads ?? null), note: change(current?.leads ?? null, previous?.leads ?? null) },
               { label: 'Целевые', value: formatNumber(current?.qualified ?? null), note: change(current?.qualified ?? null, previous?.qualified ?? null) },
               { label: 'Сделки', value: formatNumber(current?.won ?? null), note: change(current?.won ?? null, previous?.won ?? null) },

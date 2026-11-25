@@ -579,8 +579,9 @@ const analyticsPayload = () => ({
   lossReasons: [],
   wonBySource: [
     { source: 'google', deals: 5, value: 5000 },
-    { source: 'instagram', deals: 3, value: 0 },
-    { source: 'telegram', deals: 1, value: 0, otherCurrencyDeals: 1 },
+    // Сервер после DA-07: суммы нет ни у одной сделки — value: null, а не 0.
+    { source: 'instagram', deals: 3, value: null, priced: 0 },
+    { source: 'telegram', deals: 1, value: null, priced: 0, otherCurrencyDeals: 1 },
   ],
   notes: [],
 });

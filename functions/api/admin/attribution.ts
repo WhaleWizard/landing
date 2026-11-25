@@ -106,11 +106,18 @@ function sourceExpression(): string {
   return `CASE WHEN TRIM(COALESCE(utm_source, '')) = '' THEN 'Без источника' ELSE LOWER(SUBSTR(TRIM(utm_source), 1, 120)) END`;
 }
 
+/**
+ * Ключ кампании — пара «источник, кампания» через служебный символ char(31),
+ * а не через « / » (DA-110): `market / east` + `retargeting` и `market` +
+ * `east / retargeting` склеивались в одну строку с общим расходом. В подпись
+ * для человека символ превращается в « / » уже после группировки и
+ * сопоставления расходов (`sortRows`).
+ */
 function campaignExpression(): string {
   return `CASE
     WHEN TRIM(COALESCE(utm_source, '') || COALESCE(utm_campaign, '')) = '' THEN 'Без кампании'
     ELSE SUBSTR(
-      LOWER(COALESCE(NULLIF(TRIM(utm_source), ''), '—')) || ' / ' ||
+      LOWER(COALESCE(NULLIF(TRIM(utm_source), ''), '—')) || char(31) ||
       LOWER(COALESCE(NULLIF(TRIM(utm_campaign), ''), '—')),
       1, 200
     )
@@ -183,7 +190,13 @@ interface LeadQueryContext {
 function revenueExpression(context: LeadQueryContext): string {
   const { columns, won, currency } = context;
   if (!currency || !won.expression || !columns.has('deal_value') || !columns.has('deal_currency')) return 'NULL';
-  return `SUM(CASE WHEN ${won.expression} AND deal_currency = '${currency}' THEN COALESCE(deal_value, 0) ELSE 0 END)`;
+  // Выигранная сделка без суммы или в другой валюте делает выручку группы
+  // неизвестной (DA-109): раньше она считалась нулём, и ROMI показывал −100 %
+  // там, где деньги просто не внесены. Так же отвечает месячный отчёт.
+  return `CASE
+    WHEN SUM(CASE WHEN ${won.expression} AND (deal_value IS NULL OR deal_currency IS NOT '${currency}') THEN 1 ELSE 0 END) > 0 THEN NULL
+    ELSE SUM(CASE WHEN ${won.expression} AND deal_currency = '${currency}' THEN deal_value ELSE 0 END)
+  END`;
 }
 
 function leadAggregates(context: LeadQueryContext): string {
@@ -354,10 +367,15 @@ function withDerivedMetrics(rows: DimensionRow[]): DimensionRow[] {
   });
 }
 
+/** char(31) — тот же символ, что в `campaignExpression` и ключе расходов. */
+const CAMPAIGN_PAIR_SEPARATOR = String.fromCharCode(31);
+
 function sortRows(rows: DimensionRow[]): DimensionRow[] {
   return [...rows]
     .sort((a, b) => b.leads - a.leads || (b.views || 0) - (a.views || 0) || a.key.localeCompare(b.key, 'ru'))
-    .slice(0, 100);
+    .slice(0, 100)
+    // Служебный разделитель пары кампании — в привычную подпись (DA-110).
+    .map((row) => (row.key.includes(CAMPAIGN_PAIR_SEPARATOR) ? { ...row, key: row.key.split(CAMPAIGN_PAIR_SEPARATOR).join(' / ') } : row));
 }
 
 function unavailable(key: DimensionKey, label: string, reason: string): DimensionResult {
@@ -430,7 +448,7 @@ async function readSpendByKey(
     ? "CASE WHEN TRIM(source) = '' THEN 'Без источника' ELSE LOWER(TRIM(source)) END"
     : `CASE
         WHEN TRIM(source) = '' AND TRIM(campaign) = '' THEN 'Без кампании'
-        ELSE LOWER(COALESCE(NULLIF(TRIM(source), ''), '—')) || ' / ' || LOWER(COALESCE(NULLIF(TRIM(campaign), ''), '—'))
+        ELSE LOWER(COALESCE(NULLIF(TRIM(source), ''), '—')) || char(31) || LOWER(COALESCE(NULLIF(TRIM(campaign), ''), '—'))
       END`;
   const rows = await db.prepare(`
     SELECT ${expression} AS group_key, COALESCE(SUM(amount), 0) AS amount

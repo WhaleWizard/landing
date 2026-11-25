@@ -108,7 +108,7 @@ const COLUMNS: ColumnSpec[] = [
   { key: 'views', label: 'Просмотры', numeric: true, format: (row) => formatNumber(row.views), visible: (dimension) => dimension.hasViews },
   { key: 'leads', label: 'Лиды', numeric: true, format: (row) => formatNumber(row.leads), visible: () => true },
   {
-    key: 'conversion', label: 'CR', title: 'Заявки с согласием к просмотрам по дням UTC', numeric: true,
+    key: 'conversion', label: 'CR', title: 'Заявки к просмотрам с согласием на cookie, по дням UTC. Просмотры считаются только у разрешивших cookie, поэтому это оценка', numeric: true,
     format: (row) => formatPercent(row.conversion), visible: (dimension) => dimension.hasViews,
   },
   {
@@ -285,7 +285,8 @@ export default function AdminAttribution({ password }: { password: string }) {
         key: 'visitors',
         label: 'Уникальные посетители',
         value: summary.visitors,
-        hint: 'Сумма уникальных за каждый день UTC с согласием на маркетинг.',
+        // Посетители учитываются при согласии на аналитику или маркетинг (DA-111).
+        hint: 'Сумма уникальных за каждый день UTC с согласием на cookie аналитики или маркетинга.',
       },
       {
         key: 'leads',

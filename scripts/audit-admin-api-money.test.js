@@ -1510,7 +1510,7 @@ test('F-030: по источникам считаются выигранные �
   const { status, payload } = await analytics.get({ timezone_offset: 0 });
   assert.equal(status, 200, JSON.stringify(payload));
   const google = payload.wonBySource.find((row) => row.source === 'google');
-  assert.deepEqual(google, { source: 'google', deals: 3, value: 50, otherCurrencyDeals: 1 },
+  assert.deepEqual(google, { source: 'google', deals: 3, value: 50, priced: 1, otherCurrencyDeals: 1 },
     'евро не складываются с долларами и не пропадают молча; сделка без суммы — не «другая валюта»');
 });
 
@@ -2042,4 +2042,204 @@ test('DA-68: файл в пределах формы принимается, с�
   const huge = await spend.post({ action: 'import_csv', csv: csv.repeat(5) });
   assert.equal(huge.status, 413);
   assert.match(huge.payload.error, /слишком большой/);
+});
+
+// ─── Пакет 4a: аналитика CRM (DA-07) ────────────────────────────────────────
+
+test('DA-07: явный 0 USD — указанная сумма, пустая — неизвестная; график и источники их различают', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const now = sqlDateTime(new Date());
+  insertLead(sqlite, { name: 'Ноль', pipeline_stage: 'won', deal_value: 0, deal_currency: 'USD', closed_at: now, utm_source: 'zero' });
+  insertLead(sqlite, { name: 'Пусто', pipeline_stage: 'won', deal_value: null, deal_currency: 'USD', closed_at: now, utm_source: 'unknown' });
+  const analytics = await harness('functions/api/admin/crm-analytics.ts', { sqlite });
+  const result = (await analytics.get({ timezone_offset: 0 })).payload;
+  assert.equal(result.totals.wonPriced, 1, 'явный 0 — сделка с суммой');
+  assert.equal(result.totals.wonWithoutValue, 1);
+  const month = result.revenueByMonth.find((row) => row.month === CURRENT_MONTH);
+  assert.equal(month.value, 0);
+  assert.equal(month.withoutValue, 1);
+  const bySource = Object.fromEntries(result.wonBySource.map((row) => [row.source, row.value]));
+  assert.equal(bySource.zero, 0, 'источник с явным нулём — 0');
+  assert.equal(bySource.unknown, null, 'источник без суммы — неизвестно, а не 0');
+  sqlite.close();
+});
+
+// ─── Пакет 4b: каналы и деньги «Воронки» (CL-01, CL-23, DA-109, DA-110) ─────
+
+test('CL-01: канал определяется по словам метки одинаково на сервере и в браузере', async () => {
+  const { classifyChannel } = await loadModule('shared/marketing-channel.ts');
+  const cases = [
+    [['google_ads'], 'google'], [['facebook_ads'], 'meta'], [['ig_stories'], 'meta'],
+    [['seo_blog'], 'organic'], [['органика'], 'organic'], [['telegram', '', 'promo-cpc'], 'telegram'],
+    [['instant_offer'], 'other'], [['outgoing_mail'], 'other'], [['newsletter', 'cpc', 'spring'], 'other'],
+    [['partner', '', 'fb_retarget'], 'meta'], [['Google', 'cpc', 'brand'], 'google'],
+  ];
+  for (const [args, expected] of cases) assert.equal(classifyChannel(...args), expected, args.join(' | '));
+});
+
+test('CL-23: канал с неизвестной выручкой не показывает ROMI −100 %, неполный расход — не цену заявки', async () => {
+  const { aggregateChannels } = await loadModule('src/app/components/admin/AttributionVisualPro.tsx');
+  const channels = aggregateChannels([
+    { key: 'fb / A', leads: 5, qualified: 1, won: 1, revenue: null, spend: 100 },
+    { key: 'facebook / B', leads: 5, qualified: 1, won: 0, revenue: 0, spend: null },
+    { key: 'google / brand', leads: 4, qualified: 2, won: 1, revenue: 300, spend: 100 },
+  ], 14);
+  const meta = channels.find((channel) => channel.id === 'meta');
+  const google = channels.find((channel) => channel.id === 'google');
+  assert.equal(meta.romi, null, 'выручка неизвестна — ROMI не считается');
+  assert.equal(meta.revenueIncomplete, true);
+  assert.equal(meta.cpl, null, 'расход введён не по всем меткам — цены заявки нет');
+  assert.equal(meta.spendIncomplete, true);
+  assert.equal(google.romi, 200);
+  assert.equal(google.cpl, 25);
+});
+
+test('DA-109, DA-110: «Воронка» не считает неизвестную выручку нулём и не склеивает разные пары кампаний', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const now = sqlDateTime(new Date());
+  const today = sqlDate(new Date());
+  insertLead(sqlite, { name: 'Без суммы', utm_source: 'fb', utm_campaign: 'spring', pipeline_stage: 'won', deal_value: null, deal_currency: 'USD', closed_at: now });
+  insertLead(sqlite, { name: 'Пара 1', utm_source: 'market / east', utm_campaign: 'retargeting' });
+  insertLead(sqlite, { name: 'Пара 2', utm_source: 'market', utm_campaign: 'east / retargeting' });
+  sqlite.prepare("INSERT INTO ad_spend (day, source, campaign, amount, currency) VALUES (?, 'fb', 'spring', 100, 'USD')").run(today);
+  sqlite.prepare("INSERT INTO ad_spend (day, source, campaign, amount, currency) VALUES (?, 'market / east', 'retargeting', 30, 'USD')").run(today);
+  sqlite.prepare("INSERT INTO ad_spend (day, source, campaign, amount, currency) VALUES (?, 'market', 'east / retargeting', 150, 'USD')").run(today);
+  const attribution = await harness('functions/api/admin/attribution.ts', { sqlite });
+  const { payload } = await attribution.get({ days: 30, timezone_offset: 0 });
+  const source = payload.dimensions.find((item) => item.key === 'source').rows.find((row) => row.key === 'fb');
+  assert.equal(source.revenue, null, 'выигранная сделка без суммы — выручка неизвестна');
+  assert.equal(source.romi, null, 'и ROMI не −100 %');
+  const campaigns = payload.dimensions.find((item) => item.key === 'campaign').rows.filter((row) => row.key === 'market / east / retargeting');
+  assert.equal(campaigns.length, 2, 'две разные пары — две строки');
+  assert.deepEqual(campaigns.map((row) => row.spend).sort((a, b) => a - b), [30, 150]);
+  assert.ok(campaigns.every((row) => row.leads === 1));
+  sqlite.close();
+});
+
+// ─── Пакет 4b: «UTM-кампании» (DA-69, DA-70, DA-71) ─────────────────────────
+
+test('DA-69: клики без введённого расхода — «расход не введён», а не бесплатные клики', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const stats = await harness('functions/api/admin/campaign-stats.ts', { sqlite });
+  const record = { action: 'save_record', utm_source: 'fb', utm_campaign: 'clicks-only', date: sqlDate(daysAgo(1)), clicks: 10, currency: 'USD' };
+  assert.equal((await stats.post({ ...record, spend: null })).status, 200);
+  const campaign = (await stats.get({ days: 30 })).payload.campaigns.find((item) => item.utm_campaign === 'clicks-only');
+  assert.equal(campaign.spend, null);
+  assert.equal(campaign.spendUnknown, true);
+  assert.equal(campaign.cpc, null, 'цена клика не 0');
+  assert.equal((await stats.post({ ...record, utm_campaign: 'real-zero', spend: 0 })).status, 200, 'настоящий ноль по-прежнему записывается');
+  const zero = (await stats.get({ days: 30 })).payload.campaigns.find((item) => item.utm_campaign === 'real-zero');
+  assert.equal(zero.spend, 0);
+  assert.equal(zero.spendUnknown, false);
+  sqlite.close();
+});
+
+test('DA-70: известный ноль выручки даёт ROMI, сделка без суммы делает выручку неполной', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  insertLead(sqlite, { utm_source: 'fb', utm_campaign: 'zero', pipeline_stage: 'won', deal_value: 0, deal_currency: 'USD' });
+  insertLead(sqlite, { utm_source: 'fb', utm_campaign: 'partial', pipeline_stage: 'won', deal_value: 300, deal_currency: 'USD' });
+  insertLead(sqlite, { utm_source: 'fb', utm_campaign: 'partial', pipeline_stage: 'won', deal_value: null, deal_currency: 'USD' });
+  const stats = await harness('functions/api/admin/campaign-stats.ts', { sqlite });
+  for (const campaign of ['zero', 'partial']) {
+    await stats.post({ action: 'save_record', utm_source: 'fb', utm_campaign: campaign, date: sqlDate(daysAgo(1)), spend: 100, currency: 'USD' });
+  }
+  const campaigns = (await stats.get({ days: 30 })).payload.campaigns;
+  const zero = campaigns.find((item) => item.utm_campaign === 'zero');
+  assert.equal(zero.revenue, 0);
+  assert.equal(zero.romi, -100, 'известная нулевая выручка — честный −100 %');
+  const partial = campaigns.find((item) => item.utm_campaign === 'partial');
+  assert.equal(partial.revenue, null);
+  assert.equal(partial.revenueIncomplete, true);
+  assert.equal(partial.romi, null, 'не 200 % по неполной выручке');
+  sqlite.close();
+});
+
+test('DA-71: вернувшийся контакт и ручной расход видны в «UTM-кампаниях» так же, как в «Воронке»', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const today = sqlDate(new Date());
+  insertLead(sqlite, { utm_source: 'google', utm_campaign: 'brand', created_at: sqlDateTime(daysAgo(40)), last_submitted_at: sqlDateTime(new Date()) });
+  insertLead(sqlite, { utm_source: 'google', utm_campaign: 'brand' });
+  sqlite.prepare("INSERT INTO ad_spend (day, source, campaign, amount, currency) VALUES (?, 'google', 'brand', 200, 'USD')").run(today);
+  const stats = await harness('functions/api/admin/campaign-stats.ts', { sqlite });
+  const brand = (await stats.get({ days: 7 })).payload.campaigns.find((item) => item.utm_campaign === 'brand');
+  assert.equal(brand.leads, 2, 'вернувшийся контакт посчитан, как в «Воронке»');
+  assert.equal(brand.spend, 200, 'ручной расход подхвачен');
+  assert.equal(brand.cpl, 100);
+  sqlite.close();
+});
+
+test('DA-06: выигрыш только в другой валюте — выручка неизвестна, прибыль и ROMI не −100 %', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const now = sqlDateTime(new Date());
+  insertLead(sqlite, { name: 'Евро', pipeline_stage: 'won', deal_value: 1200, deal_currency: 'EUR', closed_at: now });
+  sqlite.prepare("INSERT INTO ad_spend (day, amount, currency) VALUES (?, 100, 'USD')").run(sqlDate(new Date()));
+  const report = await harness('functions/api/admin/report.ts', { sqlite });
+  const { payload } = await report.get({ period: CURRENT_MONTH, timezone_offset: 0, currency: 'USD' });
+  assert.equal(payload.current.won, 1);
+  assert.equal(payload.current.revenue, null, 'не 0');
+  assert.equal(payload.derived.profit, null);
+  assert.equal(payload.derived.romi, null, 'не −100 %');
+  assert.ok(payload.notes.some((note) => /другой валюте/.test(note)));
+  sqlite.close();
+});
+
+// ─── Пакет 4b: отчёт, «Сегодня» и «Цели» (DA-13, DA-84, DA-113) ─────────────
+
+test('DA-13: посетители месяца старше срока хранения отпечатков — «нет данных», а не ноль', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const report = await harness('functions/api/admin/report.ts', { sqlite });
+  const old = (await report.get({ period: shiftMonth(CURRENT_MONTH, -4), timezone_offset: 0 })).payload;
+  assert.equal(old.current.visitors, null, 'отпечатки за этот месяц уже удалены');
+  assert.ok(old.notes.some((note) => note.includes('90 дней')), 'отчёт объясняет, почему посетителей нет');
+  const fresh = (await report.get({ period: CURRENT_MONTH, timezone_offset: 0 })).payload;
+  assert.equal(typeof fresh.current.visitors, 'number', 'текущий месяц считается как раньше');
+});
+
+test('DA-84: «Meta» и «meta» на экране «Сегодня» — один источник с общим расходом', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const now = sqlDateTime(new Date());
+  insertLead(sqlite, { name: 'Первая', utm_source: 'Meta', created_at: now });
+  insertLead(sqlite, { name: 'Вторая', utm_source: 'meta', created_at: now });
+  sqlite.prepare("INSERT INTO ad_spend (day, source, amount, currency) VALUES (?, 'Meta', 100, 'USD')").run(sqlDate(new Date()));
+  const today = await harness('functions/api/admin/today.ts', { sqlite });
+  const { payload } = await today.get();
+  const meta = payload.sources.filter((row) => row.source.toLowerCase() === 'meta');
+  assert.equal(meta.length, 1, 'одна строка вместо двух');
+  assert.equal(meta[0].leads, 2);
+  assert.equal(meta[0].spend, 100);
+  assert.equal(meta[0].costPerLead, 50);
+});
+
+test('DA-113: без полей качества и этапов сделки «Цели» говорят «нет данных», а не 0', async (t) => {
+  t.after(installMemoryCache());
+  const legacy = new DatabaseSync(':memory:');
+  t.after(() => legacy.close());
+  legacy.exec('CREATE TABLE leads (id INTEGER PRIMARY KEY, name TEXT, created_at TEXT)');
+  legacy.exec(readFileSync('migrations/0024_admin_goals.sql', 'utf8'));
+  legacy.prepare('INSERT INTO leads (name, created_at) VALUES (?, ?)').run('Старая схема', sqlDateTime(new Date()));
+  const goals = await harness('functions/api/admin/goals.ts', { sqlite: legacy });
+  const { status, payload } = await goals.get({ period: CURRENT_MONTH, timezone_offset: 0 });
+  assert.equal(status, 200, JSON.stringify(payload));
+  assert.equal(payload.fact.leads, 1);
+  assert.equal(payload.fact.qualified, null, 'качество заявки не хранится — целевых не ноль, а неизвестно');
+  assert.equal(payload.fact.won, null, 'этапов сделки нет — выигрышей не ноль, а неизвестно');
+  assert.equal(payload.forecast.qualified, null, 'прогноз по неизвестному не строится');
+  assert.ok(payload.history.every((item) => item.fact.qualified === null && item.fact.won === null), 'история тоже');
+  assert.ok(payload.notes.some((note) => note.includes('качества заявки')));
+
+  const full = await harness('functions/api/admin/goals.ts');
+  const complete = (await full.get({ period: CURRENT_MONTH, timezone_offset: 0 })).payload;
+  assert.equal(complete.fact.qualified, 0, 'с полями базы пустой месяц — настоящий ноль');
+  assert.equal(complete.fact.won, 0);
+  full.sqlite.close();
 });

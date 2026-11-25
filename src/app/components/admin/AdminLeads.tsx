@@ -1692,12 +1692,38 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
     return value.toString();
   }, [due, offset, priority, query, sort, stage, target?.leadId]);
 
+  const listRequestRef = useRef(0);
+  // Календарь получает все открытые сделки, а не текущую страницу списка
+  // (DA-25): иначе напоминание сделки №51 было видно в сводке, но не в
+  // календаре, а после листания списка пропадали первые пятьдесят.
+  const [calendarLeads, setCalendarLeads] = useState<LeadRow[] | null>(null);
+  useEffect(() => {
+    if (view !== 'calendar') return undefined;
+    let active = true;
+    void (async () => {
+      try {
+        const response = await fetch('/api/admin/crm-leads?pipeline_stage=new,contacted,discovery,proposal&sort=priority&limit=300&offset=0', {
+          headers: { 'X-Admin-Password': password }, credentials: 'same-origin', cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => null) as WorkspaceResponse | null;
+        if (active && response.ok && payload?.success) setCalendarLeads(payload.leads || []);
+      } catch {
+        // Без отдельной выборки календарь покажет то, что уже загружено списком.
+      }
+    })();
+    return () => { active = false; };
+  }, [view, password, leads]);
   const load = useCallback(async (quiet = false) => {
+    // Ответ принимается только от последнего запроса (DA-08): поздний ответ
+    // старого поиска иначе подменял список, хотя в поле уже другой запрос.
+    const requestId = ++listRequestRef.current;
+    const isLatest = () => requestId === listRequestRef.current;
     if (!quiet) setLoading(true);
     setError('');
     try {
       const response = await fetch(`/api/admin/crm-leads?${params}`, { headers: { 'X-Admin-Password': password }, credentials: 'same-origin', cache: 'no-store' });
       const payload = await response.json().catch(() => null) as WorkspaceResponse | null;
+      if (!isLatest()) return;
       if (!response.ok || !payload?.success) {
         setMigration(payload?.migration || '');
         throw new Error(payload?.error || `HTTP ${response.status}`);
@@ -1720,9 +1746,9 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
       setMigration('');
       setSelectedId((current) => current && nextLeads.some((item) => item.id === current) ? current : nextLeads[0]?.id || null);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить CRM');
+      if (isLatest()) setError(loadError instanceof Error ? loadError.message : 'Не удалось загрузить CRM');
     } finally {
-      if (!quiet) setLoading(false);
+      if (!quiet && isLatest()) setLoading(false);
     }
   }, [offset, params, password]);
 
@@ -1987,8 +2013,8 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
       {view === 'calendar' ? (
         <>
           <CrmCalendar
-            leads={leads}
-            onOpenLead={(leadId) => setBoardLead(leads.find((lead) => lead.id === leadId) ?? null)}
+            leads={calendarLeads ?? leads}
+            onOpenLead={(leadId) => setBoardLead((calendarLeads ?? leads).find((lead) => lead.id === leadId) ?? null)}
           />
           {boardLead ? (
             <AdminOverlay><div className="admin-drawer-portal">

@@ -486,7 +486,7 @@ export default function AdminToday({
           <section className="admin-panel adm-card today-delta" aria-label="Что изменилось со вчера">
             <header className="adm-card__head">
               <h3 className="admin-card-title"><TrendingUp aria-hidden="true" /> Что изменилось со вчера</h3>
-              <p className="admin-hint">Вчера в сравнении с позавчера. Сегодняшний день ещё идёт — его тут нет.</p>
+              <p className="admin-hint">Вчера в сравнении с позавчера. Сегодняшний день ещё идёт — его тут нет. Сутки считаются по UTC: в Ташкенте они начинаются в 05:00.</p>
             </header>
             <ul className="today-delta__list">
               {yesterday.map((row) => {
@@ -532,7 +532,8 @@ export default function AdminToday({
           <section className="admin-panel adm-card">
             <header className="adm-card__head">
               <h3 className="admin-card-title">Две недели одним взглядом</h3>
-              <p className="admin-hint">Наведи курсор или пройди стрелками — покажет значение конкретного дня.</p>
+              {/* Суточные агрегаты в базе пишутся по UTC (CL-22): подпись говорит об этом прямо. */}
+              <p className="admin-hint">Наведи курсор или пройди стрелками — покажет значение конкретного дня. Сутки — по UTC (в Ташкенте с 05:00).</p>
             </header>
             <TrendGroup
               points={series}

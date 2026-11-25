@@ -77,7 +77,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       db.prepare("SELECT * FROM client_months ORDER BY month DESC").all(),
       db
         .prepare(
-          "SELECT t.id,t.lead_id,t.title,t.status,t.due_at FROM crm_tasks t JOIN clients c ON c.lead_id=t.lead_id ORDER BY t.id DESC",
+          // Задачи сделки из корзины в карточке клиента не показываются — то же
+          // правило, что в сводке CRM (DA-09). Корзина — с миграции 0020, а
+          // рабочее место требует 0044, так что колонка уже есть.
+          "SELECT t.id,t.lead_id,t.title,t.status,t.due_at FROM crm_tasks t JOIN clients c ON c.lead_id=t.lead_id JOIN leads l ON l.id=t.lead_id AND l.deleted_at IS NULL ORDER BY t.id DESC",
         )
         .all(),
       db.prepare('SELECT * FROM time_entries ORDER BY day DESC,id DESC').all(),

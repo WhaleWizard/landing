@@ -35,10 +35,11 @@ interface AnalyticsResponse {
   cycle?: { averageDays: number | null; deals: number; available: boolean };
   firstResponse?: { averageMinutes: number | null; answered: number; available: boolean };
   quality?: { target: number; nontarget: number; unrated: number } | null;
-  revenueByMonth?: Array<{ month: string; deals: number; value: number }>;
+  /** `value: null` — в месяце ни у одной сделки не указана сумма (DA-07). */
+  revenueByMonth?: Array<{ month: string; deals: number; value: number | null; priced?: number; withoutValue?: number }>;
   lossReasons?: Array<{ reason: string; count: number }>;
   /** otherCurrencyDeals приходит, когда сервер считает сделки в другой валюте по источникам. */
-  wonBySource?: Array<{ source: string; deals: number; value: number; otherCurrencyDeals?: number }>;
+  wonBySource?: Array<{ source: string; deals: number; value: number | null; priced?: number; otherCurrencyDeals?: number }>;
   notes?: string[];
 }
 
@@ -109,31 +110,47 @@ function RankedBars({
   );
 }
 
-function RevenueColumns({ months, currency }: { months: Array<{ month: string; deals: number; value: number }>; currency: string }) {
-  const [active, setActive] = useState<number | null>(null);
-  const max = Math.max(1, ...months.map((month) => month.value));
+type RevenueMonth = { month: string; deals: number; value: number | null; withoutValue?: number };
+
+/** Сумма месяца словами: неизвестная сумма — не ноль (DA-07). */
+function monthMoney(month: RevenueMonth, currency: string): string {
+  if (month.value === null) return 'сумма не указана';
+  const partial = (month.withoutValue || 0) > 0 ? ` (без суммы: ${month.withoutValue})` : '';
+  return `${formatMoney(month.value, currency)}${partial}`;
+}
+
+function RevenueColumns({ months, currency }: { months: RevenueMonth[]; currency: string }) {
+  // Активный месяц хранится по ключу, а не по номеру столбца (DA-29): после
+  // обновления выбранного месяца могло уже не быть, и график падал.
+  const [activeMonth, setActiveMonth] = useState<string | null>(null);
+  const active = months.find((month) => month.month === activeMonth) ?? null;
+  // Максимум данных и масштаб оси — разные вещи (DA-14): подпись не должна
+  // показывать технический минимум шкалы «1 USD», когда результат нулевой.
+  const known = months.map((month) => month.value).filter((value): value is number => value !== null);
+  const dataMax = known.length ? Math.max(...known) : null;
+  const scale = Math.max(1, dataMax ?? 0);
   if (!months.length) return <p className="crm-analytics__empty">Выигранных сделок с суммой пока нет.</p>;
 
   return (
     <figure className="crm-months">
       <figcaption className="crm-months__caption">
         {active === null
-          ? `Максимум за месяц: ${formatMoney(max, currency)}`
-          : `${monthLabel(months[active].month)} · ${formatMoney(months[active].value, currency)} · сделок: ${months[active].deals}`}
+          ? (dataMax === null ? 'Суммы выигранных сделок не указаны' : `Максимум за месяц: ${formatMoney(dataMax, currency)}`)
+          : `${monthLabel(active.month)} · ${monthMoney(active, currency)} · сделок: ${active.deals}`}
       </figcaption>
       <div className="crm-months__plot">
-        {months.map((month, index) => (
+        {months.map((month) => (
           <button
             type="button"
             key={month.month}
-            className={`crm-months__col${active === index ? ' is-active' : ''}`}
-            onMouseEnter={() => setActive(index)}
-            onMouseLeave={() => setActive(null)}
-            onFocus={() => setActive(index)}
-            onBlur={() => setActive(null)}
-            aria-label={`${monthLabel(month.month)}: ${formatMoney(month.value, currency)}, сделок ${month.deals}`}
+            className={`crm-months__col${activeMonth === month.month ? ' is-active' : ''}`}
+            onMouseEnter={() => setActiveMonth(month.month)}
+            onMouseLeave={() => setActiveMonth(null)}
+            onFocus={() => setActiveMonth(month.month)}
+            onBlur={() => setActiveMonth(null)}
+            aria-label={`${monthLabel(month.month)}: ${monthMoney(month, currency)}, сделок ${month.deals}`}
           >
-            <span className="crm-months__bar" style={{ height: `${Math.max((month.value / max) * 100, month.value > 0 ? 4 : 0)}%` }} />
+            <span className="crm-months__bar" style={{ height: `${Math.max(((month.value ?? 0) / scale) * 100, (month.value ?? 0) > 0 ? 4 : 0)}%` }} />
             <span className="crm-months__label">{monthLabel(month.month)}</span>
           </button>
         ))}
@@ -148,7 +165,7 @@ function RevenueColumns({ months, currency }: { months: Array<{ month: string; d
                 <tr key={month.month}>
                   <th scope="row">{monthLabel(month.month)}</th>
                   <td>{formatNumber(month.deals)}</td>
-                  <td>{formatMoney(month.value, currency)}</td>
+                  <td>{monthMoney(month, currency)}</td>
                 </tr>
               ))}
             </tbody>
@@ -222,6 +239,16 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
 
   return (
     <div className="admin-stack admin-stack--lg crm-analytics">
+      {error ? (
+        // Обновление не удалось, а на экране прежние цифры (DA-30): говорим,
+        // что они устарели и от какого момента, и даём повторить.
+        <div className="admin-notice admin-notice--warning" role="status">
+          <strong>Цифры не обновились</strong> — показаны данные{data.checkedAt ? ` от ${new Date(data.checkedAt).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })}` : ' прошлой загрузки'}. {error}{' '}
+          <button className="admin-button admin-button--compact" type="button" onClick={() => void load()} disabled={loading}>
+            <RefreshCw aria-hidden="true" /> Повторить
+          </button>
+        </div>
+      ) : null}
       <div className="adm-tiles adm-tiles--crm-analytics">
         <StatTile
           icon={<CircleDollarSign aria-hidden="true" />}
@@ -350,9 +377,9 @@ export default function CrmAnalytics({ password, refreshToken }: { password: str
             slot={2}
             items={(data.wonBySource || []).map((row) => ({
               key: row.source,
-              value: row.value,
+              value: row.value ?? 0,
               note: `${row.deals} сд.`,
-              display: row.value > 0
+              display: row.value !== null
                 ? undefined
                 : (row.otherCurrencyDeals || 0) > 0 ? 'сумма в другой валюте' : 'сумма не указана',
             }))}

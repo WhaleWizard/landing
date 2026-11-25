@@ -32,6 +32,8 @@ export interface CampaignAggregate {
   clicks: number;
   ctr: number | null;
   spend: number | null;
+  spendUnknown?: boolean;
+  revenueIncomplete?: boolean;
   currency: string | null;
   cpc: number | null;
   leads: number;
@@ -201,7 +203,8 @@ export default function AdminCampaignStats({ password }: { password: string }) {
           date: formDate,
           impressions: Number(formImpressions || 0),
           clicks: Number(formClicks || 0),
-          spend: Number(formSpend || 0),
+          // Пустое поле — расход не введён, а не 0 (DA-69).
+          spend: formSpend.trim() === '' ? null : Number(formSpend),
           currency: formCurrency,
           notes: formNotes.trim(),
         }),
@@ -267,28 +270,31 @@ export default function AdminCampaignStats({ password }: { password: string }) {
   const handleExportCsv = () => {
     if (!filteredCampaigns.length) return;
     const headers = [
-      'Канал', 'Источник (utm_source)', 'Кампания (utm_campaign)', 'Показы', 'Клики', 'CTR %',
-      'Расход', 'Валюта расхода', 'CPC', 'Лиды', 'CPL', 'Целевые', 'CPQ', 'Выиграно', 'Выручка', 'Валюта выручки', 'ROMI %',
+      'Канал', 'Источник (utm_source)', 'Кампания (utm_campaign)', 'Показы', 'Клики', 'CTR, %',
+      'Расход', 'Валюта расхода', 'CPC', 'Лиды', 'CPL', 'Целевые', 'CPQ', 'Выиграно', 'Выручка', 'Валюта выручки', 'ROMI, %',
     ];
 
+    // Числа — с запятой и без «%»: русский Excel с разделителем «;» иначе
+    // читал «12.5» как дату, а «0.45» как текст, и суммировать было нельзя (CL-42).
+    const num = (value: number | null | undefined) => (value === null || value === undefined || !Number.isFinite(value) ? '' : String(value).replace('.', ','));
     const rows = filteredCampaigns.map((c) => [
       c.channel,
       c.utm_source,
       c.utm_campaign,
-      c.impressions,
-      c.clicks,
-      c.ctr !== null ? `${c.ctr}%` : '',
-      c.spend,
+      num(c.impressions),
+      num(c.clicks),
+      num(c.ctr),
+      num(c.spend),
       c.currency,
-      c.cpc !== null && c.cpc !== undefined ? c.cpc : '',
-      c.leads,
-      c.cpl !== null && c.cpl !== undefined ? c.cpl : '',
-      c.qualified,
-      c.cpq !== null && c.cpq !== undefined ? c.cpq : '',
-      c.won,
-      c.revenue,
+      num(c.cpc),
+      num(c.leads),
+      num(c.cpl),
+      num(c.qualified),
+      num(c.cpq),
+      num(c.won),
+      num(c.revenue),
       c.revenueCurrency,
-      c.romi !== null ? `${c.romi}%` : '',
+      num(c.romi),
     ]);
 
     const csv = [headers, ...rows].map((row) => row.map((value) => {
@@ -557,7 +563,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
                       {c.impressions > 0 && <span className="text-zinc-500 block text-[11px]">{formatNumber(c.impressions)} показов ({formatPercent(c.ctr)})</span>}
                     </td>
                     <td className="is-numeric font-semibold text-amber-300">
-                      {formatMoney(c.spend, c.currency)}
+                      {c.spendUnknown ? 'не введён' : formatMoney(c.spend, c.currency)}
                     </td>
                     <td className="is-numeric font-bold text-[var(--adm-fg)]">
                       {formatNumber(c.leads)}
@@ -572,7 +578,7 @@ export default function AdminCampaignStats({ password }: { password: string }) {
                       {formatNumber(c.won)}
                     </td>
                     <td className="is-numeric text-emerald-300 font-bold">
-                      {formatMoney(c.revenue, c.revenueCurrency)}
+                      {c.revenueIncomplete ? 'суммы не у всех сделок' : formatMoney(c.revenue, c.revenueCurrency)}
                     </td>
                     <td className={`is-numeric font-bold ${c.romi !== null && c.romi >= 0 ? 'text-emerald-400' : 'text-zinc-400'}`}>
                       {formatPercent(c.romi)}
