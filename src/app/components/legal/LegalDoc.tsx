@@ -81,12 +81,29 @@ export default function LegalDoc({ intro, sections, idPrefix }: LegalDocProps) {
 
   const sectionId = (index: number) => `${idPrefix}-sec-${index + 1}`;
 
-  const openSection = (index: number) => {
+  // Ссылка оглавления — настоящая ссылка на раздел (DA-141): адрес получает
+  // фрагмент раздела, раздел раскрывается, фокус переходит на его заголовок,
+  // и по такому адресу раздел открывается сразу.
+  const openSection = (index: number, { focus = true, scroll = true }: { focus?: boolean; scroll?: boolean } = {}) => {
     const el = rootRef.current?.querySelector<HTMLDetailsElement>(`#${sectionId(index)}`);
     if (!el) return;
     el.open = true;
-    el.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' });
+    // В окне поверх формы адрес страницы не трогаем: документ там вложенный.
+    const standalone = !rootRef.current?.closest('[role="dialog"]');
+    if (standalone && window.location.hash !== `#${el.id}`) {
+      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}#${el.id}`);
+    }
+    if (scroll) el.scrollIntoView({ behavior: preferredScrollBehavior(), block: 'start' });
+    if (focus) el.querySelector<HTMLElement>('summary')?.focus({ preventScroll: true });
   };
+
+  useEffect(() => {
+    const match = new RegExp(`^#${idPrefix}-sec-(\\d+)$`).exec(window.location.hash);
+    if (!match) return;
+    const index = Number(match[1]) - 1;
+    if (index >= 0 && index < sections.length) openSection(index, { focus: false });
+    // Только при открытии документа: дальше раздел открывают ссылки оглавления.
+  }, []);
 
   const setAll = (open: boolean) => {
     rootRef.current

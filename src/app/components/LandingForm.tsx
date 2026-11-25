@@ -127,6 +127,8 @@ function LandingForm({
   const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE_CODE);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const submitFormRef = useRef<HTMLFormElement | null>(null);
+  const restoreSubmitFocus = useRef(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -218,10 +220,19 @@ function LandingForm({
     [trackFirstFormInteraction],
   );
 
+  // После ответа сервера фокус, потерянный на выключенной кнопке отправки,
+  // возвращается на неё (DA-164).
+  useEffect(() => {
+    if (isSubmitting || !restoreSubmitFocus.current) return;
+    restoreSubmitFocus.current = false;
+    submitFormRef.current?.querySelector<HTMLButtonElement>('button[type="submit"]:not([disabled])')?.focus();
+  }, [isSubmitting]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (submittingRef.current) return;
+      submitFormRef.current = (e.currentTarget as HTMLFormElement | null) ?? null;
       // Прошлое сообщение убираем: человек уже что-то исправил и пробует снова.
       setNotice(null);
       if (!agreed) {
@@ -411,11 +422,16 @@ function LandingForm({
         }
       } finally {
         submittingRef.current = false;
+        // Фокус, потерянный на выключенной кнопке, возвращается на неё (DA-164).
+        if (typeof document !== 'undefined' && (!document.activeElement || document.activeElement === document.body)) {
+          restoreSubmitFocus.current = true;
+        }
         setIsSubmitting(false);
       }
     },
     [formData, contactMethod, navigate, agreed, service, hpTrap, phoneCode, getTurnstileToken],
   );
+
 
   const renderField = (
     name: string,

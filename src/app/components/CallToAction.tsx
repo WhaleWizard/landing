@@ -61,7 +61,7 @@ function CallToAction({ content: contentProp = defaultCallToActionContent, conte
             <div className="min-w-0 text-center md:text-left space-y-2">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-2">
                 <Sparkles className="w-4 h-4 text-primary" />
-                <span className="text-xs md:text-sm text-primary font-semibold">{content.badge}</span>
+                <span className="text-xs md:text-sm text-primary-text font-semibold">{content.badge}</span>
               </div>
               <h3 ref={titleRef} style={managedTitleStyle(content.typography)} className={`text-balance text-xl md:text-2xl lg:text-3xl font-bold leading-tight tracking-[-0.01em] ${managedTitleClasses(content.typography, 'cta')}`}>
                 {content.title}

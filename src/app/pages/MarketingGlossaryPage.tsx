@@ -391,7 +391,7 @@ export default function MarketingGlossaryPage() {
                   aria-pressed={selectedCollection === 'all'}
                   className={`min-h-11 whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-colors ${
                     selectedCollection === 'all'
-                      ? 'border-primary bg-primary/15 text-primary'
+                      ? 'border-primary bg-primary/15 text-primary-text'
                       : 'border-border text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -408,7 +408,7 @@ export default function MarketingGlossaryPage() {
                     aria-pressed={selectedCollection === collection.id}
                     className={`inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-colors ${
                       selectedCollection === collection.id
-                        ? 'border-primary bg-primary/15 text-primary'
+                        ? 'border-primary bg-primary/15 text-primary-text'
                         : 'border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >
@@ -436,7 +436,7 @@ export default function MarketingGlossaryPage() {
                   aria-pressed={selectedSection === 'all'}
                   className={`min-h-11 whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-colors ${
                     selectedSection === 'all'
-                      ? 'border-primary bg-primary/15 text-primary'
+                      ? 'border-primary bg-primary/15 text-primary-text'
                       : 'border-border text-muted-foreground hover:text-foreground'
                   }`}
                 >
@@ -450,7 +450,7 @@ export default function MarketingGlossaryPage() {
                     aria-pressed={selectedSection === section.id}
                     className={`min-h-11 whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-colors ${
                       selectedSection === section.id
-                        ? 'border-primary bg-primary/15 text-primary'
+                        ? 'border-primary bg-primary/15 text-primary-text'
                         : 'border-border text-muted-foreground hover:text-foreground'
                     }`}
                   >

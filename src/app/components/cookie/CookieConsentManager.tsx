@@ -486,6 +486,27 @@ export default function CookieConsentManager() {
 
   const isVisible = mode !== 'hidden';
 
+  // Баннер и ручные настройки — одно окно, поэтому общий механизм диалогов
+  // при смене режима фокус не переставляет, а нажатая кнопка исчезает вместе
+  // со старым видом — фокус уходил на страницу (DA-136). При переходе в
+  // настройки фокус встаёт на первый переключатель, при возврате — на
+  // «Выбрать вручную», которой их открыли.
+  const previousModeRef = useRef<BannerMode>(mode);
+  useEffect(() => {
+    const previous = previousModeRef.current;
+    previousModeRef.current = mode;
+    if (previous === mode || previous === 'hidden' || mode === 'hidden') return;
+    const frame = window.requestAnimationFrame(() => {
+      const root = dialogRef.current;
+      if (!root) return;
+      const target = mode === 'banner'
+        ? root.querySelector<HTMLElement>('[data-cookie-manual]')
+        : root.querySelector<HTMLElement>('input, button');
+      target?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [dialogRef, mode]);
+
   useEffect(() => {
     if (!isVisible) return;
 
@@ -613,6 +634,7 @@ export default function CookieConsentManager() {
                 </div>
                 <button
                   type="button"
+                  data-cookie-manual=""
                   onClick={() => setMode('modal')}
                   className="mt-2.5 text-[11.5px] text-muted-foreground/70 underline decoration-dotted underline-offset-2 transition-colors hover:text-muted-foreground"
                 >

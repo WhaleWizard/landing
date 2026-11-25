@@ -24,6 +24,26 @@ function getFocusable(root: HTMLElement | null): HTMLElement[] {
   });
 }
 
+/**
+ * Safari не ставит фокус на кнопку или ссылку при клике мышью (DA-165): к
+ * моменту открытия окна в фокусе <body>, и после закрытия следующий Tab
+ * уводил в шапку страницы. Последний нажатый элемент, который может принять
+ * фокус, запоминается и служит запасной точкой возврата.
+ */
+let lastPointerTarget: HTMLElement | null = null;
+if (typeof document !== 'undefined') {
+  document.addEventListener('pointerdown', (event) => {
+    const target = event.target instanceof Element ? event.target.closest<HTMLElement>(DIALOG_FOCUSABLE_SELECTOR) : null;
+    lastPointerTarget = target;
+  }, true);
+}
+
+function focusReturnTarget(): HTMLElement | null {
+  const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  if (active && active !== document.body) return active;
+  return lastPointerTarget?.isConnected ? lastPointerTarget : null;
+}
+
 export type DialogFocusOptions = {
   /**
    * Диалог остаётся открытым, но поверх него открыт вложенный (документ из
@@ -60,9 +80,7 @@ export function useDialogFocus<T extends HTMLElement>(
   useEffect(() => {
     if (!isOpen) return undefined;
 
-    restoreFocusRef.current = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
+    restoreFocusRef.current = focusReturnTarget();
 
     const focusFrame = window.requestAnimationFrame(() => {
       const dialog = dialogRef.current;

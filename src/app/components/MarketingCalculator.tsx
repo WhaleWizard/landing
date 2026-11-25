@@ -1082,7 +1082,7 @@ export default function MarketingCalculator({
       <div className="relative mx-auto max-w-7xl">
         {variant === 'page' && (
           <header className="mx-auto mb-7 max-w-3xl text-center md:mb-10">
-            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary sm:text-sm">
+            <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-semibold text-primary-text sm:text-sm">
               <Calculator className="h-4 w-4" />
               {pageCopy.badge}
             </div>

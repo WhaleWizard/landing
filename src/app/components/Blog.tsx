@@ -89,7 +89,7 @@ function Blog() {
         <m.div initial={{ opacity: 0, y: 30 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.6 }} className="text-center">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-accent/10 border border-accent/20 backdrop-blur-sm mb-4 md:mb-6">
             <BookOpen className="w-3 h-3 md:w-4 md:h-4 text-accent" />
-            <span className="text-xs md:text-sm text-accent">Статьи и разборы</span>
+            <span className="text-xs md:text-sm text-accent-text">Статьи и разборы</span>
           </div>
           <h2 className="text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
             Практика рекламы{' '}
@@ -163,7 +163,7 @@ function Blog() {
                   </div>
                   <h3 className="text-balance text-base md:text-lg lg:text-xl font-bold text-white group-hover:text-primary transition-colors">{typographText(article.title)}</h3>
                   <p className="text-xs md:text-sm text-white/60 leading-relaxed line-clamp-2">{typographText(article.description)}</p>
-                  <div className="flex items-center gap-2 text-xs md:text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-2 text-xs md:text-sm text-primary-text opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="font-semibold">Открыть материал</span>
                     <ArrowRight className="w-3 h-3 md:w-4 md:h-4 group-hover:translate-x-1 transition-transform" />
                   </div>

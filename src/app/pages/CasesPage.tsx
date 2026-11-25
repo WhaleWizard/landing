@@ -398,7 +398,9 @@ function CaseResultCard({ item, index, href, onOpen, settledEntrance }: {
           onOpen(item);
         }}
         className="cases-result-card-hit"
-        aria-label={`Открыть кейс: ${item.title}`}
+        // Имя начинается с видимой надписи «Читать разбор» (DA-22): по ней
+        // управляют голосом, а «Открыть кейс» на карточке нигде не написано.
+        aria-label={`Читать разбор: ${item.title}`}
       >
         <div className="cases-result-cover">
           {item.image ? (

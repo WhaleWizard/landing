@@ -131,6 +131,8 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   const [hpTrap, setHpTrap] = useState(''); // honeypot
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submittingRef = useRef(false);
+  const submitFormRef = useRef<HTMLFormElement | null>(null);
+  const restoreSubmitFocus = useRef(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -220,10 +222,19 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
     [trackFirstFormInteraction],
   );
 
+  // После ответа сервера фокус, потерянный на выключенной кнопке отправки,
+  // возвращается на неё (DA-164).
+  useEffect(() => {
+    if (isSubmitting || !restoreSubmitFocus.current) return;
+    restoreSubmitFocus.current = false;
+    submitFormRef.current?.querySelector<HTMLButtonElement>('button[type="submit"]:not([disabled])')?.focus();
+  }, [isSubmitting]);
+
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
       e.preventDefault();
       if (submittingRef.current) return;
+      submitFormRef.current = (e.currentTarget as HTMLFormElement | null) ?? null;
       // Прошлое сообщение убираем: человек уже что-то исправил и пробует снова.
       setNotice(null);
       if (!agreed) {
@@ -412,11 +423,18 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         }
       } finally {
         submittingRef.current = false;
+        // На время отправки кнопка выключена, и фокус уходил на страницу:
+        // следующий Tab уводил к другой секции (DA-164). Если фокус потерян,
+        // после ответа он возвращается на кнопку отправки.
+        if (typeof document !== 'undefined' && (!document.activeElement || document.activeElement === document.body)) {
+          restoreSubmitFocus.current = true;
+        }
         setIsSubmitting(false);
       }
     },
     [formData, navigate, agreed, contactMethod, telegramUsername, hpTrap, phoneCode, getTurnstileToken],
   );
+
 
   const handleSetTelegramUsername = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (submittingRef.current) return;
@@ -672,6 +690,10 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                             key={option.value}
                             {...radioHover}
                             whileTap={{ scale: 0.95 }}
+                            // Анимации нажатия motion делает обёртку фокусируемой —
+                            // лишняя остановка Tab, на которой Space и Enter ничего не
+                            // выбирали (DA-163). Фокус принимает сама радиокнопка.
+                            tabIndex={-1}
                             className="relative"
                           >
                             <input
@@ -685,7 +707,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                             />
                             <label
                               htmlFor={`budget-${option.value.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
-                              className={`flex min-w-0 items-center gap-1.5 p-2 min-[360px]:gap-2 min-[360px]:p-2.5 sm:gap-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-300 bg-background/50 border border-border/50 backdrop-blur-sm hover:border-primary/50 hover:bg-background/70 peer-checked:border-primary peer-checked:shadow-lg peer-checked:shadow-primary/20`}
+                              className={`flex min-w-0 items-center gap-1.5 p-2 min-[360px]:gap-2 min-[360px]:p-2.5 sm:gap-3 sm:p-4 rounded-xl cursor-pointer transition-all duration-300 bg-background/50 border border-border/50 backdrop-blur-sm hover:border-primary/50 hover:bg-background/70 peer-checked:border-primary peer-checked:shadow-lg peer-checked:shadow-primary/20 peer-focus-visible:ring-2 peer-focus-visible:ring-primary/70 peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-background`}
                               style={
                                 formData.budget === option.value
                                   ? { backgroundImage: `linear-gradient(to bottom right, ${option.bgGradient})` }
@@ -795,6 +817,10 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                           name="consent"
                           checked={agreed}
                           onChange={(e) => { if (submittingRef.current) return; setAgreed(e.target.checked); if (e.target.checked) setNotice(null); }}
+                          // Краткое имя галочки (DA-157): метка вокруг неё пустая, и
+                          // экранный диктор называл её просто «флажок». Полная
+                          // юридическая фраза остаётся описанием, ссылки в ней работают.
+                          aria-label="Согласие на обработку персональных данных"
                           aria-describedby="contact-form-consent-copy"
                           className="consent-checkbox h-5 w-5"
                         />

@@ -622,7 +622,8 @@ input[type='number']::-webkit-outer-spin-button {
   gap: 10px;
   margin: 0 0 14px;
   font-size: 0.8em;
-  color: rgba(148, 158, 190, 0.7);
+  /* 0,7 давала 4,1:1 на фоне страницы (DA-21), 0,8 — 5:1. */
+  color: rgba(148, 158, 190, 0.8);
 }
 .legal-controls button {
   background: none;

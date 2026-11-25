@@ -129,7 +129,6 @@ export default function NotFound() {
                 <button
                   type="button"
                   className="nf-primary"
-                  aria-label={returnsHome ? 'Перейти на главную' : `Вернуться на страницу «${returnTo.label}»`}
                   onClick={returnTo.goBack}
                 >
                   <ArrowLeft focusable="false" aria-hidden="true" />

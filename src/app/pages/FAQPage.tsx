@@ -653,7 +653,7 @@ export default function FAQPage() {
           >
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-4">
               <Sparkles className="w-4 h-4 text-primary" />
-              <span className="text-xs md:text-sm text-primary font-semibold">FAQ</span>
+              <span className="text-xs md:text-sm text-primary-text font-semibold">FAQ</span>
             </div>
 
             {/* Лимит строк на странице из HTML выполняет до первого кадра
@@ -696,7 +696,7 @@ export default function FAQPage() {
                 aria-pressed={selectedCategory === 'all'}
                 className={`min-h-11 whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-colors ${
                   selectedCategory === 'all'
-                    ? 'border-primary bg-primary/15 text-primary'
+                    ? 'border-primary bg-primary/15 text-primary-text'
                     : 'border-border text-muted-foreground hover:text-foreground'
                 }`}
               >
@@ -710,12 +710,12 @@ export default function FAQPage() {
                   aria-pressed={selectedCategory === category}
                   className={`min-h-11 whitespace-nowrap rounded-lg border px-3 py-2 text-sm transition-colors ${
                     selectedCategory === category
-                      ? 'border-primary bg-primary/15 text-primary'
+                      ? 'border-primary bg-primary/15 text-primary-text'
                       : 'border-border text-muted-foreground hover:text-foreground'
                   }`}
                 >
                   {category}
-                  <span className="ml-1.5 text-xs opacity-70">
+                  <span className="ml-1.5 text-xs opacity-80">
                     {liveFaqs.filter((item) => item.category === category).length}
                   </span>
                 </button>

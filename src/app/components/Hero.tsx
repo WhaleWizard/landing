@@ -321,7 +321,7 @@ const LeftContent = memo(({
     >
       {!staticMotion ? <span className="ww-hero-glow-loop ww-ambient-motion absolute inset-0 -z-10 rounded-full" aria-hidden="true" /> : null}
       {mobileFirst ? <PlatformMark platform="meta" size={17} /> : <Zap className="w-3 h-3 md:w-4 md:h-4 text-primary shrink-0" />}
-      <span className="text-xs md:text-sm text-primary">{content.badge}</span>
+      <span className="text-xs md:text-sm text-primary-text">{content.badge}</span>
     </m.div>
 
     {google ? <PlatformStrip group="google" /> : mobileFirst ? <PlatformStrip group="apps" /> : null}

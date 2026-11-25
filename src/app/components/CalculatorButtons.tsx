@@ -29,7 +29,7 @@ export default function CalculatorButtons() {
         >
           <div className="inline-flex items-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-full bg-primary/10 border border-primary/20 backdrop-blur-sm mb-4">
             <Calculator className="w-4 h-4 text-primary" />
-            <span className="text-xs md:text-sm text-primary font-semibold">Расчёты перед запуском</span>
+            <span className="text-xs md:text-sm text-primary-text font-semibold">Расчёты перед запуском</span>
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3">
             Два ориентира перед запуском{' '}

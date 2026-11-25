@@ -144,6 +144,8 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
     setNotice: (notice) => calls.notices.push(notice),
     agreed: true,
     submittingRef: { current: false },
+    submitFormRef: { current: null },
+    restoreSubmitFocus: { current: false },
     document: { getElementById: () => null, referrer: '' },
     window: {
       location: { pathname: '/meta-ads', href: 'https://www.whalewzrd.com/meta-ads' },
