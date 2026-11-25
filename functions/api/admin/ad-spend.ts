@@ -1,6 +1,6 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
-import { json, readCappedJsonBody } from '../../_lib/http';
+import { json, readRequestText } from '../../_lib/http';
 import { localTodayIso } from '../../_lib/local-day';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import { ACCOUNTING_CURRENCY, parseMoney } from '../../_lib/money';
@@ -61,7 +61,13 @@ function normalizeEntry(raw: unknown): SpendEntry | { error: string } {
   if (!day) return { error: 'Дата должна быть в формате ГГГГ-ММ-ДД' };
   const amount = normalizeAmount(input.amount);
   if (amount === null) return { error: 'Сумма должна быть числом от 0' };
-  // Учёт только в долларах: валюта из запроса и из CSV игнорируется.
+  // Учёт ведётся в одной валюте. Строку в другой валюте нельзя молча
+  // записать как доллары (DA-64): 100 EUR и 75 USD превращались в 175 USD,
+  // а курсов в системе нет. Пустая валюта — это валюта учёта.
+  const requestedCurrency = String(input.currency ?? '').trim().toUpperCase();
+  if (requestedCurrency && requestedCurrency !== ACCOUNTING_CURRENCY) {
+    return { error: `Расход ${day} в ${requestedCurrency.slice(0, 8)}: учёт ведётся в ${ACCOUNTING_CURRENCY}. Переведите сумму в ${ACCOUNTING_CURRENCY} или уберите строку` };
+  }
   const currency = ACCOUNTING_CURRENCY;
   const source = normalizeKeyPart(input.source);
   if (!source) return { error: 'Укажите источник — он должен совпадать с utm_source' };
@@ -179,7 +185,9 @@ function mergeDuplicateSlots(entries: SpendEntry[], errors: string[]): { entries
   let merged = 0;
   let rejected = 0;
   for (const entry of entries) {
-    const key = `${entry.day}|${entry.source}|${entry.campaign}|${entry.currency}`;
+    // Структурный ключ, а не склейка через «|» (DA-65): «audience|east» +
+    // «reengagement» и «audience» + «east|reengagement» — разные кампании.
+    const key = JSON.stringify([entry.day, entry.source, entry.campaign, entry.currency]);
     if (overflowed.has(key)) {
       rejected += 1;
       continue;
@@ -211,15 +219,38 @@ function mergeDuplicateSlots(entries: SpendEntry[], errors: string[]): { entries
   return { entries: [...bySlot.values()], merged, rejected };
 }
 
+const SPEND_LIST_LIMIT = 2000;
+const SPEND_BODY_LIMIT = 1_310_720;
+
 async function readSpendRows(db: D1Database, days: number, today: string): Promise<SpendEntry[]> {
   const rows = await db.prepare(`
     SELECT id, day, source, campaign, amount, currency, note
     FROM ad_spend
     WHERE day BETWEEN date(?, ?) AND date(?)
     ORDER BY day DESC, source ASC, campaign ASC
-    LIMIT 2000
+    LIMIT ${SPEND_LIST_LIMIT}
   `).bind(today, `-${days - 1} day`, today).all<SpendEntry>();
   return (rows.results || []).map((row) => ({ ...row, amount: Number(row.amount) || 0 }));
+}
+
+/**
+ * Итог за период считается в базе по всем строкам, а не по показанным
+ * (DA-66): список ограничен 2 000 строк, и итог по нему молча занижал
+ * расход. `total_rows` позволяет интерфейсу сказать, что список неполный.
+ */
+async function readSpendTotals(db: D1Database, days: number, today: string): Promise<{ totals: Array<{ currency: string; amount: number }>; totalRows: number }> {
+  const rows = await db.prepare(`
+    SELECT currency, SUM(amount) AS amount, COUNT(*) AS rows
+    FROM ad_spend
+    WHERE day BETWEEN date(?, ?) AND date(?)
+    GROUP BY currency
+    ORDER BY currency
+  `).bind(today, `-${days - 1} day`, today).all<{ currency: string; amount: number; rows: number }>();
+  const results = rows.results || [];
+  return {
+    totals: results.map((row) => ({ currency: row.currency, amount: Math.round((Number(row.amount) || 0) * 100) / 100 })),
+    totalRows: results.reduce((sum, row) => sum + Number(row.rows || 0), 0),
+  };
 }
 
 export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
@@ -235,10 +266,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   const days = boundedDays(request);
   try {
     const entries = await readSpendRows(env.DB, days, localTodayIso(request));
-    const totals = new Map<string, number>();
-    for (const entry of entries) {
-      totals.set(entry.currency, (totals.get(entry.currency) || 0) + entry.amount);
-    }
+    const { totals, totalRows } = await readSpendTotals(env.DB, days, localTodayIso(request));
     // Подсказка для поля «Источник»: что реально встречается в заявках.
     const knownSources = await env.DB.prepare(`
       SELECT DISTINCT LOWER(TRIM(utm_source)) AS source FROM leads
@@ -249,7 +277,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       success: true,
       days,
       entries,
-      totals: [...totals.entries()].map(([currency, amount]) => ({ currency, amount: Math.round(amount * 100) / 100 })),
+      totals,
+      total_rows: totalRows,
+      truncated: totalRows > entries.length,
       knownSources: (knownSources.results || []).map((row) => row.source).filter(Boolean),
     }, { headers: noStore });
   } catch (error) {
@@ -264,9 +294,19 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
 
-  const body = await readCappedJsonBody(request) as {
-    password?: string; action?: string; entries?: unknown[]; csv?: string; id?: number; days?: number;
-  };
+  // Форма принимает CSV до 512 КБ; в JSON он растёт на экранировании
+  // кавычек и переносов, поэтому предел тела запаса ради — 1,25 МБ (DA-68).
+  // Слишком большое тело получает понятный ответ, а не «Неизвестное действие».
+  const raw = await readRequestText(request, SPEND_BODY_LIMIT);
+  if (!raw.ok) {
+    return json({ success: false, code: 'PAYLOAD_TOO_LARGE', error: 'Файл слишком большой для одной загрузки. Разделите выгрузку на периоды покороче.' }, { status: 413, headers: noStore });
+  }
+  let body: { password?: string; action?: string; entries?: unknown[]; csv?: string; id?: number; days?: number } = {};
+  try {
+    body = raw.text ? JSON.parse(raw.text) : {};
+  } catch {
+    return json({ success: false, error: 'Некорректный запрос' }, { status: 400, headers: noStore });
+  }
   if (!verifyAdminPassword(request.headers.get('X-Admin-Password') || body.password || '', env)) {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
@@ -323,17 +363,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     // Один и тот же день + источник + кампания + валюта — это один расход:
     // повторный ввод заменяет сумму, а не удваивает её.
-    const statements = combined.entries.map((entry) => db.prepare(`
-      INSERT INTO ad_spend (day, source, campaign, amount, currency, note)
-      VALUES (?, ?, ?, ?, ?, ?)
-      ON CONFLICT(day, source, campaign, currency) DO UPDATE SET
-        amount = excluded.amount,
-        note = excluded.note,
-        updated_at = datetime('now')
-    `).bind(entry.day, entry.source, entry.campaign, entry.amount, entry.currency, entry.note));
-
-    for (let index = 0; index < statements.length; index += 50) {
-      await db.batch(statements.slice(index, index + 50));
+    //
+    // Весь файл пишется одним оператором (DA-67): пачки по 50 в отдельных
+    // транзакциях при сбое второй оставляли в базе половину выгрузки с
+    // ответом «ошибка». Строки уходят одним JSON-параметром — так и лимит
+    // запросов на вызов не растёт с размером файла.
+    if (combined.entries.length) {
+      await db.prepare(`
+        INSERT INTO ad_spend (day, source, campaign, amount, currency, note)
+        SELECT json_extract(value, '$.day'), json_extract(value, '$.source'), json_extract(value, '$.campaign'),
+               json_extract(value, '$.amount'), json_extract(value, '$.currency'), json_extract(value, '$.note')
+        FROM json_each(?) WHERE true
+        ON CONFLICT(day, source, campaign, currency) DO UPDATE SET
+          amount = excluded.amount,
+          note = excluded.note,
+          updated_at = datetime('now')
+      `).bind(JSON.stringify(combined.entries.map((entry) => ({
+        day: entry.day, source: entry.source, campaign: entry.campaign, amount: entry.amount, currency: entry.currency, note: entry.note,
+      })))).run();
     }
 
     return json({

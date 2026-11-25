@@ -21,6 +21,9 @@ interface SpendResponse {
   migration?: string;
   entries?: SpendEntry[];
   totals?: Array<{ currency: string; amount: number }>;
+  /** Всего строк за период; список показывает не больше 2 000 (DA-66). */
+  total_rows?: number;
+  truncated?: boolean;
   knownSources?: string[];
   saved?: number;
   skipped?: number;
@@ -210,6 +213,11 @@ export default function AdminAdSpend({
               За период: {totals?.map((total) => formatMoney(total.amount, total.currency)).join(' · ')}
             </p>
           )}
+          {activeData?.truncated ? (
+            <p className="admin-hint" role="status">
+              В списке первые {activeData.entries?.length ?? 0} строк из {activeData.total_rows}. Итог выше посчитан по всем строкам периода.
+            </p>
+          ) : null}
         </div>
         <button type="button" className="admin-button" onClick={() => {
           if (open) csvRevision.current++;
