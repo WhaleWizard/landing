@@ -153,25 +153,38 @@ const FIELDS_TTL_MS = 5 * 60 * 1000;
 
 let fieldsCache: { fields: SubscriberFields; expiresAt: number } | null = null;
 
+/**
+ * Поля для показа формы на заглушке. Сбой базы не гасит страницу: форма
+ * показывает только почту, как до миграции.
+ */
 export async function readSubscriberFields(env: Env): Promise<SubscriberFields> {
-  const now = Date.now();
-  if (fieldsCache && fieldsCache.expiresAt > now) return fieldsCache.fields;
-  if (!env.DB) return NO_CONTACT_FIELDS;
-
   try {
-    const result = await env.DB.prepare('PRAGMA table_info(page_lock_subscribers)').all<{ name: string }>();
-    const columns = new Set((result.results || []).map((column) => String(column.name)));
-    const fields: SubscriberFields = {
-      phone: columns.has('phone'),
-      telegram: columns.has('telegram'),
-      marketing: columns.has('marketing_consent'),
-    };
-    fieldsCache = { fields, expiresAt: now + FIELDS_TTL_MS };
-    return fields;
+    return await readSubscriberFieldsStrict(env);
   } catch {
-    fieldsCache = { fields: NO_CONTACT_FIELDS, expiresAt: now + FIELDS_TTL_MS };
+    fieldsCache = { fields: NO_CONTACT_FIELDS, expiresAt: Date.now() + FIELDS_TTL_MS };
     return NO_CONTACT_FIELDS;
   }
+}
+
+/**
+ * Поля для записи подписки: временный сбой базы — ошибка, а не «старая
+ * схема» (DA-94). Иначе подписка с телефоном сохранялась без единого
+ * контакта, а посетитель видел «Готово».
+ */
+export async function readSubscriberFieldsStrict(env: Env): Promise<SubscriberFields> {
+  const now = Date.now();
+  if (fieldsCache && fieldsCache.expiresAt > now && fieldsCache.fields !== NO_CONTACT_FIELDS) return fieldsCache.fields;
+  if (!env.DB) return NO_CONTACT_FIELDS;
+
+  const result = await env.DB.prepare('PRAGMA table_info(page_lock_subscribers)').all<{ name: string }>();
+  const columns = new Set((result.results || []).map((column) => String(column.name)));
+  const fields: SubscriberFields = {
+    phone: columns.has('phone'),
+    telegram: columns.has('telegram'),
+    marketing: columns.has('marketing_consent'),
+  };
+  fieldsCache = { fields, expiresAt: now + FIELDS_TTL_MS };
+  return fields;
 }
 
 /** Сброс после применения миграции: иначе поля появятся только через пять минут. */

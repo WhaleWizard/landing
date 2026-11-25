@@ -1,3 +1,4 @@
+import { staticPageCacheKey } from '../../_lib/static-page-cache-key';
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL, deleteCacheByUrl } from '../../_lib/cache';
 import { json, readCappedJsonBody } from '../../_lib/http';
@@ -289,7 +290,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
         `${baseUrl}/api/site-content?key=${encodeURIComponent(body.key)}`,
         `${baseUrl}${normalizedPagePath}`,
       ]));
-      waitUntil(Promise.allSettled(targets.map((url) => deleteCacheByUrl(url))).then(() => undefined));
+      waitUntil(Promise.allSettled([
+        ...targets.map((url) => deleteCacheByUrl(url)),
+        // Страница в кэше дата-центра лежит под ключом выкладки (DA-91) — тем
+        // же, который вычисляет _middleware.ts.
+        caches.default.delete(staticPageCacheKey(new URL(`${baseUrl}${normalizedPagePath}`))),
+      ]).then(() => undefined));
       waitUntil(purgeCloudflareUrls(env, targets).then(() => undefined));
       seoBuild = await triggerSeoBuild(env);
     }

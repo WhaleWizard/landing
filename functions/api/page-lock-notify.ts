@@ -7,7 +7,7 @@ import {
   normalizePagePath,
   pageLockLabel,
   readPageLockSnapshot,
-  readSubscriberFields,
+  readSubscriberFieldsStrict,
 } from '../_lib/page-locks';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import type { Env } from '../_lib/types';
@@ -177,7 +177,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
 
   if (!env.DB) return backTo(safePath, 'error');
 
-  const fields = await readSubscriberFields(env);
+  let fields: Awaited<ReturnType<typeof readSubscriberFieldsStrict>>;
+  try {
+    fields = await readSubscriberFieldsStrict(env);
+  } catch {
+    // База недоступна: честное «не получилось», а не «Готово» без записи (DA-94).
+    return backTo(safePath, 'error');
+  }
+  // Контакт должен попасть в базу хотя бы одним полем (DA-94): телефон или
+  // телеграм без их колонок (до миграции 0035) сохранить некуда.
+  const storableContact = Boolean(email) || (fields.phone && Boolean(phone)) || (fields.telegram && Boolean(telegram));
+  if (!storableContact) return backTo(safePath, 'contact');
   const marketing = fields.marketing && form.get('marketing') === '1';
   const region = String((request as { cf?: { country?: string } }).cf?.country || '').trim();
 
@@ -197,7 +207,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       meta?: { changes?: number; last_row_id?: number };
     };
 
-    if (Number(result?.meta?.changes || 0) === 0) return backTo(safePath, 'duplicate');
+    if (Number(result?.meta?.changes || 0) === 0) {
+      // Тот же контакт уже есть. Если владелец его обработал в прошлый раз,
+      // когда страница была закрыта, это новая подписка нового цикла (DA-90):
+      // запись снова ждёт, и владелец получает уведомление. Событие Meta
+      // повторно не уходит: у записи тот же номер, а значит тот же event_id.
+      const match: string[] = [];
+      const params: string[] = [];
+      if (email) { match.push("(email = ? AND email <> '')"); params.push(email); }
+      if (fields.phone && phone) { match.push("(phone = ? AND phone <> '')"); params.push(phone); }
+      if (fields.telegram && telegram) { match.push("(telegram = ? AND telegram <> '')"); params.push(telegram); }
+      const renewed = match.length
+        ? await env.DB.prepare(`UPDATE page_lock_subscribers SET notified_at = NULL, created_at = datetime('now')
+            WHERE path = ? AND notified_at IS NOT NULL AND (${match.join(' OR ')})`).bind(lock.path, ...params).run()
+        : null;
+      if (!Number(renewed?.meta?.changes || 0)) return backTo(safePath, 'duplicate');
+      waitUntil(notifyTelegram(env, lock.path, { email, phone, telegram, marketing }));
+      return backTo(safePath, 'ok');
+    }
 
     waitUntil(notifyTelegram(env, lock.path, { email, phone, telegram, marketing }));
 

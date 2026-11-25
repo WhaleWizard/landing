@@ -9,7 +9,7 @@ import {
   type PageLockSnapshot,
 } from './_lib/page-locks';
 import type { Env } from './_lib/types';
-import { STATIC_CACHE_RELEASE } from './_lib/static-cache-release.generated';
+import { staticPageCacheKey } from './_lib/static-page-cache-key';
 import { CHUNK_RECOVERY_QUERY, isRecentChunkRecovery } from '../shared/chunk-recovery';
 
 const CANONICAL_HOST = 'www.whalewzrd.com';
@@ -212,12 +212,6 @@ async function ensureApiNotFound(url: URL, response: Response): Promise<Response
  * применяется поверх кэшированного HTML.
  */
 const STATIC_PAGE_CACHE_SECONDS = 300;
-
-function staticPageCacheKey(url: URL): Request {
-  const key = new URL(url.pathname, url.origin);
-  if (STATIC_CACHE_RELEASE) key.searchParams.set('__ww_release', STATIC_CACHE_RELEASE);
-  return new Request(key, { method: 'GET' });
-}
 
 async function staticPage(
   request: Request,

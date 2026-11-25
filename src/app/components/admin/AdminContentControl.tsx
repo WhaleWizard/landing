@@ -103,6 +103,9 @@ type SectionPayload = {
 
 type VersionRow = { id: number; source: 'draft' | 'published'; created_at: string };
 
+/** Сколько знаков вмещает одна строка заголовка хиро — тот же предел у сервера (`sanitizeHero`). */
+const HERO_TITLE_LINE_MAX = 180;
+
 const DEFAULT_TYPOGRAPHY: TypographySettings = { ...DEFAULT_CONTENT_TYPOGRAPHY };
 
 const DEFAULT_HERO_TITLE_ANIMATION: EditableContent['hero']['titleAnimation'] = {
@@ -322,7 +325,7 @@ function serializeContent(page: EditorPage, content: EditableContent): Record<st
   return { ...rest, callToAction: cta } as unknown as Record<string, unknown>;
 }
 
-function validateEditableContent(content: EditableContent, page?: EditorPage): { section: EditorSection; message: string } | null {
+export function validateEditableContent(content: EditableContent, page?: EditorPage): { section: EditorSection; message: string } | null {
   const blank = (value: string) => !value.trim();
   if (blank(content.seo.title) || blank(content.seo.description)) {
     return { section: 'seo', message: 'заполните SEO-заголовок и SEO-описание' };
@@ -344,6 +347,15 @@ function validateEditableContent(content: EditableContent, page?: EditorPage): {
   if (content.hero.titleLines.length > 0) {
     if (content.hero.titleLines.some((line) => blank(line.text))) {
       return { section: 'hero', message: 'в заголовке хиро осталась пустая строка' };
+    }
+    // Длина строки — как у сервера: длиннее он молча обрезал бы (DA-155).
+    if (content.hero.titleLines.some((line) => line.text.trim().length > HERO_TITLE_LINE_MAX)) {
+      return { section: 'hero', message: `строка заголовка хиро длиннее ${HERO_TITLE_LINE_MAX} знаков — сократите её` };
+    }
+    // Поясняющие строки стоят под заголовком, а не в нём (DA-152): без
+    // обычной или выделенной строки у страницы нет видимого заголовка H1.
+    if (content.hero.titleLines.every((line) => line.tone === 'supporting')) {
+      return { section: 'hero', message: 'в заголовке хиро нужна хотя бы одна обычная или выделенная строка — поясняющие стоят под ним' };
     }
   } else if (blank(content.hero.titlePrefix) && blank(content.hero.titleAccent)) {
     return { section: 'hero', message: 'заполните заголовок хиро' };
@@ -1784,6 +1796,15 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
     const lines: EditableContent['hero']['titleLines'] = [];
     const prefix = content.hero.titlePrefix.trim();
     const accent = content.hero.titleAccent.trim();
+    // Строка заголовка вмещает до 180 знаков, а «Выделенная часть» — до 240
+    // (DA-155). Раньше разделение проходило, а сервер молча отрезал конец
+    // строки при сохранении. Теперь разделение останавливается, и текст
+    // остаётся в двух полях, пока его не сократят.
+    const tooLong = [['Основная часть', prefix], ['Выделенная часть', accent]].find(([, part]) => part.length > HERO_TITLE_LINE_MAX);
+    if (tooLong) {
+      setNotice(`«${tooLong[0]}» длиннее ${HERO_TITLE_LINE_MAX} знаков (сейчас ${tooLong[1].length}) — в одну строку заголовка она не поместится. Сократите её или разбейте на две части, потом разделите на строки.`);
+      return;
+    }
     if (prefix) lines.push({ text: prefix });
     if (accent) lines.push({ text: accent, tone: 'accent' });
     update(['hero', 'titleLines'], lines.length ? lines : [{ text: '' }]);

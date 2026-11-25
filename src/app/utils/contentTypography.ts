@@ -363,6 +363,14 @@ export const TITLE_FIT_MEASURING_ATTRIBUTE = 'data-title-fit-measuring';
  * в стилях.
  */
 export const TITLE_FIT_SCALE_ATTRIBUTE = 'data-title-fit-scale';
+/**
+ * Крайний случай (DA-151): строка не помещается в колонку даже на
+ * минимальном кегле — например, автор вписал в одну строку 147 знаков. Тогда
+ * внутри этой строки разрешается перенос: граница между авторскими строками
+ * сохраняется, а текст не уезжает за правый край телефона. В обычных
+ * заголовках признак не ставится, и вид не меняется.
+ */
+export const TITLE_FIT_WRAP_ATTRIBUTE = 'data-title-fit-wrap';
 
 /**
  * Подгонка, которую сделал встроенный скрипт страницы (`scripts/title-prefit.js`)
@@ -634,6 +642,7 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
       // Признак ставится заново на каждом замере: иначе прошлая подгонка
       // осталась бы висеть после того, как текст снова помещается целиком.
       element.removeAttribute(TITLE_FIT_SCALE_ATTRIBUTE);
+      element.removeAttribute(TITLE_FIT_WRAP_ATTRIBUTE);
 
       const maxLines = hasExplicitMaxLines
         ? explicitMaxLines
@@ -793,6 +802,9 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
         best = safeBest;
         lastAppliedFontSize = `${Math.floor(best * 10) / 10}px`;
         element.style.setProperty('font-size', lastAppliedFontSize, 'important');
+        // И на минимальном кегле строка шире колонки — разрешаем перенос
+        // внутри неё, чтобы текст не уходил за край экрана (DA-151).
+        if (!withinWidth()) element.setAttribute(TITLE_FIT_WRAP_ATTRIBUTE, '');
       }
 
       element.setAttribute(TITLE_FIT_SCALE_ATTRIBUTE, String(Math.round((best / authoredSize) * 100)));

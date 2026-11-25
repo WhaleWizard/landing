@@ -1711,3 +1711,103 @@ test('DA-119: an unconfirmed test event explains the reason instead of a bare HT
   assert.equal(confirmed.status, 200);
   assert.equal(confirmed.payload.error, undefined);
 });
+
+// ─── Пакет 6b: закрытие страниц (DA-88, DA-89, DA-90, DA-94, DA-97) ─────────
+
+async function pageLockNotifyHarness(t, sqlite, envExtra = {}) {
+  const restoreCache = installMemoryCache();
+  const outbound = installTelegramSpy();
+  const originalNow = Date.now;
+  t.after(() => { restoreCache(); outbound.restore(); Date.now = originalNow; });
+  const notify = await loadModule('functions/api/page-lock-notify.ts');
+  const preview = await loadModule('functions/_lib/page-lock-preview.ts');
+  const env = { DB: new D1Database(sqlite), ADMIN_PASSWORD, ...envExtra };
+  const stamp = await preview.createFormStamp(env);
+  const shown = originalNow();
+  Date.now = () => shown + 3_000;
+  const submit = async (fields, overrideEnv = env) => {
+    const background = [];
+    const response = await notify.onRequestPost({
+      request: new Request('https://www.whalewzrd.com/api/page-lock-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'CF-Connecting-IP': '203.0.113.5' },
+        body: new URLSearchParams({ stamp, consent: '1', path: '/consult', ...fields }).toString(),
+      }),
+      env: overrideEnv,
+      waitUntil: (promise) => background.push(promise),
+    });
+    await Promise.allSettled(background);
+    return response.headers.get('Location');
+  };
+  return { env, submit, outbound };
+}
+
+test('DA-90: контакт, обработанный в прошлый раз, при новом закрытии снова ждёт открытия', async (t) => {
+  const sqlite = freshDatabase();
+  sqlite.prepare("INSERT INTO page_locks (path, locked, show_subscribe) VALUES ('/consult', 1, 1)").run();
+  const { submit } = await pageLockNotifyHarness(t, sqlite);
+  assert.equal(await submit({ email: 'again@example.com' }), '/consult?ww=ok');
+  assert.equal(await submit({ email: 'again@example.com' }), '/consult?ww=duplicate', 'в том же цикле — уже подписан');
+  sqlite.prepare("UPDATE page_lock_subscribers SET notified_at = datetime('now')").run();
+  assert.equal(await submit({ email: 'again@example.com' }), '/consult?ww=ok', 'новый цикл — новая подписка');
+  const rows = sqlite.prepare('SELECT notified_at FROM page_lock_subscribers').all();
+  assert.equal(rows.length, 1, 'запись одна');
+  assert.equal(rows[0].notified_at, null, 'и она снова ждёт');
+});
+
+test('DA-94: при сбое чтения схемы подписка не подтверждается без контакта', async (t) => {
+  const sqlite = freshDatabase();
+  sqlite.prepare("INSERT INTO page_locks (path, locked, show_subscribe) VALUES ('/consult', 1, 1)").run();
+  const { env, submit } = await pageLockNotifyHarness(t, sqlite);
+  const pageLocks = await loadModule('functions/_lib/page-locks.ts');
+  pageLocks.invalidateSubscriberFields?.();
+  // База отвечает на запись, но не на чтение схемы.
+  const flaky = {
+    ...env,
+    DB: {
+      prepare(sql) {
+        if (sql.startsWith('PRAGMA table_info(page_lock_subscribers)')) {
+          return { all: async () => { throw new Error('D1_ERROR: network connection lost'); }, bind() { return this; } };
+        }
+        return env.DB.prepare(sql);
+      },
+      batch: (statements) => env.DB.batch(statements),
+    },
+  };
+  assert.equal(await submit({ phone: '+998901234567' }, flaky), '/consult?ww=error', 'честная ошибка вместо «Готово»');
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM page_lock_subscribers').get().n, 0, 'пустая подписка не создана');
+});
+
+test('DA-88, DA-89, DA-97: старая вкладка не закрывает открытую страницу, отметка — только показанных, журнал — по фактически открытым', async (t) => {
+  t.after(installMemoryCache());
+  const locks = await pageLocksHarness();
+  const sqlite = locks.sqlite;
+  const save = (fields) => locks.post({ action: 'save', path: '/consult', title: 'Скоро', ...fields });
+
+  const created = await save({ locked: true, expectedUpdatedAt: '' });
+  assert.equal(created.status, 200, JSON.stringify(created.payload));
+  const version = () => sqlite.prepare("SELECT updated_at FROM page_locks WHERE path = '/consult'").get().updated_at;
+  const staleVersion = version();
+  // Вкладка A открывает страницу.
+  assert.equal((await save({ locked: false, expectedUpdatedAt: staleVersion })).status, 200);
+  // Вкладка B со старым снимком правит заголовок и шлёт прежний флаг «закрыта».
+  const stale = await save({ locked: true, title: 'Новый заголовок', expectedUpdatedAt: staleVersion });
+  assert.equal(stale.status, 409);
+  assert.equal(sqlite.prepare("SELECT locked FROM page_locks WHERE path = '/consult'").get().locked, 0, 'страница осталась открытой');
+
+  // DA-89: отмечаются только показанные записи.
+  sqlite.prepare("UPDATE page_locks SET locked = 1 WHERE path = '/consult'").run();
+  const insert = sqlite.prepare("INSERT INTO page_lock_subscribers (path, email) VALUES ('/consult', ?)");
+  const shown = [1, 2, 3].map((index) => Number(insert.run(`shown${index}@example.com`).lastInsertRowid));
+  insert.run('late@example.com');
+  const marked = await locks.post({ action: 'mark_notified', path: '/consult', ids: shown });
+  assert.equal(marked.payload.marked, 3);
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM page_lock_subscribers WHERE notified_at IS NULL").get().n, 1, 'новый подписчик ждёт');
+
+  // DA-97: «Открыть все» отвечает и пишет журнал по строкам, которые открыл.
+  sqlite.prepare("INSERT INTO page_locks (path, locked) VALUES ('/faq', 1)").run();
+  const opened = await locks.post({ action: 'unlock_all' });
+  assert.equal(opened.payload.opened, 2);
+  const unlockEvents = sqlite.prepare("SELECT path FROM page_lock_events WHERE action = 'unlock' ORDER BY path").all().map((row) => row.path);
+  assert.ok(unlockEvents.includes('/faq') && unlockEvents.includes('/consult'));
+});

@@ -304,3 +304,19 @@ test('article pages render from their seed through the real sanitizer, without e
   await assert.rejects(() => renderRoute(`/cases/${article.slug}`, { articleSeed: article }), /disagree/);
   await assert.rejects(() => renderRoute(`/blog/${article.slug}`, { articleSeed: caseArticle }), /instead of/);
 });
+
+test('DA-152, DA-153: заголовок из одних поясняющих строк не оставляет H1 пустым, все поясняющие строки видны', async () => {
+  const onlySupporting = { ...homeOverride.hero, titleLines: [{ text: 'Первая подпись', tone: 'supporting' }, { text: 'Вторая подпись', tone: 'supporting' }] };
+  for (const [route, key] of [['/', 'site:home'], ['/google-ads', 'service:google-ads'], ['/meta-apps', 'service:meta-apps']]) {
+    const { document } = parseHTML(await renderRoute(route, { siteContent: { key, content: { hero: onlySupporting } } }));
+    assert.match(document.querySelector('h1').textContent, /Первая подпись/, `${route}: у страницы есть видимый заголовок`);
+  }
+  const twoNotes = { ...homeOverride.hero, titleLines: [{ text: 'Проверка заголовка' }, { text: 'Первая подпись', tone: 'supporting' }, { text: 'Вторая подпись', tone: 'supporting' }] };
+  for (const [route, key] of [['/meta-ads', 'service:meta-ads'], ['/consult', 'service:consult']]) {
+    const { document } = parseHTML(await renderRoute(route, { siteContent: { key, content: { hero: twoNotes } } }));
+    const hero = document.querySelector('#hero').textContent;
+    assert.match(document.querySelector('h1').textContent, /Проверка заголовка/, route);
+    assert.ok(hero.includes('Первая подпись') && hero.includes('Вторая подпись'), `${route}: обе поясняющие строки на месте`);
+    assert.doesNotMatch(document.querySelector('h1').textContent, /подпись/, `${route}: поясняющие — под заголовком, а не в нём`);
+  }
+});

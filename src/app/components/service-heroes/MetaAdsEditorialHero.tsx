@@ -1,7 +1,7 @@
 import { ArrowRight } from 'lucide-react';
 import type { CSSProperties } from 'react';
 import type { HeroContent } from '../../types/hero';
-import HeroTitleEffect, { resolveHeroTitleLines } from '../HeroTitleEffect';
+import HeroTitleEffect, { heroTitleLinesForDisplay, resolveHeroTitleLines } from '../HeroTitleEffect';
 import { useScrollTo } from '../hooks/useScrollTo';
 import { useLandingVisibility } from '../../hooks/useLandingVisibility';
 import { Button } from '../ui/button';
@@ -59,8 +59,11 @@ const proofCases = [
 function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = false }: MetaAdsEditorialHeroProps) {
   const { scrollToWhenReady } = useScrollTo();
   const visible = useLandingVisibility();
-  const titleLines = content.titleLines?.filter((line) => line.tone !== 'supporting');
-  const supportingLine = content.titleLines?.find((line) => line.tone === 'supporting');
+  // Все поясняющие строки, а не только первая (DA-153); заголовок не бывает
+  // пустым, даже если все строки помечены поясняющими (DA-152).
+  const displayLines = heroTitleLinesForDisplay(content.titleLines);
+  const titleLines = displayLines?.filter((line) => line.tone !== 'supporting');
+  const supportingLines = displayLines?.filter((line) => line.tone === 'supporting') || [];
   const titleRef = useManagedTitleFit<HTMLHeadingElement>(content.typography, { minFontSize: 13 });
   const titleAnimation = content.titleAnimation || {};
 
@@ -88,10 +91,10 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                 { text: String(content.titlePrefix || ''), tone: 'default' as const },
                 { text: String(content.titleAccent || ''), tone: 'accent' as const },
               ];
-            const allToResolve = supportingLine ? [...rawLines, supportingLine] : rawLines;
+            const allToResolve = [...rawLines, ...supportingLines];
             const resolvedAll = resolveHeroTitleLines(allToResolve, titleAnimation, { display: 'block' });
             const resolvedTitle = resolvedAll.slice(0, rawLines.length);
-            const resolvedSupporting = supportingLine ? resolvedAll[rawLines.length] : null;
+            const resolvedSupporting = resolvedAll.slice(rawLines.length);
 
             return (
               <>
@@ -117,19 +120,20 @@ function MetaAdsEditorialHero({ content, settledEntrance: _settledEntrance = fal
                   ))}
                 </h1>
 
-                {resolvedSupporting && (
+                {resolvedSupporting.map((supporting, index) => (
                   <HeroTitleEffect
                     as="p"
+                    key={`supporting-${index}`}
                     className="meta-editorial-hero__supporting"
-                    style={resolvedSupporting.style}
-                    text={resolvedSupporting.line.text}
-                    effect={resolvedSupporting.effect}
-                    speed={resolvedSupporting.speed}
-                    delayMs={resolvedSupporting.delayMs}
+                    style={supporting.style}
+                    text={supporting.line.text}
+                    effect={supporting.effect}
+                    speed={supporting.speed}
+                    delayMs={supporting.delayMs}
                   >
-                    {resolvedSupporting.line.text}
+                    {supporting.line.text}
                   </HeroTitleEffect>
-                )}
+                ))}
               </>
             );
           })()}

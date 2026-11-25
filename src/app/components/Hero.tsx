@@ -18,6 +18,7 @@ import { useIsPathHiddenInNav } from '../utils/pageLocks';
 import { useLandingVisibility } from '../hooks/useLandingVisibility';
 import { useTouchDevice } from '../hooks/useTouchDevice';
 import HeroTitleEffect, {
+  heroTitleLinesForDisplay,
   resolveHeroTitleLines,
   type HeroTitleAnimation,
   type HeroTitleLine,
@@ -332,14 +333,15 @@ const LeftContent = memo(({
       // свой, меньший кегль. Обёртка нужна, чтобы отступы остались прежними:
       // вертикальный шаг колонки ложится на обёртку, а не между h1 и абзацем.
       (() => {
-        const resolvedTitleLines = resolveHeroTitleLines(content.titleLines, titleAnimation, { display: 'block' });
+        const displayLines = heroTitleLinesForDisplay(content.titleLines) || [];
+        const resolvedTitleLines = resolveHeroTitleLines(displayLines, titleAnimation, { display: 'block' });
         return (
           <div>
             <h1
               ref={titleRef}
               data-ww-title-fit="2/0"
               data-ww-title-fit-min="14"
-              aria-label={content.titleLines.filter((line) => line.tone !== 'supporting').map((line) => line.text).join(' ')}
+              aria-label={displayLines.filter((line) => line.tone !== 'supporting').map((line) => line.text).join(' ')}
               className={`w-full max-w-none text-[19px] min-[360px]:text-[21px] sm:text-[25px] md:text-[32px] lg:text-[32px] xl:text-[35px] font-semibold md:font-bold leading-[1.12] tracking-[-0.025em] md:tracking-[-0.03em] ${managedTitleClasses(content.typography, 'hero')}`}
               style={managedTitleStyle(content.typography)}
             >

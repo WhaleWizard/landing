@@ -74,6 +74,18 @@ export type HeroTitleLine = {
   size?: HeroTitleLineSize;
 };
 
+/**
+ * Строки для показа: если все строки помечены «Поддерживающая», заголовок H1
+ * оставался пустым (DA-152) — на главной, Google Ads и Meta Apps у страницы
+ * не было видимого заголовка. Для уже сохранённых снимков такие строки
+ * становятся обычными строками заголовка; смешанный заголовок не меняется.
+ */
+export function heroTitleLinesForDisplay<T extends HeroTitleLine>(lines: T[] | undefined): T[] | undefined {
+  if (!lines?.length) return lines;
+  const hasHeading = lines.some((line) => line.tone !== 'supporting' && line.text.trim());
+  return hasHeading ? lines : lines.map((line) => ({ ...line, tone: 'default' as const }));
+}
+
 export type HeroTitleAnimation = {
   effect?: HeroTitleEffect;
   speed?: HeroTitleEffectSpeed;

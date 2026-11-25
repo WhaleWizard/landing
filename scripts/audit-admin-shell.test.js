@@ -938,3 +938,12 @@ test('B2-M6-AUDIT: Журнал аудита CRM, история действи�
 
 
 
+
+test('DA-152, DA-155: редактор не пропускает заголовок из одних поясняющих строк и строку длиннее, чем примет сервер', async () => {
+  const contentControl = await loadWithStubs('src/app/components/admin/AdminContentControl.tsx');
+  const check = (titleLines) => contentControl.validateEditableContent({ seo: { title: 'SEO', description: 'Описание' }, hero: { titleLines, titlePrefix: '', titleAccent: '', paragraphs: [] } }, 'home');
+  assert.match(check([{ text: 'Только подпись', tone: 'supporting' }]).message, /обычная или выделенная строка/);
+  assert.match(check([{ text: 'я'.repeat(220), tone: 'accent' }]).message, /длиннее 180/);
+  // 180 знаков проходят проверку заголовка: дальше редактор спрашивает уже про абзацы.
+  assert.doesNotMatch(check([{ text: 'я'.repeat(180), tone: 'accent' }, { text: 'Подпись', tone: 'supporting' }]).message, /длиннее|поясняющие/);
+});

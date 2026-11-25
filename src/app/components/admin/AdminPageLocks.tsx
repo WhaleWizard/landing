@@ -230,6 +230,9 @@ export default function AdminPageLocks({ password }: { password: string }) {
         hideInNav: patch.hideInNav ?? route.hideInNav,
         showSubscribe: patch.showSubscribe ?? route.showSubscribe,
         ctaPaths: patch.ctaPaths ?? route.ctaPaths,
+        // Версия, которую видела форма: изменение из другой вкладки не
+        // перекрывается старыми флагами (DA-88).
+        expectedUpdatedAt: route.updatedAt || '',
       });
       await load();
       return true;
@@ -237,6 +240,8 @@ export default function AdminPageLocks({ password }: { password: string }) {
       const message = saveError instanceof Error ? saveError.message : 'Не удалось сохранить';
       setError(message);
       notify.error('Изменение не сохранилось', message);
+      // Состояние поменяли в другой вкладке — показываем свежее.
+      void load();
       return false;
     } finally {
       writePending.current = false;
@@ -324,13 +329,20 @@ export default function AdminPageLocks({ password }: { password: string }) {
     }
   }, [load, locked.length, post]);
 
-  const markNotified = useCallback(async (route: RouteState) => {
+  // Ожидающие подписчики страницы, которых видно в списке (до двенадцати).
+  const waitingShown = useCallback((path: string) => (data?.subscribers || [])
+    .filter((item) => item.path === path && !item.notifiedAt)
+    .slice(0, 12), [data?.subscribers]);
+
+  const markNotified = useCallback(async (route: RouteState, ids: number[]) => {
     if (markPending.current) return;
     markPending.current = true;
     setMarkingPath(route.path);
     try {
-      await post({ action: 'mark_notified', path: route.path });
-      notify.success('Отмечено', 'Записи помечены как обработанные');
+      // Только показанные записи (DA-89): новый подписчик после загрузки
+      // страницы и те, кого нет в списке, остаются ждать.
+      const result = await post({ action: 'mark_notified', path: route.path, ids }) as { marked?: number };
+      notify.success('Отмечено', `Помечено обработанными: ${Number(result.marked ?? ids.length)}`);
       await load();
     } catch (markError) {
       notify.error('Не получилось', markError instanceof Error ? markError.message : '');
@@ -654,9 +666,7 @@ export default function AdminPageLocks({ password }: { password: string }) {
                             Ждут открытия: {route.waiting}
                           </p>
                           <ul className="plock-waiting__list">
-                            {(data?.subscribers || [])
-                              .filter((item) => item.path === route.path && !item.notifiedAt)
-                              .slice(0, 12)
+                            {waitingShown(route.path)
                               .map((item) => (
                                 <li key={item.id}>
                                   <span>
@@ -667,8 +677,13 @@ export default function AdminPageLocks({ password }: { password: string }) {
                                 </li>
                               ))}
                           </ul>
-                          <AdminButton compact disabled={Boolean(markingPath)} onClick={() => void markNotified(route)}>
-                            {markingPath === route.path ? 'Отмечаю…' : 'Я написал всем'}
+                          {route.waiting > waitingShown(route.path).length ? (
+                            <p className="admin-hint">Показаны {waitingShown(route.path).length} из {route.waiting}. Остальные появятся после отметки этих.</p>
+                          ) : null}
+                          <AdminButton compact disabled={Boolean(markingPath)} onClick={() => void markNotified(route, waitingShown(route.path).map((item) => item.id))}>
+                            {markingPath === route.path
+                              ? 'Отмечаю…'
+                              : route.waiting > waitingShown(route.path).length ? `Я написал этим ${waitingShown(route.path).length}` : 'Я написал всем'}
                           </AdminButton>
                         </div>
                       ) : null}

@@ -240,7 +240,19 @@ interface SavePayload {
   hideInNav?: boolean;
   showSubscribe?: boolean;
   ctaPath?: string;
+  /** Версия строки, которую видела форма (DA-88). */
+  expectedUpdatedAt?: string;
+  /** Подписчики, которых владелец видел в списке (DA-89). */
+  ids?: unknown[];
 }
+
+/**
+ * Версия строки замка — время с долями секунды, строго позже прежнего: две
+ * записи в одну секунду иначе дали бы одну версию, и старая вкладка прошла бы
+ * проверку (DA-88; та же ловушка, что FX-03 у статей).
+ */
+const NOW_STAMP = "strftime('%Y-%m-%d %H:%M:%f', 'now')";
+const VERSION_STAMP = `CASE WHEN ${NOW_STAMP} > COALESCE(updated_at, '') THEN ${NOW_STAMP} ELSE strftime('%Y-%m-%d %H:%M:%f', updated_at, '+0.001 seconds') END`;
 
 async function writeEvent(db: D1Database, path: string, action: string, hash: string): Promise<void> {
   try {
@@ -280,16 +292,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'unlock_all') {
-      const locked = await env.DB.prepare('SELECT path FROM page_locks WHERE locked = 1').all<{ path: string }>();
       // Дата закрытия обнуляется, как и при одиночном открытии: иначе при
       // следующем закрытии страница с первой минуты числилась бы «закрыта
       // N дней», а «Сегодня» било бы тревогу о давно закрытой странице.
-      await env.DB.prepare("UPDATE page_locks SET locked = 0, locked_at = NULL, updated_at = datetime('now') WHERE locked = 1").run();
-      for (const row of locked.results || []) {
+      // Ответ и журнал — по строкам, которые открыла именно эта запись
+      // (DA-97): снимок «до» не видел страницу, закрытую в другой вкладке
+      // между чтением и записью, и она открывалась без записи в журнале.
+      const opened = await env.DB.prepare(
+        `UPDATE page_locks SET locked = 0, locked_at = NULL, updated_at = ${VERSION_STAMP} WHERE locked = 1 RETURNING path`,
+      ).all<{ path: string }>();
+      for (const row of opened.results || []) {
         await writeEvent(env.DB, normalizePagePath(row.path), 'unlock', hash);
       }
       await invalidatePageLockCache();
-      return json({ success: true, opened: (locked.results || []).length }, { headers: noStore });
+      return json({ success: true, opened: (opened.results || []).length }, { headers: noStore });
     }
 
     if (action === 'mark_notified') {
@@ -297,10 +313,20 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!isLockablePath(path)) {
         return json({ success: false, error: 'Неизвестный адрес страницы' }, { status: 400, headers: noStore });
       }
-      await env.DB.prepare("UPDATE page_lock_subscribers SET notified_at = datetime('now') WHERE path = ? AND notified_at IS NULL")
-        .bind(path)
-        .run();
-      return json({ success: true }, { headers: noStore });
+      // Отмечаются только записи, которые владелец видел (DA-89): список
+      // показывает часть ожидающих, а подписчик, пришедший после загрузки
+      // страницы, ещё не получил сообщения. Без списка — прежняя отметка всех
+      // (для уже открытой старой вкладки).
+      const ids = Array.isArray(body.ids)
+        ? [...new Set(body.ids.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0))].slice(0, 500)
+        : null;
+      if (ids && !ids.length) return json({ success: true, marked: 0 }, { headers: noStore });
+      const marked = ids
+        ? await env.DB.prepare(`UPDATE page_lock_subscribers SET notified_at = datetime('now')
+            WHERE path = ? AND notified_at IS NULL AND id IN (${ids.map(() => '?').join(', ')})`).bind(path, ...ids).run()
+        : await env.DB.prepare("UPDATE page_lock_subscribers SET notified_at = datetime('now') WHERE path = ? AND notified_at IS NULL")
+          .bind(path).run();
+      return json({ success: true, marked: Number(marked.meta?.changes || 0) }, { headers: noStore });
     }
 
     if (action === 'delete_subscriber') {
@@ -342,6 +368,44 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       .bind(path)
       .first<{ locked: number }>();
     const wasLocked = Number(previous?.locked || 0) === 1;
+
+    // Форма присылает версию строки, которую видела (DA-88): пустая строка —
+    // настроек ещё не было. Старая вкладка с прежними флагами иначе снова
+    // закрывала страницу, открытую в другой вкладке, правкой одного текста.
+    // Без поля — прежняя запись поверх, для уже открытой старой вкладки.
+    if (typeof body.expectedUpdatedAt === 'string') {
+      const values = [
+        locked ? 1 : 0,
+        includeChildren ? 1 : 0,
+        preset,
+        title,
+        message,
+        eta || null,
+        body.hideInNav === false ? 0 : 1,
+        body.showSubscribe === false ? 0 : 1,
+        serializeCtaPaths(ctaPaths),
+      ];
+      const result = body.expectedUpdatedAt
+        ? await env.DB.prepare(`UPDATE page_locks SET
+            locked = ?, include_children = ?, preset = ?, title = ?, message = ?, eta = ?, hide_in_nav = ?, show_subscribe = ?, cta_path = ?,
+            locked_at = CASE WHEN ? = 1 THEN (CASE WHEN locked = 1 THEN COALESCE(locked_at, datetime('now')) ELSE datetime('now') END) ELSE NULL END,
+            updated_at = ${VERSION_STAMP}
+            WHERE path = ? AND updated_at = ?`).bind(...values, locked ? 1 : 0, path, body.expectedUpdatedAt).run()
+        : await env.DB.prepare(`INSERT INTO page_locks
+            (path, locked, include_children, preset, title, message, eta, hide_in_nav, show_subscribe, cta_path, locked_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN datetime('now') ELSE NULL END, ${NOW_STAMP})
+            ON CONFLICT(path) DO NOTHING`).bind(path, ...values, locked ? 1 : 0).run();
+      if (!result.meta?.changes) {
+        return json({
+          success: false,
+          code: 'PAGE_LOCK_CONFLICT',
+          error: 'Доступ к этой странице уже изменили в другой вкладке. Список обновлён — проверьте состояние и повторите правку.',
+        }, { status: 409, headers: noStore });
+      }
+      await writeEvent(env.DB, path, wasLocked === locked ? 'update' : (locked ? 'lock' : 'unlock'), hash);
+      await invalidatePageLockCache();
+      return json({ success: true, path, locked }, { headers: noStore });
+    }
 
     await env.DB.prepare(`INSERT INTO page_locks
       (path, locked, include_children, preset, title, message, eta, hide_in_nav, show_subscribe, cta_path, locked_at, updated_at)
