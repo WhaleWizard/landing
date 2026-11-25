@@ -1,3 +1,5 @@
+import { typographText } from './typography';
+
 const NBSP = '\u00A0';
 
 // Предлог, союз или частица в конце строки — самая заметная ошибка русской
@@ -13,8 +15,12 @@ const DASH = /^[—–-]+$/;
  * Расставляет неразрывные пробелы в заголовке. Текст не меняется — меняются
  * только места, где браузеру разрешено перенести строку.
  */
-export function smartTitleBreaks(value: string): string {
-  if (typeof value !== 'string' || !value.includes(' ')) return value;
+export function smartTitleBreaks(input: string): string {
+  if (typeof input !== 'string' || !input.includes(' ')) return input;
+  // Числа и названия площадок не разрываются, тире не начинает строку
+  // (CL-26, CL-30) — те же правила, что у остального текста сайта.
+  const value = typographText(input);
+  if (!value.includes(' ')) return value;
 
   const words = value.split(' ');
   let result = words[0];

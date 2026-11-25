@@ -1,3 +1,4 @@
+import { typographContent } from '../utils/typography';
 import { useEffect, useMemo, useState } from 'react';
 import { readInlineSiteContentSeed } from '../utils/siteContentSeed';
 
@@ -224,7 +225,9 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
     };
   }, [cacheKey, fallback]);
 
-  return content;
+  // Неразрывные пробелы при выводе (CL-26, CL-30): тире не начинает строку,
+  // числа и названия площадок не разрываются. Хранимый текст не меняется.
+  return typographContent(content);
 }
 
 export function useSiteSection<T>(cacheKey: string | null, section: string, fallback: T): T {

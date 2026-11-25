@@ -1,4 +1,5 @@
 // src/app/components/Blog.tsx
+import { typographText } from '../utils/typography';
 import { m } from 'motion/react';
 import { ArrowRight, Clock, BookOpen, MoveHorizontal } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -115,8 +116,8 @@ function Blog() {
                     <div className="flex items-center gap-1"><Clock className="w-3 h-3 md:w-4 md:h-4" /><span>{formatReadTime(article.readTime)}</span></div>
                     <div className="h-1 w-1 rounded-full bg-white/30" /><span>{articleDisplayDate(article)}</span>
                   </div>
-                  <h3 className="text-balance text-base md:text-lg lg:text-xl font-bold text-white group-hover:text-primary transition-colors">{article.title}</h3>
-                  <p className="text-xs md:text-sm text-white/60 leading-relaxed line-clamp-2">{article.description}</p>
+                  <h3 className="text-balance text-base md:text-lg lg:text-xl font-bold text-white group-hover:text-primary transition-colors">{typographText(article.title)}</h3>
+                  <p className="text-xs md:text-sm text-white/60 leading-relaxed line-clamp-2">{typographText(article.description)}</p>
                   <div className="flex items-center gap-2 text-xs md:text-sm text-primary opacity-0 group-hover:opacity-100 transition-opacity">
                     <span className="font-semibold">Открыть материал</span>
                     <ArrowRight className="w-3 h-3 md:w-4 md:h-4 group-hover:translate-x-1 transition-transform" />

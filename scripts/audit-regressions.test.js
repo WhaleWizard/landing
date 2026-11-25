@@ -476,3 +476,41 @@ test('каждый компонент с перетаскиванием react-dn
   }
   assert.deepEqual(offenders, [], `useDrag/useDrop без своего DndProvider: ${offenders.join(', ')}`);
 });
+
+// ─── CL-26, CL-30: тире не начинает строку, числа и площадки не разрываются ─
+
+const typography = await loadModule('src/app/utils/typography.ts');
+const NB = ' ';
+
+test('CL-30: пробел перед тире неразрывный, тире остаётся в конце строки', () => {
+  assert.equal(typography.typographText('Расскажите о проекте — скажу, с чего начать'), `Расскажите о проекте${NB}— скажу, с чего начать`);
+  assert.equal(typography.typographText('2020 – 2026'), `2020${NB}– 2026`);
+  assert.equal(typography.typographText('кто-то — нет'), `кто-то${NB}— нет`, 'дефис внутри слова не трогается');
+});
+
+test('CL-26: разряды чисел, число с валютой и названия площадок не разрываются', () => {
+  assert.equal(typography.typographText('бюджет $810 000 за год'), `бюджет $810${NB}000 за год`);
+  assert.equal(typography.typographText('1 200 000 показов'), `1${NB}200${NB}000 показов`);
+  assert.equal(typography.typographText('от 500 USD и 20 %'), `от 500${NB}USD и 20${NB}%`);
+  assert.equal(typography.typographText('реклама в Meta Ads и Google Ads, Performance Max'), `реклама в Meta${NB}Ads и Google${NB}Ads, Performance${NB}Max`);
+  assert.equal(typography.typographText('Meta Business и Google Maps'), 'Meta Business и Google Maps', 'другие пары не трогаются');
+  assert.equal(typography.typographText('в 2026 году'), 'в 2026 году', 'год не склеивается со словом');
+});
+
+test('CL-26, CL-30: тексты сайта — только отображаемые поля; HTML статьи — только текст, код как есть', () => {
+  const content = { hero: { title: 'Цена — 500 USD', href: '/meta-ads — x', typography: { font: 'a b' } }, items: [{ text: 'Meta Ads', to: '/a b' }] };
+  const result = typography.typographContent(content);
+  assert.equal(result.hero.title, `Цена${NB}— 500${NB}USD`);
+  assert.equal(result.hero.href, '/meta-ads — x', 'адрес не меняется');
+  assert.equal(result.hero.typography.font, 'a b');
+  assert.equal(result.items[0].text, `Meta${NB}Ads`);
+  assert.equal(result.items[0].to, '/a b');
+  assert.equal(typography.typographContent(content), result, 'тот же объект — та же ссылка: React не перерисовывает без причины');
+  assert.equal(content.hero.title, 'Цена — 500 USD', 'исходник не изменён');
+
+  const html = '<p title="a — b">Текст — тут, 10 000 USD</p><pre><code>x — 1 000</code></pre><p>Meta Ads</p>';
+  assert.equal(
+    typography.typographHtml(html),
+    `<p title="a — b">Текст${NB}— тут, 10${NB}000${NB}USD</p><pre><code>x — 1 000</code></pre><p>Meta${NB}Ads</p>`,
+  );
+});

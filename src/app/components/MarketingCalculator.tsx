@@ -1,3 +1,4 @@
+import { typographText } from '../utils/typography';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
@@ -789,7 +790,7 @@ export default function MarketingCalculator({
               }`}
             >
               {selected && <CheckCircle2 className="h-4 w-4 text-primary" />}
-              {label}
+              {typographText(label)}
             </button>
           ))}
         </div>
@@ -1038,7 +1039,7 @@ export default function MarketingCalculator({
           </div>
         </div>
         <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-          Надбавка за бюджет считается по частям диапазона, поэтому цена не скачет на порогах $5 000 и $10 000. Интеграции, съёмка и разработка оцениваются после аудита.
+          Надбавка за бюджет считается по частям диапазона, поэтому цена не скачет на порогах $5&nbsp;000 и $10&nbsp;000. Интеграции, съёмка и разработка оцениваются после аудита.
         </p>
       </>
     );
@@ -1084,7 +1085,7 @@ export default function MarketingCalculator({
               </span>
             </h1>
             <p className="mx-auto mt-3 max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
-              {pageCopy.lead}
+              {typographText(pageCopy.lead)}
             </p>
           </header>
         )}

@@ -1,3 +1,4 @@
+import { typographText } from '../utils/typography';
 import { useTouchDevice } from '../hooks/useTouchDevice';
 import { m } from 'motion/react';
 import { ArrowUpRight, ArrowRight, TrendingUp, Sparkles, BarChart3, Target } from 'lucide-react';
@@ -315,11 +316,11 @@ function Cases({
 
               <div className="p-5 md:p-6 space-y-4">
                 <h3 className={`min-h-[3rem] text-balance text-lg md:text-xl font-bold leading-tight flex items-start justify-between gap-3 ${staticMotion ? '' : 'group-hover:text-primary transition-colors'}`}>
-                  <span className="min-w-0">{item.title}</span>
+                  <span className="min-w-0">{typographText(item.title)}</span>
                   <ArrowUpRight className={`w-4 h-4 md:w-5 md:h-5 shrink-0 opacity-0 ${staticMotion ? '' : 'group-hover:opacity-100 transition-all transform group-hover:-translate-y-1 group-hover:translate-x-1'}`} />
                 </h3>
                 <p className="md:min-h-[4.25rem] text-pretty text-sm md:text-base text-muted-foreground leading-relaxed">
-                  {item.description}
+                  {typographText(item.description)}
                 </p>
 
                 {item.stats.length > 0 ? (
@@ -396,8 +397,8 @@ function Cases({
                     </div>
 
                     <div className="p-[1.125rem] space-y-3.5">
-                      <h3 className="text-balance text-[1.18rem] font-semibold leading-[1.15]">{item.title}</h3>
-                      <p className="text-pretty text-[13px] text-muted-foreground leading-6">{item.description}</p>
+                      <h3 className="text-balance text-[1.18rem] font-semibold leading-[1.15]">{typographText(item.title)}</h3>
+                      <p className="text-pretty text-[13px] text-muted-foreground leading-6">{typographText(item.description)}</p>
                       {item.stats.length > 0 ? (
                         <div className="grid grid-cols-3 gap-1.5 min-[390px]:gap-2 pt-3 border-t border-border/50">
                           {item.stats.map((stat, idx) => (

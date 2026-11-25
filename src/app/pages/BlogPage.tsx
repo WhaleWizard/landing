@@ -40,6 +40,7 @@ import { optimizeArticleContentImages } from '../utils/articleContentImages';
 import ArticlesLoadError from '../components/ArticlesLoadError';
 import { useManagedTitleFit } from '../utils/contentTypography';
 import { smartTitleBreaks } from '../utils/smartTitle';
+import { typographHtml, typographText } from '../utils/typography';
 import { useReturnTo, withReturnTo } from '../utils/siteNavigation';
 import { useDialogFocus } from '../components/hooks/useDialogFocus';
 import { articleDisplayDate } from '../utils/articleDate';
@@ -591,9 +592,14 @@ function BlogPageComponent() {
       //
       // Подсказки загрузки картинок при этом не теряются: `decoding` и
       // `fetchpriority` внесены во все три списка разрешённых атрибутов.
-      return { articleHtml: sanitizeHtml(body.innerHTML), toc: items };
+      // Типографика — при выводе, а не в санитайзере: редактор работает с
+      // исходником и не должен сохранять неразрывные пробелы в базу (CL-26, CL-30).
+      return {
+        articleHtml: typographHtml(sanitizeHtml(body.innerHTML)),
+        toc: items.map((item) => ({ ...item, text: typographText(item.text) })),
+      };
     } catch {
-      return { articleHtml: sanitizeHtml(content), toc: [] };
+      return { articleHtml: typographHtml(sanitizeHtml(content)), toc: [] };
     }
   }, [location.key, location.pathname, selectedArticle]);
 
@@ -956,7 +962,7 @@ function BlogPageComponent() {
                   <div className="flex items-center gap-1.5 text-muted-foreground"><Calendar className="h-4 w-4" /><span>{articleDisplayDate(selectedArticle)}</span></div>
                 </div>
                 <h1 ref={setArticleTitleRef} tabIndex={-1} data-ww-title-fit={`${ARTICLE_TITLE_LINES.titleMaxLinesMobile}/${ARTICLE_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="19" className="text-balance text-[clamp(1.85rem,8vw,2.75rem)] font-bold leading-[1.08] tracking-[-0.032em] text-foreground focus:outline-none md:max-w-4xl">{smartTitleBreaks(selectedArticle.title)}</h1>
-                <p className="max-w-3xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl">{seoDescription}</p>
+                <p className="max-w-3xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg md:text-xl">{typographText(seoDescription)}</p>
                 <div className="flex items-center gap-3 border-t border-border/60 pt-5">
                   <img
                     src="/images/brand/whale-wizard-96.webp"
@@ -1025,7 +1031,7 @@ function BlogPageComponent() {
             {selectedArticle.summary && (
               <aside className="mb-8 rounded-2xl border border-primary/30 bg-primary/[0.08] p-5 sm:p-6">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-[0.1em] text-primary">Ключевой вывод</p>
-                <p className="text-sm md:text-base text-foreground/90 leading-relaxed">{selectedArticle.summary}</p>
+                <p className="text-sm md:text-base text-foreground/90 leading-relaxed">{typographText(selectedArticle.summary)}</p>
               </aside>
             )}
 
@@ -1034,7 +1040,7 @@ function BlogPageComponent() {
                 <h2 className="text-lg font-semibold mb-3">Ключевые тезисы</h2>
                 <ul className="space-y-2 list-disc pl-5 text-sm md:text-base text-muted-foreground">
                   {selectedArticle.keyTakeaways.map((point, index) => (
-                    <li key={`${point}-${index}`}>{point}</li>
+                    <li key={`${point}-${index}`}>{typographText(point)}</li>
                   ))}
                 </ul>
               </section>
@@ -1069,10 +1075,10 @@ function BlogPageComponent() {
                       <details key={`${item.question}-${index}`} className="ww-afaq__item">
                         <summary>
                           <span className="ww-afaq__num" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-                          <span>{item.question}</span>
+                          <span>{typographText(item.question)}</span>
                           <span className="ww-afaq__toggle" aria-hidden="true">+</span>
                         </summary>
-                        <p className="ww-afaq__answer">{item.answer}</p>
+                        <p className="ww-afaq__answer">{typographText(item.answer)}</p>
                       </details>
                     ))}
                   </div>
@@ -1092,8 +1098,8 @@ function BlogPageComponent() {
                     <RelatedCover image={featured.image} sizes="(max-width: 699px) calc(100vw - 56px), 380px" />
                     <span>
                       <span className="ww-arel__chip">{categoryDisplayLabel(featured.category)}</span>
-                      <span className="ww-arel__feat-title">{featured.title}</span>
-                      {featured.description && <span className="ww-arel__excerpt">{featured.description}</span>}
+                      <span className="ww-arel__feat-title">{typographText(featured.title)}</span>
+                      {featured.description && <span className="ww-arel__excerpt">{typographText(featured.description)}</span>}
                       <span className="ww-arel__meta">
                         {formatReadTime(featured.readTime)}
                         <span className="ww-arel__arrow" aria-hidden="true">→</span>
@@ -1107,7 +1113,7 @@ function BlogPageComponent() {
                           <Link to={hrefFor(article.slug)} state={withReturnTo(location)} className="ww-arel__row">
                             <RelatedCover image={article.image} sizes="72px" />
                             <span className="min-w-0">
-                              <span className="ww-arel__row-title">{article.title}</span>
+                              <span className="ww-arel__row-title">{typographText(article.title)}</span>
                               <span className="ww-arel__meta">
                                 {formatReadTime(article.readTime)}
                                 <span className="ww-arel__arrow" aria-hidden="true">→</span>
@@ -1483,10 +1489,10 @@ function BlogPageComponent() {
                       <div className="flex min-w-0 flex-col justify-center p-5 sm:p-7 md:p-9">
                         <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">{categoryDisplayLabel(featuredArticle.category)}</p>
                         <h2 className="mt-3 text-balance text-2xl font-bold leading-tight tracking-[-0.025em] text-foreground transition group-hover:text-primary sm:text-3xl">
-                          {featuredArticle.title}
+                          {typographText(featuredArticle.title)}
                         </h2>
                         <p className="mt-3 line-clamp-3 text-sm leading-relaxed text-muted-foreground sm:text-base">
-                          {featuredArticle.description}
+                          {typographText(featuredArticle.description)}
                         </p>
                         <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
                           <span className="inline-flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" />{articleDisplayDate(featuredArticle)}</span>
@@ -1542,7 +1548,7 @@ function BlogPageComponent() {
                               <div className="min-w-0">
                                 <p className="text-[10px] font-semibold uppercase tracking-[0.06em] text-primary sm:text-xs">{categoryDisplayLabel(article.category)}</p>
                                 <h3 className="mt-1 line-clamp-2 text-balance text-sm font-semibold leading-snug text-foreground transition group-hover:text-primary sm:text-lg">
-                                  {article.title}
+                                  {typographText(article.title)}
                                 </h3>
                                 <div className="mt-2 flex items-center gap-3 text-[10px] text-muted-foreground sm:text-xs">
                                   <span>{articleDisplayDate(article)}</span>

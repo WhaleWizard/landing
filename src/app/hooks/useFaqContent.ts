@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { FaqItem } from '../types/faq';
 import { useSiteContent } from './useServiceContent';
+import { typographContent } from '../utils/typography';
 
 export type FaqSeoContent = {
   title: string;
@@ -38,5 +39,6 @@ function resolveFaqContent(
 
 export default function useFaqContent(fallback: FaqItem[], fallbackSeo: FaqSeoContent): FaqPageContent {
   const override = useSiteContent<Record<string, unknown> | null>('site:faq', null);
-  return useMemo(() => resolveFaqContent(override, fallback, fallbackSeo), [override, fallback, fallbackSeo]);
+  // Ответы из кода тоже проходят типографику, а не только сохранённые в CMS (CL-30).
+  return useMemo(() => typographContent(resolveFaqContent(override, fallback, fallbackSeo)), [override, fallback, fallbackSeo]);
 }

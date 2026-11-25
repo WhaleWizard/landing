@@ -30,7 +30,7 @@ const sections: LegalSection[] = [
         счётом, сообщением в Telegram/WhatsApp, email-перепиской или иной электронной коммуникацией.
       </p>
       <p>
-        1.7. <strong>Рекламные платформы</strong> — Google Ads, Meta Ads, Facebook, Instagram, TikTok, рекламные кабинеты,
+        1.7. <strong>Рекламные платформы</strong>&nbsp;— Google&nbsp;Ads, Meta&nbsp;Ads, Facebook, Instagram, TikTok, рекламные кабинеты,
         пиксели, аналитические системы, CRM, сайты, лендинги, платёжные, хостинговые и иные технические сервисы, влияющие
         на запуск и результат рекламы.
       </p>

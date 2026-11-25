@@ -1,3 +1,4 @@
+import { typographText } from '../utils/typography';
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { m } from 'motion/react';
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router';
@@ -535,7 +536,9 @@ export default function FAQPage() {
   })), [faqContent.items]);
 
   const filteredFaqs = useMemo(() => {
-    const q = query.trim().toLowerCase();
+    // Неразрывный пробел в тексте (типографика при выводе) — для поиска
+    // обычный: «meta ads» находит «Meta Ads».
+    const q = query.trim().toLowerCase().replace(/\s+/g, ' ');
     return liveFaqs.filter((item) => {
       if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
       if (!q) return true;
@@ -545,7 +548,7 @@ export default function FAQPage() {
         item.details.join(' '),
         item.category,
         ...(item.relatedTermIds || []),
-      ].join(' ').toLowerCase().includes(q);
+      ].join(' ').toLowerCase().replace(/\s+/g, ' ').includes(q);
     });
   }, [liveFaqs, query, selectedCategory]);
 
@@ -659,7 +662,7 @@ export default function FAQPage() {
               </span>
             </h1>
             <p className="text-muted-foreground mt-4 max-w-3xl mx-auto text-pretty">
-              {FAQ_SEO.lead}
+              {typographText(FAQ_SEO.lead)}
             </p>
           </m.div>
 
@@ -811,7 +814,7 @@ export default function FAQPage() {
             <div className="rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-accent/5 to-secondary/10 p-6 md:p-8 text-center">
               <h3 className="text-xl md:text-2xl font-bold text-pretty">Не нашли вопрос про свой проект?</h3>
               <p className="text-muted-foreground mt-2 mb-5 text-pretty">
-                Коротко расскажите о проекте — подскажу, с чего разумнее начать и какие данные понадобятся.
+                Коротко расскажите о&nbsp;проекте&nbsp;— подскажу, с&nbsp;чего разумнее начать и&nbsp;какие данные понадобятся.
               </p>
               <button
                 onClick={() => {

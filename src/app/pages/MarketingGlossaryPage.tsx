@@ -1,3 +1,4 @@
+import { typographText } from '../utils/typography';
 import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { m } from 'motion/react';
 import { useLocation, useNavigate, useNavigationType } from 'react-router';
@@ -337,7 +338,7 @@ export default function MarketingGlossaryPage() {
               Словарь маркетинга <span className="text-primary inline-block">без лишнего жаргона</span>
             </h1>
             <p className="max-w-3xl text-pretty text-base text-muted-foreground md:text-lg">
-              {MARKETING_GLOSSARY_SEO.lead}
+              {typographText(MARKETING_GLOSSARY_SEO.lead)}
             </p>
 
             <div className="mt-6 grid grid-cols-3 gap-2 sm:mt-8 sm:gap-3">
@@ -350,7 +351,7 @@ export default function MarketingGlossaryPage() {
                 <p className="mt-1 text-xl font-semibold sm:text-2xl">{glossaryStats.sections}</p>
               </div>
               <div className="rounded-xl border border-border bg-background/70 p-3 sm:p-4">
-                <p className="text-[11px] leading-snug text-muted-foreground sm:text-sm">В подборке Meta Apps</p>
+                <p className="text-[11px] leading-snug text-muted-foreground sm:text-sm">В подборке Meta&nbsp;Apps</p>
                 <p className="mt-1 text-xl font-semibold sm:text-2xl">{metaAppsTermCount}</p>
               </div>
             </div>
@@ -522,12 +523,12 @@ export default function MarketingGlossaryPage() {
                         <div className="space-y-3 pb-2">
                           {item.disambiguation && (
                             <p className="rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-foreground/90">
-                              <strong>Не путать:</strong> {item.disambiguation}
+                              <strong>Не путать:</strong> {typographText(item.disambiguation)}
                             </p>
                           )}
-                          <p className="text-sm md:text-base text-foreground/90">{item.definition}</p>
+                          <p className="text-sm md:text-base text-foreground/90">{typographText(item.definition)}</p>
                           <p className="text-sm text-muted-foreground">
-                            <strong className="text-foreground">Просто:</strong> {item.simple}
+                            <strong className="text-foreground">Просто:</strong> {typographText(item.simple)}
                           </p>
                           {item.formula && (
                             <p className="overflow-x-auto rounded-lg border border-border bg-background/60 px-3 py-2 text-sm text-muted-foreground">
@@ -535,11 +536,11 @@ export default function MarketingGlossaryPage() {
                             </p>
                           )}
                           <p className="text-sm text-muted-foreground">
-                            <strong className="text-foreground">Практика:</strong> {item.useWhen}
+                            <strong className="text-foreground">Практика:</strong> {typographText(item.useWhen)}
                           </p>
                           {item.caveats?.length ? (
                             <ul className="space-y-1 pl-5 text-sm text-muted-foreground list-disc">
-                              {item.caveats.map((caveat) => <li key={caveat}>{caveat}</li>)}
+                              {item.caveats.map((caveat) => <li key={caveat}>{typographText(caveat)}</li>)}
                             </ul>
                           ) : null}
                           {item.aliases?.length ? (

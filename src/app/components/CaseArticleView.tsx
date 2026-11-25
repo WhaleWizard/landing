@@ -2,6 +2,7 @@
 // в общей блокирующей таблице стилей всего сайта. Тот же файл импортирует
 // pages/CasesPage.tsx — там лежат правила витрины .cases-*.
 // case-article.css imported in index.css for single-stylesheet SSR CRP
+import { typographText } from '../utils/typography';
 import { m, useReducedMotion } from 'motion/react';
 import {
   ArrowRight,
@@ -168,7 +169,7 @@ export default function CaseArticleView({
                     <span><CalendarDays aria-hidden="true" /> {articleDisplayDate(article)}</span>
                   </div>
                   <h1 ref={setTitleRef} tabIndex={-1} data-ww-title-fit={`${CASE_TITLE_LINES.titleMaxLinesMobile}/${CASE_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="19">{smartTitleBreaks(displayTitle)}</h1>
-                  <p>{seoDescription}</p>
+                  <p>{typographText(seoDescription)}</p>
                   <div className="case-article-chips" aria-label="Каналы и тематика">
                     {(caseData.sources || []).map((source) => <SourceChip key={source} source={source} />)}
                     {caseData.niche ? <span className="case-article-chip">{caseData.niche}</span> : null}
@@ -187,7 +188,7 @@ export default function CaseArticleView({
                   <span><CalendarDays aria-hidden="true" /> {articleDisplayDate(article)}</span>
                 </div>
                 <h1 ref={setTitleRef} tabIndex={-1} data-ww-title-fit={`${CASE_TITLE_LINES.titleMaxLinesMobile}/${CASE_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="19">{smartTitleBreaks(displayTitle)}</h1>
-                <p>{seoDescription}</p>
+                <p>{typographText(seoDescription)}</p>
                 <div className="case-article-chips" aria-label="Каналы и тематика">
                   {(caseData.sources || []).map((source) => <SourceChip key={source} source={source} />)}
                   {caseData.niche ? <span className="case-article-chip">{caseData.niche}</span> : null}
@@ -214,7 +215,7 @@ export default function CaseArticleView({
                   <ol>
                     {toc.map((item) => (
                       <li key={item.id}>
-                        <a href={`#${item.id}`}>{item.text}</a>
+                        <a href={`#${item.id}`}>{typographText(item.text)}</a>
                       </li>
                     ))}
                   </ol>
@@ -247,7 +248,7 @@ export default function CaseArticleView({
             {article.summary ? (
               <aside className="case-article-summary">
                 <h2>Коротко</h2>
-                <p>{article.summary}</p>
+                <p>{typographText(article.summary)}</p>
               </aside>
             ) : null}
 
@@ -268,7 +269,7 @@ export default function CaseArticleView({
               <section className="case-article-takeaways">
                 <h2>Ключевые тезисы</h2>
                 <ul>
-                  {takeawayItems.map((point, index) => <li key={`${point}-${index}`}>{point}</li>)}
+                  {takeawayItems.map((point, index) => <li key={`${point}-${index}`}>{typographText(point)}</li>)}
                 </ul>
               </section>
             ) : null}
@@ -292,8 +293,8 @@ export default function CaseArticleView({
                 <div>
                   {faqItems.map((item, index) => (
                     <details key={`${item.question}-${index}`}>
-                      <summary>{item.question}<span aria-hidden="true">+</span></summary>
-                      <p>{item.answer}</p>
+                      <summary>{typographText(item.question)}<span aria-hidden="true">+</span></summary>
+                      <p>{typographText(item.answer)}</p>
                     </details>
                   ))}
                 </div>

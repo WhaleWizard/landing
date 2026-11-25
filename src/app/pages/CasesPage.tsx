@@ -1,6 +1,7 @@
 // Тот же файл стилей, что и у CaseArticleView: кроме .case-article-* в нём
 // лежат все .cases-* правила витрины кейсов, поэтому импорт нужен и здесь.
 // import '../../styles/cases-finder.css'; // Consolidated in index.css for single-stream CRP
+import { typographText } from '../utils/typography';
 import {
   lazy,
   Suspense,
@@ -419,9 +420,9 @@ function CaseResultCard({ item, index, href, onOpen, settledEntrance }: {
             ))}
             {item.data.niche ? <span>{item.data.niche}</span> : null}
           </div>
-          <h2>{item.title}</h2>
+          <h2>{typographText(item.title)}</h2>
           <span className="cases-context-label">Контекст</span>
-          <p>{item.description}</p>
+          <p>{typographText(item.description)}</p>
           <div className="cases-card-mobile-metrics" style={{ gridTemplateColumns: `repeat(${mobileMetrics.length}, minmax(0, 1fr))` }}>
             {mobileMetrics.map((metric, metricIndex) => (
               <ResultMetric key={`${metric.value}-${metric.label}-${metricIndex}`} value={metric.value} label={metric.label} />

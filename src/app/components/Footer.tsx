@@ -129,7 +129,7 @@ function Footer() {
               </h2>
             </div>
             <p className="text-pretty text-sm text-muted-foreground">
-              Performance-маркетинг в Google Ads и Meta Ads: от настройки аналитики до оптимизации по продажам.
+              Performance-маркетинг в Google&nbsp;Ads и Meta&nbsp;Ads: от настройки аналитики до оптимизации по продажам.
             </p>
           </div>
 
