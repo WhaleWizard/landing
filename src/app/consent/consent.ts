@@ -1069,7 +1069,31 @@ type ServerPageViewPayload = MetaBrowserContext & {
   service?: string;
   service_slug?: string;
   stats_only?: boolean;
+  /** Просмотр этой навигации уже посчитан во внутренней статистике (DA-147). */
+  skip_stats?: boolean;
 };
+
+/**
+ * Тело отложенного повтора по выбору cookie на момент повтора (DA-146).
+ *
+ * Первый запрос мог уйти с маркетинговым согласием, а человек за 800 мс до
+ * повтора его отозвал. Повтор не должен везти в Meta старое разрешение:
+ * при оставшейся аналитике он становится внутренним `stats_only` без
+ * маркетинговых полей, без аналитики — не отправляется вовсе.
+ */
+function pageViewPayloadForCurrentConsent(payload: ServerPageViewPayload): ServerPageViewPayload | null {
+  const analytics = hasAnalyticsConsent();
+  if (payload.stats_only) return analytics ? payload : null;
+  if (payload.marketing_consent !== true || hasMarketingConsent()) return payload;
+  if (!analytics || payload.skip_stats) return null;
+  return {
+    event_id: payload.event_id,
+    page_url: payload.page_url,
+    page_path: payload.page_path,
+    marketing_consent: false,
+    stats_only: true,
+  };
+}
 
 function sendServerPageView(payload: ServerPageViewPayload): void {
   const body = JSON.stringify(payload);
@@ -1101,10 +1125,12 @@ function sendServerPageView(payload: ServerPageViewPayload): void {
     .catch((e) => {
       console.warn('[PageView] Failed to send server event, retrying once', e);
       window.setTimeout(() => {
+        const retryPayload = pageViewPayloadForCurrentConsent(payload);
+        if (!retryPayload) return;
         fetch('/api/pageview', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body,
+          body: retryPayload === payload ? body : JSON.stringify(retryPayload),
           keepalive: true,
           credentials: 'same-origin',
         }).catch((err) => console.warn('[PageView] Retry failed', err));
@@ -1526,7 +1552,7 @@ export function trackContact(channel: 'telegram' | 'whatsapp' | 'email' | 'phone
   return true;
 }
 
-export function trackPageView(path: string, options: { marketing?: boolean; analytics?: boolean } = {}): void {
+export function trackPageView(path: string, options: { marketing?: boolean; analytics?: boolean; countStats?: boolean } = {}): void {
   if (engagedViewTimerId !== undefined) {
     window.clearTimeout(engagedViewTimerId);
     engagedViewTimerId = undefined;
@@ -1536,6 +1562,9 @@ export function trackPageView(path: string, options: { marketing?: boolean; anal
   const now = Date.now();
   const shouldTrackMarketing = options.marketing !== false;
   const shouldTrackAnalytics = options.analytics !== false;
+  // Внутренний просмотр считается один раз на навигацию: при включении
+  // маркетинга поверх уже учтённой аналитики уходит только событие для Meta.
+  const skipStats = options.countStats === false;
   const trackingKey = `${path}|marketing:${shouldTrackMarketing ? 'on' : 'off'}|analytics:${shouldTrackAnalytics ? 'on' : 'off'}`;
   if (trackingKey === lastTrackedPath && now - lastTrackedAt < 1200) return;
   lastTrackedPath = trackingKey;
@@ -1586,7 +1615,7 @@ export function trackPageView(path: string, options: { marketing?: boolean; anal
   }
 
   if (!shouldTrackMarketing) {
-    if (shouldTrackAnalytics) {
+    if (shouldTrackAnalytics && !skipStats) {
       sendServerPageView({
         event_id: eventId,
         page_url: getTrackingPageUrl(),
@@ -1617,6 +1646,7 @@ export function trackPageView(path: string, options: { marketing?: boolean; anal
   sendServerPageView({
     event_id: eventId,
     page_url: getTrackingPageUrl(),
+    ...(skipStats ? { skip_stats: true } : {}),
     service: pageContent.service,
     service_slug: pageContent.content_ids?.[0],
     content_name: pageContent.content_name,
@@ -1721,6 +1751,32 @@ export function trackLead(eventId?: string, eventData: Record<string, unknown> =
 // (пришедший через /api/lead) с конкретным браузерным визитом в GA4/Метрике.
 // Оба вызова асинхронные callback-based API — оборачиваем в Promise с таймаутом,
 // чтобы зависший gtag/ym не задерживал отправку формы.
+/**
+ * Согласие заявки на момент отправки, а не начала (DA-54).
+ *
+ * Между нажатием «Отправить» и запросом форма ждёт проверку Turnstile, и
+ * человек успевает отозвать маркетинг в настройках cookie (в этой или
+ * соседней вкладке). Поля, собранные `getMetaBrowserContext` при нажатии,
+ * удаляются целиком и собираются заново: при отзыве в заявку не попадают ни
+ * `marketing_consent: true`, ни `fbp`/`fbc`/`external_id`. Идентификаторы
+ * GA и Метрики остаются только при действующем согласии на аналитику.
+ * Возвращает свежий контекст — по нему форма пересчитывает свои поля.
+ */
+export function refreshLeadConsentContext(
+  payload: Record<string, unknown>,
+  captured: MetaBrowserContext,
+  pagePath = window.location.pathname,
+): MetaBrowserContext {
+  for (const key of Object.keys(captured)) delete payload[key];
+  const current = getMetaBrowserContext(pagePath);
+  Object.assign(payload, current);
+  if (!hasAnalyticsConsent()) {
+    delete payload.ga_client_id;
+    delete payload.yandex_client_id;
+  }
+  return current;
+}
+
 export async function getAnalyticsClientIds(): Promise<{ ga_client_id?: string; yandex_client_id?: string }> {
   const win = window as Window & {
     gtag?: (...args: unknown[]) => void;

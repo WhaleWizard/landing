@@ -6,7 +6,6 @@ import {
   filterVisibleArticles,
 } from '../_lib/articles';
 import { json } from '../_lib/http';
-import { verifyAdminPassword } from '../_lib/auth';
 import { hasValidAdminSession } from '../_lib/admin-session';
 import { headFromGet } from '../_lib/article-page';
 import type { Article, Env } from '../_lib/types';
@@ -35,14 +34,19 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   // `?_=<произвольное>` — сбрасыватель кэша админки. Он принимает **любое**
   // значение, поэтому запросы `?_=1`, `?_=2`, `?_=3` и так далее заставляли
   // базу читать все статьи заново на каждый запрос и плодили ключи кэша.
-  // Теперь он требует пароль администратора.
+  // Теперь он требует действующую сессию админки (HttpOnly-cookie после входа).
+  //
+  // Голый пароль в заголовке здесь НЕ принимается: адрес публичный, у него нет
+  // ни лимита попыток входа, ни проверки второго фактора из
+  // `api/admin/_middleware.ts`, а разные заголовки кэша для верного и
+  // неверного пароля превращали его в бесконечный подбор пароля админки.
+  // Админка ходит сюда с cookie сессии (`fetchArticles({ bypassCache })`).
   //
   // `?cache=no-store` — фиксированная строка, её использует production-сборка
   // (`scripts/config.js`, `PUBLIC_ARTICLES_URL`), и она ходит без заголовков
   // авторизации. Закрыть её паролем нельзя, не сломав получение свежих статей
   // при сборке, — оставлена открытой осознанно.
-  const adminBypass = url.searchParams.has('_')
-    && (verifyAdminPassword(request.headers.get('X-Admin-Password') || '', env) || await hasValidAdminSession(request, env));
+  const adminBypass = url.searchParams.has('_') && await hasValidAdminSession(request, env);
   const bypassCache = adminBypass || url.searchParams.get('cache') === 'no-store';
   const requestedSlug = String(url.searchParams.get('slug') || '').trim();
   const summaryView = url.searchParams.get('view') === 'summary';

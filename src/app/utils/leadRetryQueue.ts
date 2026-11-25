@@ -80,6 +80,22 @@ export function queueLeadForRetry(endpoint: string, payload: unknown, retryAt?: 
   });
 }
 
+/**
+ * Сервер подтвердил, что заявка записана (DA-40).
+ *
+ * Одного `res.ok` мало: 200 с HTML (страница-заглушка прокси, оболочка сайта
+ * вместо API) или `success: false` очищали форму и удаляли заявку из очереди,
+ * хотя в базе её не было. Принятой считается только JSON с `success: true` и
+ * `durable: true`. Исключение — `ignored: true`: так сервер отвечает ловушке
+ * для ботов, и форма не должна выдавать боту, что его распознали.
+ */
+export async function isLeadSaveConfirmed(res: Response): Promise<boolean> {
+  if (!res.ok) return false;
+  if (!(res.headers.get('content-type') || '').includes('application/json')) return false;
+  const payload = await res.json().catch(() => null) as { success?: unknown; durable?: unknown; ignored?: unknown } | null;
+  return payload?.success === true && (payload.durable === true || payload.ignored === true);
+}
+
 export function isRetryableLeadStatus(status: number): boolean {
   return status === 408 || status === 429 || status >= 500;
 }
@@ -121,7 +137,7 @@ async function sendQueuedLeads(): Promise<void> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...(payload as Record<string, unknown>), turnstile_token: freshToken }),
       });
-      if (res.ok || isPermanentRejection(res.status)) {
+      if (await isLeadSaveConfirmed(res) || isPermanentRejection(res.status)) {
         await updateQueue((queue) => queue.filter((record) => record.id !== current.id));
       } else {
         const retryAt = readLeadRetryAfter(res.headers.get('Retry-After'));

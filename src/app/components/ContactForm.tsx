@@ -20,6 +20,7 @@ import {
   createEventId,
   getAnalyticsClientIds,
   getMetaBrowserContext,
+  refreshLeadConsentContext,
   rememberMetaLeadIdentifiers,
   trackEngagedView,
   trackFormStart,
@@ -44,7 +45,7 @@ import {
   getCountryPhoneName,
   getCountryPhoneOption,
 } from '../utils/phoneCountry';
-import { isRetryableLeadStatus, queueLeadForRetry, readLeadRetryAfter, scheduleLeadRetry } from '../utils/leadRetryQueue';
+import { isLeadSaveConfirmed, isRetryableLeadStatus, queueLeadForRetry, readLeadRetryAfter, scheduleLeadRetry } from '../utils/leadRetryQueue';
 import { fetchGeoPayload } from '../utils/geoLookup';
 import { getLeadEntryPath, saveLeadContext } from '../utils/leadContext';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
@@ -239,7 +240,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
       let submissionStarted = false;
       try {
         const eventId = typeof createEventId === 'function' ? createEventId() : crypto.randomUUID();
-        const metaBrowserContext = getMetaBrowserContext(window.location.pathname);
+        let metaBrowserContext = getMetaBrowserContext(window.location.pathname);
         const analyticsClientIds = await getAnalyticsClientIds();
         const fullPhone = buildFullPhone(phoneCode, formData.phone);
         leadPayload = {
@@ -306,6 +307,10 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
           return;
         }
         setVerificationFailed(false);
+        // Выбор cookie мог измениться, пока шла проверка Turnstile (DA-54).
+        // Дальше и запрос, и событие «Заявка» для пикселя видят текущий выбор.
+        metaBrowserContext = refreshLeadConsentContext(leadPayload, metaBrowserContext, window.location.pathname);
+        leadPayload.entry_path = getLeadEntryPath(metaBrowserContext.marketing_consent);
         leadPayload.turnstile_token = turnstileToken;
         submissionStarted = true;
 
@@ -322,6 +327,11 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
             retryAt,
             status: res.status,
           });
+        }
+        // 200 без подтверждения записи (HTML, `success: false`) — не успех:
+        // данные остаются в форме и уходят в очередь досылки (DA-40).
+        if (!(await isLeadSaveConfirmed(res))) {
+          throw Object.assign(new Error('lead_not_confirmed'), { retryable: true, status: res.status });
         }
 
         setIsSubmitted(true);

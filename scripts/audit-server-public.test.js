@@ -791,8 +791,36 @@ test('F-110: a public cache bypass reads D1 without rewriting the R2 snapshot; o
   assert.ok(cacheStore.has(`${SITE}/api/articles`), 'cache key ignores the random parameter');
 
   cacheStore.clear();
-  const admin = await call(`${SITE}/api/articles?_=1`, { 'X-Admin-Password': ADMIN_PASSWORD });
-  assert.deepEqual(admin, { status: 200, reads: 1, snapshots: 1 }, 'admin bypass still refreshes the snapshot');
+  const session = await loadModule('functions/_lib/admin-session.ts');
+  const token = await session.createAdminSessionToken(articlesEnv(new FakeArticlesD1([])));
+  const admin = await call(`${SITE}/api/articles?_=1`, { Cookie: `${session.ADMIN_SESSION_COOKIE}=${token}` });
+  assert.deepEqual(admin, { status: 200, reads: 1, snapshots: 1 }, 'admin bypass with a session still refreshes the snapshot');
+  cacheStore.clear();
+});
+
+test('CL-16: the public articles endpoint is not a password oracle — a bare X-Admin-Password changes nothing', async () => {
+  const { onRequestGet } = await loadModule('functions/api/articles.ts');
+  const call = async (headers) => {
+    cacheStore.clear();
+    const bucket = new FakeBucket();
+    const background = makeWaitUntil();
+    const response = await onRequestGet({
+      request: new Request(`${SITE}/api/articles?_=1`, { headers }),
+      env: articlesEnv(new FakeArticlesD1([d1Row('one')]), bucket),
+      waitUntil: background.waitUntil,
+      params: {},
+      data: {},
+      next: async () => { throw new Error('no assets'); },
+    });
+    await background.flush();
+    return { status: response.status, cacheControl: response.headers.get('Cache-Control'), snapshots: bucket.objects.size };
+  };
+  const right = await call({ 'X-Admin-Password': ADMIN_PASSWORD });
+  const wrong = await call({ 'X-Admin-Password': 'definitely-not-the-password' });
+  const none = await call({});
+  assert.deepEqual(right, wrong, 'right and wrong password must be indistinguishable');
+  assert.deepEqual(right, none, 'a password header must behave like no header at all');
+  assert.equal(right.snapshots, 0, 'a bare password must not trigger the admin snapshot refresh');
   cacheStore.clear();
 });
 

@@ -127,7 +127,13 @@ const TRASH_ENV_PASSWORD = 'trash-test-password';
 
 // Execute the actual submit callback with browser dependencies replaced. This
 // isolates failure handling from animation/layout and sends no live lead.
+/** Ответ API, подтверждающий запись заявки в базу (DA-40). */
+function confirmedLeadResponse() {
+  return new Response(JSON.stringify({ success: true, durable: true }), { headers: { 'Content-Type': 'application/json' } });
+}
+
 async function makeBrowserFormSubmit(file, overrides = {}) {
+  const { isLeadSaveConfirmed: realIsLeadSaveConfirmed } = await bundleTypeScript('src/app/utils/leadRetryQueue.ts');
   const source = readFileSync(file, 'utf8');
   const start = source.indexOf('  const handleSubmit = useCallback(');
   const end = source.indexOf('\n  const ', start + 1);
@@ -154,6 +160,13 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
     getMetaBrowserContext: () => ({ marketing_consent: true }),
     getLeadEntryPath: () => undefined,
     getAnalyticsClientIds: async () => ({}),
+    // Повторяет настоящую функцию: старые поля согласия убираются, текущие кладутся заново.
+    refreshLeadConsentContext: (payload, captured) => {
+      for (const key of Object.keys(captured)) delete payload[key];
+      const current = (overrides.currentConsentContext ?? (() => ({ marketing_consent: true })))();
+      Object.assign(payload, current);
+      return current;
+    },
     buildFullPhone: () => '+998901234567',
     phoneCode: '+998',
     formData: { name: 'Test', email: 'test@example.com', phone: '901234567', budget: '', message: '', contact: '@test', website: '', experience: '', problem: '' },
@@ -164,7 +177,7 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
     serviceLabels: { 'meta-ads': 'Meta Ads' },
     normalizeContactForLead: () => ({ contactMethod: 'telegram', telegramUsername: '@test' }),
     extractWebsiteDomain: () => '',
-    fetch: async () => new Response('{}'),
+    fetch: async () => confirmedLeadResponse(),
     API_ROUTES: { lead: '/api/lead' },
     setIsSubmitted: () => {},
     rememberMetaLeadIdentifiers: async () => {},
@@ -180,6 +193,7 @@ async function makeBrowserFormSubmit(file, overrides = {}) {
     redirectTimerRef: {},
     navigate: () => {},
     isRetryableLeadStatus: (status) => status === 408 || status === 429 || status >= 500,
+    isLeadSaveConfirmed: realIsLeadSaveConfirmed,
     queueLeadForRetry: (...args) => { calls.queued.push(args); return true; },
     ...overrides,
   };
@@ -205,7 +219,7 @@ for (const form of ['ContactForm', 'LandingForm']) {
     const verification = new Promise((resolve) => { release = resolve; });
     const { submit, calls } = await makeBrowserFormSubmit(file, {
       getTurnstileToken: () => { checks++; return verification; },
-      fetch: async () => { posts++; return new Response('{}'); },
+      fetch: async () => { posts++; return confirmedLeadResponse(); },
     });
     const event = { preventDefault() {} };
     const first = submit(event);
@@ -252,6 +266,34 @@ for (const form of ['ContactForm', 'LandingForm']) {
     assert.equal(calls.notices.at(-1)?.tone, 'info');
     assert.equal(calls.submitting.at(-1), false);
   });
+
+  test(`${form}: DA-54 — consent revoked during verification reaches neither the request nor the Lead pixel`, async () => {
+    const bodies = [];
+    const { submit, calls } = await makeBrowserFormSubmit(file, {
+      getMetaBrowserContext: () => ({ marketing_consent: true, fbp: 'fb.1.1.1', external_id: 'stale' }),
+      currentConsentContext: () => ({ marketing_consent: false }),
+      fetch: async (_url, init) => { bodies.push(JSON.parse(init.body)); return confirmedLeadResponse(); },
+    });
+    await submit({ preventDefault() {} });
+    assert.equal(bodies.length, 1);
+    assert.equal(bodies[0].marketing_consent, false, 'the request carries the choice at send time');
+    assert.equal(bodies[0].fbp, undefined, 'marketing identifiers from the click are dropped');
+    assert.equal(bodies[0].external_id, undefined);
+    assert.equal(calls.tracked.at(-1)?.[1]?.marketing_consent, false, 'the browser Lead sees the revoked choice');
+  });
+
+  for (const [label, response] of [
+    ['HTML 200', () => new Response('<!doctype html><title>Whale Wizard</title>', { headers: { 'Content-Type': 'text/html' } })],
+    ['success:false', () => new Response(JSON.stringify({ success: false, durable: false }), { headers: { 'Content-Type': 'application/json' } })],
+  ]) {
+    test(`${form}: DA-40 — an unconfirmed ${label} keeps the lead and does not thank the visitor`, async () => {
+      const { submit, calls } = await makeBrowserFormSubmit(file, { fetch: async () => response() });
+      await submit({ preventDefault() {} });
+      assert.equal(calls.queued.length, 1, 'the lead goes to the retry queue instead of being dropped');
+      assert.equal(calls.tracked.length, 0, 'no Lead conversion without a durable save');
+      assert.notEqual(calls.notices.at(-1)?.tone, undefined, 'the visitor is told what happened');
+    });
+  }
 
   test(`${form}: browser analytics errors never requeue a server-confirmed lead`, async () => {
     const { submit, calls } = await makeBrowserFormSubmit(file, {

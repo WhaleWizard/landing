@@ -175,6 +175,29 @@ test('F-006: круг «HTML → блоки → HTML» не теряет ссы�
   assert.equal(blocks[4].text, 'Обычный абзац\nсо второй строкой');
 });
 
+test('CL-18: разбор статьи в блоки не кладёт её HTML в живой документ админки', () => {
+  const { parseHtmlToBlocks } = editor;
+  // В живом документе `<img onerror>` срабатывает сразу, ещё до санитайзера.
+  // Перехватываем запись innerHTML: разрешён только инертный <template>.
+  const descriptor = Object.getOwnPropertyDescriptor(dom.window.Element.prototype, 'innerHTML');
+  const liveWrites = [];
+  Object.defineProperty(dom.window.Element.prototype, 'innerHTML', {
+    ...descriptor,
+    set(value) {
+      if (this.ownerDocument === dom.window.document && this.tagName !== 'TEMPLATE' && String(value).includes('onerror')) liveWrites.push(this.tagName);
+      descriptor.set.call(this, value);
+    },
+  });
+  try {
+    const blocks = parseHtmlToBlocks('<p>До</p><img src="x" onerror="window.__xss = 1"><h2>После</h2>');
+    assert.deepEqual(liveWrites, [], 'HTML статьи разобран в живом элементе документа');
+    assert.equal(dom.window.__xss, undefined);
+    assert.deepEqual(blocks.map((block) => block.type), ['paragraph', 'image', 'heading'], 'картинка распознана блоком, обработчик onerror отброшен');
+  } finally {
+    Object.defineProperty(dom.window.Element.prototype, 'innerHTML', descriptor);
+  }
+});
+
 test('F-006: на живых статьях число <a>, <strong> и <em> до и после разбора совпадает', () => {
   const { parseHtmlToBlocks, serializeBlocks } = editor;
   assert.ok(liveArticleList.length > 0, 'есть статьи для проверки');

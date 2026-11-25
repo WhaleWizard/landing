@@ -308,9 +308,14 @@ function parseNodeToBlock(node: ChildNode): ContentBlock | null {
 function parseHtmlToBlocks(html: string): ContentBlock[] {
   const source = String(html || '').trim();
   if (!source) return [{ id: uid(), type: 'paragraph', text: '' }];
-  const container = document.createElement('div');
+  // Разбор только в инертном <template>: в обычном div живого документа
+  // `<img src=x onerror=…>` из текста статьи срабатывал сразу при открытии
+  // редактора — до любого санитайзера и с действующей сессией админки.
+  // Содержимое шаблона не грузит картинки и не запускает обработчики
+  // (так же сделано в SeoAssistant.tsx).
+  const container = document.createElement('template');
   container.innerHTML = source;
-  const blocks = Array.from(container.childNodes)
+  const blocks = Array.from(container.content.childNodes)
     .map(parseNodeToBlock)
     .filter((block): block is ContentBlock => block != null);
   return blocks.length > 0 ? blocks : [{ id: uid(), type: 'rawHtml', html: source }];

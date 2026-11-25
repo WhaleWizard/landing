@@ -248,6 +248,7 @@ const {
 } = await bundleTypeScript('functions/_lib/articles.ts');
 const { createArticlePageHandler } = await bundleTypeScript('functions/_lib/article-page.ts');
 const { onRequestGet: getPublicArticles } = await bundleTypeScript('functions/api/articles.ts');
+const adminSession = await bundleTypeScript('functions/_lib/admin-session.ts');
 const request = new Request('https://www.whalewzrd.com/api/articles');
 
 function articleShell(seed = null, marker = 'article-shell') {
@@ -501,10 +502,12 @@ test('fresh build and authenticated admin API reads remain private from intermed
   t.after(() => { globalThis.caches = originalCaches; });
   const env = makeEnv({ db: new FakeD1([d1Row('fresh-article')]) });
   const background = makeWaitUntil();
+  // Обход кэша `?_=` — только по сессии админки (CL-16), а не по паролю в заголовке.
+  const sessionCookie = `${adminSession.ADMIN_SESSION_COOKIE}=${await adminSession.createAdminSessionToken(env)}`;
   for (const query of ['?cache=no-store', '?cache=no-store&slug=fresh-article', '?_=refresh']) {
     const response = await getPublicArticles({
       request: new Request(`https://www.whalewzrd.com/api/articles${query}`, {
-        headers: { 'X-Admin-Password': env.ADMIN_PASSWORD },
+        headers: { Cookie: sessionCookie },
       }),
       env,
       waitUntil: background.waitUntil,

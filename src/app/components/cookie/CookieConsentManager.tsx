@@ -207,9 +207,14 @@ function applyConsent(consent: ConsentRecord, immediateRuntimeLoad = false, prev
   const newMarketing = consent.categories.marketing && (!previous || !previous.categories.marketing);
 
   if (newAnalytics || newMarketing || (previous === null && (consent.categories.analytics || consent.categories.marketing))) {
+    // Если прежний выбор уже разрешал аналитику или маркетинг, просмотр этой
+    // страницы уже попал во внутреннюю статистику — второй раз его не считать
+    // (DA-147). Событие для Meta при новом маркетинге уходит как раньше.
+    const alreadyCounted = Boolean(previous && (previous.categories.analytics || previous.categories.marketing));
     trackPageView(path, {
       marketing: newMarketing,
       analytics: newAnalytics || previous === null,
+      countStats: !alreadyCounted,
     });
     if (newMarketing) {
       trackServiceViewContent(path, { marketing: true });
@@ -277,11 +282,35 @@ export default function CookieConsentManager() {
   const [docModal, setDocModal] = useState<DocKey | null>(null);
 
   const consentRef = useRef<ConsentRecord | null>(null);
-  const closeCookieDialog = useCallback(() => {
-    setMode((current) => current === 'modal'
-      ? (consentRef.current ? 'hidden' : 'banner')
-      : current);
+  // Текущий режим окна для запоздавшего ответа о регионе (DA-135): пока
+  // человек сам выбирает в открытых настройках, ответ их не трогает.
+  const modeRef = useRef<BannerMode>('hidden');
+  modeRef.current = mode;
+  // Регион, для которого автосогласие отложено, потому что в момент ответа
+  // были открыты ручные настройки. Применяется, если их закрыли без выбора.
+  const pendingAutoRegionRef = useRef<string | null>(null);
+
+  const applyRegionAuto = useCallback((resolvedRegion: string) => {
+    pendingAutoRegionRef.current = null;
+    // НАМЕРЕННОЕ решение владельца, НЕ баг: для нерегулируемых регионов
+    // (и когда geo вообще не определился) баннер не показывается, а
+    // аналитика/маркетинг включаются автоматически — см. requiresConsentByDefault().
+    const autoConsent = saveConsent({ analytics: true, marketing: true }, resolvedRegion, 'region_auto');
+    consentRef.current = autoConsent;
+    setAnalytics(true);
+    setMarketing(true);
+    applyConsent(autoConsent);
+    setMode('hidden');
   }, []);
+
+  const closeCookieDialog = useCallback(() => {
+    if (modeRef.current !== 'modal') return;
+    if (!consentRef.current && pendingAutoRegionRef.current !== null) {
+      applyRegionAuto(pendingAutoRegionRef.current);
+      return;
+    }
+    setMode(consentRef.current ? 'hidden' : 'banner');
+  }, [applyRegionAuto]);
   // Пока открыт документ, окно cookie не закрывается, а ставится на паузу:
   // Escape и Tab уходят документу, а после его закрытия фокус возвращается
   // на ссылку, которой документ открыли, а не на первый переключатель.
@@ -296,6 +325,7 @@ export default function CookieConsentManager() {
       const previous = consentRef.current;
       const consent = saveConsent(categories, region, source);
       consentRef.current = consent;
+      pendingAutoRegionRef.current = null;
       applyConsent(consent, true, previous);
       setMode('hidden');
     },
@@ -329,18 +359,23 @@ export default function CookieConsentManager() {
 
         const requiresConsent = geo?.requiresConsent ?? requiresConsentByDefault();
 
+        // DA-135: явный выбор человека важнее запоздавшего ответа о регионе.
+        // Сохранённый выбор (в этой или соседней вкладке) не перезаписывается
+        // ни автосогласием, ни баннером, а открытые настройки не закрываются.
+        const decided = consentRef.current ?? loadConsent();
+        if (decided) {
+          consentRef.current = decided;
+          return;
+        }
+        if (modeRef.current === 'modal') {
+          if (!requiresConsent) pendingAutoRegionRef.current = resolvedRegion;
+          return;
+        }
+
         if (requiresConsent) {
           setMode('banner');
         } else {
-          // НАМЕРЕННОЕ решение владельца, НЕ баг: для нерегулируемых регионов
-          // (и когда geo вообще не определился) баннер не показывается, а
-          // аналитика/маркетинг включаются автоматически — см. requiresConsentByDefault().
-          const autoConsent = saveConsent({ analytics: true, marketing: true }, resolvedRegion, 'region_auto');
-          consentRef.current = autoConsent;
-          setAnalytics(true);
-          setMarketing(true);
-          applyConsent(autoConsent);
-          setMode('hidden');
+          applyRegionAuto(resolvedRegion);
         }
       })
       .finally(() => {

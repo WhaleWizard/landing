@@ -83,6 +83,8 @@ interface PageViewPayload {
   status?: string;
   search_string?: string;
   stats_only?: boolean;
+  /** Просмотр этой навигации браузер уже прислал раньше (DA-147): не считать второй раз. */
+  skip_stats?: boolean;
 }
 
 function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
@@ -433,7 +435,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   // этого завышена, и разделы обязаны об этом говорить, а не рисовать точную
   // цифру. Считать шире — только по решению владельца, отправку без согласия
   // здесь не добавлять.
-  waitUntil(recordPageStats(env, payload.page_path || payload.page_url, request));
+  if (parsedBody.skip_stats !== true) {
+    waitUntil(recordPageStats(env, payload.page_path || payload.page_url, request));
+  }
 
   // Отправляем асинхронно, не замедляя клиентскую навигацию.
   // Запись в outbox и отметки sent/retry делает сам sendMetaPageView.
