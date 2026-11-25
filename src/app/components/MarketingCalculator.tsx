@@ -1,5 +1,5 @@
 import { typographText } from '../utils/typography';
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import {
   AlertTriangle,
@@ -337,6 +337,8 @@ export default function MarketingCalculator({
   const [market, setMarket] = useState('other');
   const [currency, setCurrency] = useState('USD');
   const [periodDays, setPeriodDays] = useState('30');
+  // Валюту выбрали вручную — смена рынка её больше не трогает (DA-139).
+  const currencyChosen = useRef(false);
 
   const [mediaSpend, setMediaSpend] = useState('1000');
   const [management, setManagement] = useState('600');
@@ -448,8 +450,12 @@ export default function MarketingCalculator({
     && ordersRevenue > 0
     && Math.abs(enteredRevenue - ordersRevenue) / Math.max(enteredRevenue, ordersRevenue) > 0.02;
   const resolvedRevenue = enteredRevenue !== null ? Math.max(0, enteredRevenue) : ordersRevenue;
+  // Выручка известна, если её ввели (в том числе 0) или посчитали из заказов
+  // (DA-27): кампания без продаж — это ROAS 0 и ROMI −100 %, а не «заполните
+  // выручку».
+  const revenueKnown = enteredRevenue !== null || ordersRevenue > 0;
   const actualIsReady = sharedCosts.mediaSpend > 0
-    && resolvedRevenue > 0
+    && revenueKnown
     && asNonNegativePercent(margin) > 0
     && !revenueMismatch;
 
@@ -490,10 +496,15 @@ export default function MarketingCalculator({
     tracking,
   ]);
 
+  // Введены ли суммы: стартовые значения формы — ещё не ввод владельца.
+  const moneyEdited = mediaSpend !== '1000' || management !== '600' || creative !== '200' || quoteMediaSpend !== '1000'
+    || [tools, feesAndTax, otherCosts, acquisitionCost, averageOrderValue, actualRevenue].some((item) => item.trim() !== '');
   const chooseMarket = (nextMarket: string) => {
     setMarket(nextMarket);
     const option = marketOptions.find((item) => item.id === nextMarket);
-    if (option) setCurrency(option.currency);
+    // Валюта подставляется по рынку, только пока владелец её не выбирал и
+    // не вводил сумм (DA-139): иначе «3 275 USD» молча становились «3 275 KZT».
+    if (option && !currencyChosen.current && !moneyEdited) setCurrency(option.currency);
   };
 
   const goToContact = () => {
@@ -597,14 +608,18 @@ export default function MarketingCalculator({
           id={`${mode}-currency`}
           label="Валюта"
           value={currency}
-          onChange={setCurrency}
+          onChange={(next) => { currencyChosen.current = true; setCurrency(next); }}
           options={currencyOptions.map((option) => ({ value: option, label: option }))}
         />
         <CalculatorSelect
           id={`${mode}-period`}
           label="Период"
           value={periodDays}
-          onChange={setPeriodDays}
+          onChange={(next) => {
+            // Подтверждение «включил все расходы» относилось к прежнему периоду (DA-140).
+            if (next !== periodDays) setCostsConfirmed(false);
+            setPeriodDays(next);
+          }}
           options={[
             { value: '30', label: '30 дней' },
             { value: '60', label: '60 дней' },
@@ -755,7 +770,8 @@ export default function MarketingCalculator({
               onChange={setMargin}
               suffix="%"
               max={100}
-              placeholder="выручка минус переменные затраты"
+              placeholder="например, 40"
+              hint="Какая доля выручки остаётся после себестоимости и других переменных затрат, в процентах."
             />
           </div>
         </div>
@@ -876,7 +892,7 @@ export default function MarketingCalculator({
   const renderFinancialMetrics = (
     result: NonNullable<typeof actualResult> | ForecastResult,
     unitsLabel: string,
-    units: number,
+    units: number | null,
   ) => (
     <>
       <div className="grid grid-cols-2 gap-2.5">
@@ -888,7 +904,7 @@ export default function MarketingCalculator({
           positive={result.romi === null ? null : result.romi >= 0}
           note={costsConfirmed ? 'по полной инвестиции' : 'есть неподтверждённые расходы'}
         />
-        <MetricCard label={unitsLabel} value={formatNumber(units, 1)} />
+        <MetricCard label={unitsLabel} value={units === null ? '—' : formatNumber(units, 1)} />
         <MetricCard label="Выручка" value={formatMoney(result.revenue)} />
       </div>
       <div className="mt-3 rounded-2xl border border-border/70 bg-background/45 p-4">
@@ -984,9 +1000,11 @@ export default function MarketingCalculator({
     }
 
     const actualUnits = asNonNegative(actualOrders);
+    // Число заказов показывается, только если его ввели (DA-138).
+    const knownUnits = parseNumberInput(actualOrders) === null ? null : actualUnits;
     return (
       <>
-        {renderFinancialMetrics(actualResult, 'Оплачено заказов', actualUnits)}
+        {renderFinancialMetrics(actualResult, 'Оплачено заказов', knownUnits)}
         {actualUnits > 0 && (
           <div className="mt-3 grid grid-cols-2 gap-2.5">
             <MetricCard

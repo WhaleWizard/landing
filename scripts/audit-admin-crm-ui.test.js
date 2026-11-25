@@ -124,6 +124,13 @@ const mediaModule = await bundle(`
   export { default as MediaCropperModal } from './src/app/components/admin/MediaCropperModal';
 `);
 
+const calculatorModule = await bundle(`
+  import MarketingCalculatorView from './src/app/components/MarketingCalculator';
+  import { MemoryRouter } from 'react-router';
+  import { createElement } from 'react';
+  export const MarketingCalculator = (props) => createElement(MemoryRouter, { initialEntries: ['/roi-calculator'] }, createElement(MarketingCalculatorView, props));
+`);
+
 const todayModule = await bundle(`
   export { default as TodayPlan, applyPlanTaskOp } from './src/app/components/admin/TodayPlan';
   export { default as TodayNote } from './src/app/components/admin/TodayNote';
@@ -1419,4 +1426,23 @@ test('DA-133: окно кадрирования забирает фокус и �
   assert.equal(closed, 1, 'Escape закрывает окно');
   await view.unmount();
   opener.remove();
+});
+
+// ─── Пакет 6a: калькулятор окупаемости (DA-27, DA-138) ─────────────────────
+
+test('DA-27, DA-138: выручка 0 считается, а пустое поле заказов не выдаётся за «0 заказов»', async () => {
+  const view = await mount(calculatorModule.MarketingCalculator, { page: 'roi', initialMode: 'actual' });
+  await settle(4);
+  const field = (id) => view.container.querySelector(`#${id}`);
+  await type(field('actual-media'), '1000');
+  await type(field('actual-margin'), '50');
+  await type(field('actual-revenue'), '0');
+  await settle(2);
+  const text = () => view.container.textContent;
+  assert.doesNotMatch(text(), /Нужны медиабюджет, чистая выручка/, 'кампания без продаж посчитана');
+  assert.match(text(), /−100|-100/, 'ROMI −100 %');
+  const ordersCard = [...view.container.querySelectorAll('*')].find((node) => node.childElementCount === 0 && node.textContent.trim() === 'Оплачено заказов');
+  assert.ok(ordersCard, 'карточка заказов на месте');
+  assert.match(ordersCard.parentElement.textContent, /—/, 'число заказов не вводили — прочерк, а не 0');
+  await view.unmount();
 });

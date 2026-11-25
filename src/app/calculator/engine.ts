@@ -105,9 +105,15 @@ const joinDigits = (text: string, decimalSeparator: ',' | '.' | null): string =>
  * - строка без единой цифры — пусто: число выдумывать нельзя.
  */
 export function parseNumberInput(value: string, kind: NumberInputKind = 'amount'): number | null {
-  const cleaned = String(value ?? '').replace(/[^\d.,-]/g, '');
+  const raw = String(value ?? '');
+  const cleaned = raw.replace(/[^\d.,-]/g, '');
   if (!/\d/.test(cleaned)) return null;
-  const negative = cleaned.startsWith('-');
+  // Знак числа определяется до того, как разбор выбросит лишние символы
+  // (DA-28): «−1 200 USD» с типографским минусом и бухгалтерское
+  // «(1,200.00 USD)» раньше становились положительными 1 200, а ASCII «-1200» —
+  // отрицательным. Теперь все три — отрицательные, и поле приводит их к нулю
+  // одинаково.
+  const negative = /^[\s$€₽]*[-\u2212\u2013]/.test(raw) || /^\s*\(.*\d.*\)\s*$/.test(raw.replace(/[A-Za-zА-Яа-яЁё$€₽]/g, '').trim());
   const text = cleaned.replace(/-/g, '');
   const commas = (text.match(/,/g) ?? []).length;
   const dots = (text.match(/\./g) ?? []).length;

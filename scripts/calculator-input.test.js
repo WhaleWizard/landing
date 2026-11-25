@@ -90,3 +90,13 @@ test('the default quote of /calculator formats the same way the browser does', (
   assert.equal(format(quote.monthlyFee + 1000), '2 000 $');
   assert.deepEqual(quote.lineItems.map((item) => format(item.value)), ['600 $', '200 $', '200 $']);
 });
+
+test('DA-28: отрицательная сумма остаётся отрицательной в любой записи', () => {
+  assert.equal(parseNumberInput('-1200'), -1200);
+  assert.equal(parseNumberInput('\u22121 200 USD'), -1200, 'типографский минус');
+  assert.equal(parseNumberInput('(1,200.00 USD)'), -1200, 'бухгалтерские скобки');
+  assert.equal(parseNumberInput('$ -300'), -300);
+  assert.equal(parseNumberInput('1 200'), 1200, 'положительное не задето');
+  assert.equal(parseNumberInput('USD 300'), 300);
+});
+

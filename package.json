@@ -23,7 +23,7 @@
     "test:site-content-compatibility": "node --test scripts/site-content-compatibility.test.js",
     "test:site-content-cache": "node --test scripts/site-content-cache.test.js",
     "test:seo-content": "node --test scripts/site-content-sync.test.js",
-    "test:calculator": "node --test scripts/calculator-engine.test.js",
+    "test:calculator": "node --test scripts/calculator-engine.test.js scripts/calculator-input.test.js",
     "test:glossary": "node --test scripts/glossary-content.test.js",
     "test:seo-output": "node --test scripts/generated-seo.test.js",
     "test:admin-imports": "node --test scripts/admin-jsx-imports.test.js",
