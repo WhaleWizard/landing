@@ -301,6 +301,45 @@ test('CRM note and task retries cannot acknowledge changed input or recreate del
   assert.equal(crm.sqlite.prepare('SELECT COUNT(*) AS total FROM crm_tasks').get().total, 0);
 });
 
+test('DA-31: a deal trashed between the check and the write keeps its notes and tasks untouched', async (t) => {
+  t.after(installMemoryCache());
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  t.after(() => crm.sqlite.close());
+  const realBatch = crm.env.DB.batch.bind(crm.env.DB);
+  for (const [entity, field] of [['note', 'body'], ['task', 'title']]) {
+    for (const operation of ['create', 'update', 'delete']) {
+      const leadId = insertLead(crm.sqlite);
+      let entityId;
+      if (operation !== 'create') {
+        const created = await crm.post({ lead_id: leadId, action: entity === 'note' ? 'add_note' : 'create_task', action_id: randomUUID(), [field]: 'Исходный текст' });
+        entityId = created.payload[entity].id;
+      }
+      // Корзина срабатывает после проверки обработчика, но до записи.
+      let fired = false;
+      crm.env.DB.batch = async (statements) => {
+        if (!fired) {
+          fired = true;
+          crm.sqlite.prepare("UPDATE leads SET deleted_at = datetime('now'), crm_revision = crm_revision + 1 WHERE id = ?").run(leadId);
+        }
+        return realBatch(statements);
+      };
+      const action = operation === 'create' ? (entity === 'note' ? 'add_note' : 'create_task') : `${operation}_${entity}`;
+      const body = { lead_id: leadId, action, action_id: randomUUID(), [field]: 'Новый текст' };
+      if (entityId) Object.assign(body, { [`${entity}_id`]: entityId, expected_revision: 0 });
+      const result = await crm.post(body);
+      crm.env.DB.batch = realBatch;
+      assert.equal(result.status, 409, `${action}: ${JSON.stringify(result.payload)}`);
+      assert.match(String(result.payload.error), /корзин/);
+      const table = entity === 'note' ? 'crm_notes' : 'crm_tasks';
+      const rows = crm.sqlite.prepare(`SELECT ${field} AS text, revision FROM ${table} WHERE lead_id = ?`).all(leadId);
+      if (operation === 'create') assert.equal(rows.length, 0, `${action}: nothing created`);
+      else assert.deepEqual(rows.map((row) => [row.text, row.revision]), [['Исходный текст', 0]], `${action}: record untouched`);
+      const history = crm.sqlite.prepare(`SELECT COUNT(*) AS n FROM lead_activity WHERE lead_id = ? AND type LIKE '${entity}_%' AND action_id = ?`).get(leadId, body.action_id).n;
+      assert.equal(history, 0, `${action}: no history after the trash`);
+    }
+  }
+});
+
 test('CRM deal and tag retries compare values and tag edits include name and color', async (t) => {
   t.after(installMemoryCache());
   const crm = await harness('functions/api/admin/lead-crm.ts');

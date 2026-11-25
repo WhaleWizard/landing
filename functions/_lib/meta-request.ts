@@ -56,6 +56,16 @@ export function normalizeLocationForMeta(value: string): string {
   return normalizeTextForMeta(value).replace(/[\s\p{P}\p{S}_]+/gu, '');
 }
 
+/**
+ * Рекламный ID мобильного устройства (IDFA / AAID) для `user_data.madid`.
+ * Meta принимает его открытым, в нижнем регистре, без хеша (CL-19): хеш
+ * сопоставить невозможно. Пропускаем только формат UUID, остальное отбрасываем.
+ */
+export function normalizeMadidForMeta(value: string | undefined): string | undefined {
+  const candidate = String(value || '').trim().toLowerCase();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(candidate) ? candidate : undefined;
+}
+
 export function createFbcFromFbclid(fbclid: string | undefined, eventTime: number): string | undefined {
   return fbclid ? `fb.1.${eventTime * 1000}.${fbclid}` : undefined;
 }

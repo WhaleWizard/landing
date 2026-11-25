@@ -196,6 +196,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   }, []);
 
   const handleSetPhoneCountry = useCallback((code: string) => {
+    if (submittingRef.current) return;
     phoneCountryTouchedRef.current = true;
     setPhoneCountryCode(code);
   }, []);
@@ -210,6 +211,9 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      // Пока заявка отправляется, поля не меняются (DA-55): сервер получает снимок,
+      // а правка, набранная поверх, молча исчезала после «Спасибо».
+      if (submittingRef.current) return;
       trackFirstFormInteraction(e.target.name);
       setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     },
@@ -415,11 +419,13 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
   );
 
   const handleSetTelegramUsername = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (submittingRef.current) return;
     trackFirstFormInteraction('telegramUsername');
     setTelegramUsername(e.target.value);
   }, [trackFirstFormInteraction]);
 
   const handleSetContactMethod = useCallback((method: ContactMethod) => {
+    if (submittingRef.current) return;
     trackFirstFormInteraction('contactMethod');
     setContactMethod(method);
   }, [trackFirstFormInteraction]);
@@ -788,7 +794,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
                           id="consent"
                           name="consent"
                           checked={agreed}
-                          onChange={(e) => { setAgreed(e.target.checked); if (e.target.checked) setNotice(null); }}
+                          onChange={(e) => { if (submittingRef.current) return; setAgreed(e.target.checked); if (e.target.checked) setNotice(null); }}
                           aria-describedby="contact-form-consent-copy"
                           className="consent-checkbox h-5 w-5"
                         />

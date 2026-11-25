@@ -7,11 +7,11 @@ import { detectCountryCode, detectDeviceFromUserAgent, postMetaEvents, isConfirm
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, shouldRejectBySignature, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
-import { isTelegramConfigured, markLeadTelegramDelivered, sendLeadToTelegram, storeLead, type StoreLeadResult } from '../_lib/leads';
+import { claimLeadNotification, isTelegramConfigured, markLeadTelegramDelivered, releaseLeadNotification, sendLeadToTelegram, storeLead, type StoreLeadResult } from '../_lib/leads';
 import { isTurnstileConfigured, verifyTurnstileToken } from '../_lib/turnstile';
 import { recordFormRejection } from '../_lib/form-guard-stats';
 import { googleOrganicLandingPath } from '../_lib/google-organic-lead';
-import { createFbcFromFbclid, createFbcFromPageUrl, extractRequestContext, getMetaCookies, getMetaDataProcessingOptions, hasAnyUtm, normalizeDobPart, normalizeGender, normalizeLocationForMeta, normalizePagePath, normalizeTextForMeta, resolveEventTime, sanitizeNumber, sanitizeText, sanitizeUrlForMeta, sha256Normalized } from '../_lib/meta-request';
+import { createFbcFromFbclid, createFbcFromPageUrl, extractRequestContext, getMetaCookies, getMetaDataProcessingOptions, hasAnyUtm, normalizeDobPart, normalizeGender, normalizeLocationForMeta, normalizeMadidForMeta, normalizePagePath, normalizeTextForMeta, resolveEventTime, sanitizeNumber, sanitizeText, sanitizeUrlForMeta, sha256Normalized } from '../_lib/meta-request';
 
 const MAX_LEAD_BODY_BYTES = 64 * 1024;
 
@@ -286,7 +286,7 @@ async function sendMetaConversionEvent(
   const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : '';
 
   const externalIdSeed = buildExternalIdSeed(payload, fbp);
-  const [hashedEmail, hashedPhone, hashedFn, hashedLn, hashedCountry, hashedCity, hashedRegion, hashedExternalId, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, hashedMadid] = await Promise.all([
+  const [hashedEmail, hashedPhone, hashedFn, hashedLn, hashedCountry, hashedCity, hashedRegion, hashedExternalId, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, madid] = await Promise.all([
     payload.email ? sha256Normalized(normalizeEmailForMeta(payload.email)) : undefined,
     payload.phone ? sha256Normalized(normalizePhoneForMeta(payload.phone)) : undefined,
     firstName ? sha256Normalized(normalizeNameForMeta(firstName)) : undefined,
@@ -300,7 +300,7 @@ async function sendMetaConversionEvent(
     payload.dobm ? sha256Normalized(payload.dobm) : undefined,
     payload.doby ? sha256Normalized(payload.doby) : undefined,
     payload.ge ? sha256Normalized(payload.ge) : undefined,
-    payload.madid ? sha256Normalized(normalizeTextForMeta(payload.madid)) : undefined,
+    normalizeMadidForMeta(payload.madid),
   ]);
 
   const event = {
@@ -325,7 +325,7 @@ async function sendMetaConversionEvent(
       dobm: hashedDobm ? [hashedDobm] : undefined,
       doby: hashedDoby ? [hashedDoby] : undefined,
       ge: hashedGe ? [hashedGe] : undefined,
-      madid: hashedMadid ? [hashedMadid] : undefined,
+      madid: madid ? [madid] : undefined,
       external_id: hashedExternalId ? [hashedExternalId] : undefined,
     },
     opt_out: payload.marketing_consent === false,
@@ -431,6 +431,46 @@ async function sendMetaConversionEvent(
     await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
     await recordMetaDiagnostics(env, { event_name: 'Lead', event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: sanitizedEventSourceUrl, service: payload.service, ...getLeadDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: Boolean(hashedEmail), has_phone: Boolean(hashedPhone), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error('[Meta CAPI] Error sending Lead event:', error);
+  }
+}
+
+async function deliverLeadNotification(env: Env, normalized: LeadPayload, stored: StoreLeadResult): Promise<void> {
+  if (!(await claimLeadNotification(env, stored.eventId))) return;
+  let delivered = false;
+  try {
+    if (isTelegramConfigured(env)) {
+      const result = await sendLeadToTelegram(env, normalized, stored);
+      if (result.ok) {
+        await markLeadTelegramDelivered(env, stored.eventId);
+        delivered = true;
+      } else {
+        console.error('[Lead CRM] Telegram delivery failed:', result.error);
+      }
+      return;
+    }
+    const fallbackEndpoint = env.LEAD_FALLBACK_WEBHOOK_URL;
+    if (fallbackEndpoint) {
+      try {
+        const response = await fetch(fallbackEndpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify(normalized),
+          cf: { cacheEverything: false, cacheTtl: 0 },
+        });
+        if (response.ok) {
+          await markLeadTelegramDelivered(env, stored.eventId);
+          delivered = true;
+        } else {
+          console.error(`[Lead CRM] Fallback webhook delivery failed with HTTP ${response.status}`);
+        }
+      } catch (error) {
+        console.error('[Lead CRM] Fallback webhook network error:', error);
+      }
+    } else {
+      console.warn('[Lead CRM] Telegram is not configured and no fallback webhook is provided. Lead stored in D1 only.');
+    }
+  } finally {
+    if (!delivered) await releaseLeadNotification(env, stored.eventId);
   }
 }
 
@@ -569,6 +609,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   if (stored.duplicate) {
+    // Повтор той же заявки досылает уведомление, если первая попытка до
+    // Telegram не дошла (DA-32). Второго сообщения не будет: право на
+    // отправку одно на обращение (`claimLeadNotification`).
+    waitUntil(deliverLeadNotification(env, normalized, stored));
     return json(
       {
         success: true,
@@ -583,37 +627,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   }
 
   // Notification is intentionally background work after the durable save.
-  const notificationTask = (async () => {
-    if (isTelegramConfigured(env)) {
-      const result = await sendLeadToTelegram(env, normalized, stored);
-      if (result.ok) {
-        await markLeadTelegramDelivered(env, stored.eventId);
-      }
-      if (!result.ok) console.error('[Lead CRM] Telegram delivery failed:', result.error);
-      return;
-    }
-    const fallbackEndpoint = env.LEAD_FALLBACK_WEBHOOK_URL;
-    if (fallbackEndpoint) {
-      try {
-        const response = await fetch(fallbackEndpoint, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json; charset=utf-8' },
-          body: JSON.stringify(normalized),
-          cf: { cacheEverything: false, cacheTtl: 0 },
-        });
-        if (response.ok) {
-          await markLeadTelegramDelivered(env, stored.eventId);
-        }
-        if (!response.ok) console.error(`[Lead CRM] Fallback webhook delivery failed with HTTP ${response.status}`);
-      } catch (error) {
-        console.error('[Lead CRM] Fallback webhook network error:', error);
-      }
-    } else {
-      console.warn('[Lead CRM] Telegram is not configured and no fallback webhook is provided. Lead stored in D1 only.');
-    }
-  })();
-
-  waitUntil(notificationTask);
+  waitUntil(deliverLeadNotification(env, normalized, stored));
 
   if (normalized.marketing_consent) {
     // Запись в outbox и отметки sent/retry делает сам sendMetaConversionEvent:

@@ -157,7 +157,11 @@ async function renderAndExecute(
   return token;
 }
 
-let interactionDeferred = false;
+// «Позже» откладывает ручную проверку отложенной заявки на десять минут, а не
+// до конца визита (DA-41): раньше флаг ставился навсегда, и следующие досылки
+// в этой вкладке молча отменялись, даже для новой заявки.
+const INTERACTION_DEFER_MS = 10 * 60 * 1000;
+let interactionDeferredUntil = 0;
 
 /** Background verification stays out of view until Turnstile requests input. */
 export async function mintDetachedTurnstileToken(): Promise<string | null> {
@@ -184,7 +188,7 @@ export async function mintDetachedTurnstileToken(): Promise<string | null> {
   close.className = 'min-h-11 justify-self-start rounded-lg border border-border px-3 text-sm';
   close.textContent = 'Позже';
   close.onclick = () => {
-    interactionDeferred = true;
+    interactionDeferredUntil = Date.now() + INTERACTION_DEFER_MS;
     request.abort();
   };
   panel.append(title, container, close);
@@ -195,7 +199,7 @@ export async function mintDetachedTurnstileToken(): Promise<string | null> {
 
   try {
     return await renderAndExecute(api, container, request.signal, () => {
-      if (interactionDeferred || document.visibilityState === 'hidden') {
+      if (Date.now() < interactionDeferredUntil || document.visibilityState === 'hidden') {
         request.abort();
         return;
       }

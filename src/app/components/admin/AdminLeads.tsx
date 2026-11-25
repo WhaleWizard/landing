@@ -102,6 +102,7 @@ interface QualityDeliveryItem {
   sent_at?: number | null;
   updated_at?: string | null;
   current: boolean;
+  previous_submission?: boolean;
 }
 
 export interface LeadRow {
@@ -1028,7 +1029,7 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
         </div>
         {lead.quality_meta_processing && (lead.quality === 'target' || lead.quality === 'nontarget') ? <div className="admin-confirm-inline admin-crm-quality__confirm" role="status"><span>Операция была прервана до фиксации результата. Безопасно повторите ту же отправку.</span><button className="admin-button admin-button--primary" type="button" onClick={() => void setQuality(lead.quality as 'target' | 'nontarget', false, lead.quality_action_id)} disabled={saving || !editingReady}>Повторить отправку</button></div> : null}
         {pendingQuality !== null ? <div className="admin-confirm-inline admin-crm-quality__confirm" role="alert"><span>{lead.quality_meta_status === 'sent' ? 'Предыдущее событие уже доставлено в Meta и не может быть отозвано.' : lead.quality_meta_status === 'unknown' ? 'У предыдущего события нет надёжно зафиксированного статуса.' : 'Предыдущее событие уже находится в очереди и ещё может быть доставлено в Meta.'} {pendingQuality ? 'Отправить новую классификацию?' : 'Снять метку только в CRM?'}</span><button className="admin-button admin-button--primary" type="button" onClick={() => void setQuality(pendingQuality, true)} disabled={saving || !editingReady}>{pendingQuality ? 'Да, изменить' : 'Да, снять'}</button><button type="button" className="admin-button admin-button--quiet" onClick={() => { setPendingQuality(null); setQualityActionId(''); }}>Отмена</button></div> : null}
-        {qualityHistory.length ? <details className="admin-disclosure admin-quality-history"><summary><span>История сигналов Meta · {qualityHistory.length}</span><ChevronRight aria-hidden="true" /></summary><div className="admin-quality-history__list">{qualityHistory.map((item) => { const state = qualityHistoryState(item); return <div key={item.event_id}><span>{item.event_name}{item.current ? ' · текущая' : ''}</span><span className={`admin-state admin-state--${state.tone}`}>{state.label}</span><small>{qualityReasonLabel(item.reason) || (item.sent_at ? formatDate(new Date(item.sent_at * 1000).toISOString()) : item.updated_at ? formatDate(item.updated_at) : 'Без дополнительной информации')}</small></div>; })}</div></details> : null}
+        {qualityHistory.length ? <details className="admin-disclosure admin-quality-history"><summary><span>История сигналов Meta · {qualityHistory.length}</span><ChevronRight aria-hidden="true" /></summary><div className="admin-quality-history__list">{qualityHistory.map((item) => { const state = qualityHistoryState(item); return <div key={item.event_id}><span>{item.event_name}{item.current ? ' · текущая' : ''}{item.previous_submission ? ' · прошлое обращение' : ''}</span><span className={`admin-state admin-state--${state.tone}`}>{state.label}</span><small>{qualityReasonLabel(item.reason) || (item.sent_at ? formatDate(new Date(item.sent_at * 1000).toISOString()) : item.updated_at ? formatDate(item.updated_at) : 'Без дополнительной информации')}</small></div>; })}</div></details> : null}
       </div>
 
       <div className="admin-crm-client">

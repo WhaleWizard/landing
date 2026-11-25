@@ -370,3 +370,116 @@ test('F-112: Meta Event (ViewContent/Contact) strictly gates Meta CAPI on market
     globalThis.fetch = originalFetch;
   }
 });
+
+test('DA-32: a repeat of the same lead delivers a notification that failed, and never sends two', async () => {
+  const { d1, sqlite } = createProductionDatabase();
+  const leadEndpoint = await bundleEndpoint('functions/api/lead.ts');
+  const originalFetch = globalThis.fetch;
+  const telegramCalls = [];
+  let telegramStatus = 503;
+  let holdTelegram = null;
+  globalThis.fetch = async (url, options) => {
+    const urlStr = String(url);
+    if (urlStr.includes('api.telegram.org')) {
+      telegramCalls.push(options?.body);
+      if (holdTelegram) await holdTelegram;
+      return new Response(JSON.stringify({ ok: telegramStatus === 200 }), { status: telegramStatus });
+    }
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  const env = { DB: d1, TELEGRAM_BOT_TOKEN: 'test-bot', TELEGRAM_CHAT_ID: '42' };
+  const submit = async (eventId) => {
+    const pending = [];
+    const response = await leadEndpoint.onRequestPost({
+      request: makeTrustedRequest('https://www.whalewzrd.com/api/lead', {
+        event_id: eventId, name: 'Повтор', email: `${eventId}@example.com`, marketing_consent: false,
+      }),
+      env,
+      waitUntil: (promise) => pending.push(promise),
+    });
+    return { response, settle: () => Promise.allSettled(pending) };
+  };
+  const delivered = (eventId) => sqlite.prepare('SELECT telegram_delivered AS d FROM leads WHERE event_id = ?').get(eventId).d;
+
+  try {
+    // 1) Telegram временно недоступен → повтор той же заявки досылает уведомление.
+    const first = await submit('notify-1');
+    assert.equal(first.response.status, 200);
+    await first.settle();
+    assert.equal(delivered('notify-1'), 0, 'a failed delivery is not marked as delivered');
+    telegramStatus = 200;
+    const retry = await submit('notify-1');
+    assert.equal((await retry.response.json()).duplicate, true);
+    await retry.settle();
+    assert.equal(telegramCalls.length, 2, 'the repeat retried the notification');
+    assert.equal(delivered('notify-1'), 1);
+    const again = await submit('notify-1');
+    await again.settle();
+    assert.equal(telegramCalls.length, 2, 'a delivered notification is not sent again');
+
+    // 2) Ответ браузеру потерян, повтор приходит, пока первое уведомление в пути.
+    let release;
+    holdTelegram = new Promise((resolve) => { release = resolve; });
+    const original = await submit('notify-2');
+    const duplicate = await submit('notify-2');
+    await duplicate.settle();
+    release();
+    await original.settle();
+    assert.equal(telegramCalls.length, 3, 'one lead, one message');
+    assert.equal(delivered('notify-2'), 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    sqlite.close();
+  }
+});
+
+test('DA-33 and DA-147: one PageView event is one Meta send and one internal view', async () => {
+  const { d1, sqlite } = createProductionDatabase();
+  const pageviewEndpoint = await bundleEndpoint('functions/api/pageview.ts');
+  const originalFetch = globalThis.fetch;
+  const graphCalls = [];
+  let releaseGraph;
+  const graphHold = new Promise((resolve) => { releaseGraph = resolve; });
+  globalThis.fetch = async (url, options) => {
+    if (String(url).includes('graph.facebook.com')) {
+      graphCalls.push(JSON.parse(options.body).data[0].event_id);
+      await graphHold;
+      return new Response(JSON.stringify({ events_received: 1, fbtrace_id: 't' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+    }
+    return new Response('{}', { status: 200 });
+  };
+  const env = { DB: d1, META_CAPI_ACCESS_TOKEN: 'test-token', VITE_META_PIXEL_ID: '1234567890', META_CAPI_API_VERSION: 'v25.0' };
+  const send = (body) => {
+    const pending = [];
+    const response = pageviewEndpoint.onRequestPost({
+      request: makeTrustedRequest('https://www.whalewzrd.com/api/pageview', { page_url: 'https://www.whalewzrd.com/meta-ads/', page_path: '/meta-ads/', ...body }),
+      env,
+      waitUntil: (promise) => pending.push(promise),
+    });
+    return { response, settle: async () => { await response; await Promise.allSettled(pending); } };
+  };
+  const views = () => sqlite.prepare("SELECT COALESCE(SUM(views), 0) AS v FROM page_stats_daily").get().v;
+  try {
+    // DA-33: браузер повторил тот же просмотр, пока первый запрос ещё отправлялся в Meta.
+    const eventId = randomUUID();
+    const first = send({ event_id: eventId, marketing_consent: true });
+    const repeat = send({ event_id: eventId, marketing_consent: true });
+    await repeat.settle();
+    releaseGraph();
+    await first.settle();
+    assert.equal(graphCalls.filter((id) => id === eventId).length, 1, 'one event_id, one Meta request');
+    assert.equal(views(), 1, 'one event_id, one internal view');
+
+    // DA-147: просмотр уже учтён аналитикой, маркетинг включили позже — Meta получает PageView, счётчик не растёт.
+    const statsOnly = send({ event_id: randomUUID(), marketing_consent: false, stats_only: true });
+    await statsOnly.settle();
+    assert.equal(views(), 2);
+    const widened = send({ event_id: randomUUID(), marketing_consent: true, skip_stats: true });
+    await widened.settle();
+    assert.equal(views(), 2, 'the marketing PageView after analytics does not recount the view');
+    assert.equal(graphCalls.length, 2, 'but it still reaches Meta');
+  } finally {
+    globalThis.fetch = originalFetch;
+    sqlite.close();
+  }
+});

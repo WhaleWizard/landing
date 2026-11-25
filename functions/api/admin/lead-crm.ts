@@ -637,6 +637,26 @@ async function bulkUpdateStage(db: D1Database, body: LeadCrmPayload) {
   return { count, pipeline_stage: stage };
 }
 
+/**
+ * Условие «сделка не в корзине» внутри самого оператора записи (DA-31).
+ * Проверка в обработчике идёт отдельным запросом до записи, и сделку успевали
+ * убрать в корзину между ними: задача или заметка всё равно сохранялась, а в
+ * истории появлялось событие после `lead_trashed`. Теги защищены ревизией
+ * сделки; у задач и заметок ревизия своя, поэтому нужна явная проверка.
+ */
+async function activeLeadGuard(db: D1Database): Promise<string> {
+  const soft = (await getLeadsColumns(db)).has('deleted_at');
+  return ` AND EXISTS (SELECT 1 FROM leads WHERE id = ?${soft ? ' AND deleted_at IS NULL' : ''})`;
+}
+
+/** Ошибка для записи, не прошедшей проверку активной сделки; `null`, если сделка на месте. */
+async function trashedLeadError(db: D1Database, leadId: number): Promise<Error | null> {
+  const soft = (await getLeadsColumns(db)).has('deleted_at');
+  const row = await db.prepare(`SELECT ${soft ? 'deleted_at' : 'id'} AS gone FROM leads WHERE id = ?`).bind(leadId).first<{ gone: unknown }>();
+  if (!row || (soft && row.gone)) return conflictError('Сделка убрана в корзину. Восстановите её, чтобы менять задачи и заметки.');
+  return null;
+}
+
 async function addNote(db: D1Database, body: LeadCrmPayload, leadId: number): Promise<Record<string, unknown>> {
   const noteBody = normalizeBoundedText(body.body, 'body', MAX_NOTE_LENGTH, true);
   const pinned = body.pinned === undefined ? false : parseBoolean(body.pinned, 'pinned');
@@ -645,9 +665,9 @@ async function addNote(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
     db.prepare(
       `INSERT INTO crm_notes (lead_id, body, pinned, revision, action_id)
        SELECT ?, ?, ?, 0, ?
-       WHERE NOT EXISTS (SELECT 1 FROM lead_activity WHERE action_id = ? AND type = 'note_created')
+       WHERE NOT EXISTS (SELECT 1 FROM lead_activity WHERE action_id = ? AND type = 'note_created')${await activeLeadGuard(db)}
        ON CONFLICT DO NOTHING`,
-    ).bind(leadId, noteBody, pinned ? 1 : 0, actionId, actionId),
+    ).bind(leadId, noteBody, pinned ? 1 : 0, actionId, actionId, leadId),
     db.prepare(
       `INSERT INTO lead_activity
          (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
@@ -659,7 +679,7 @@ async function addNote(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
   ]);
   const note = await db.prepare('SELECT * FROM crm_notes WHERE lead_id = ? AND action_id = ?')
     .bind(leadId, actionId).first<CrmNoteRow>();
-  if (!note) throw conflictError('action_id was already used by another CRM mutation');
+  if (!note) throw await trashedLeadError(db, leadId) ?? conflictError('action_id was already used by another CRM mutation');
   if (note.body !== noteBody || Boolean(note.pinned) !== pinned) {
     throw conflictError('Повтор операции содержит другие данные');
   }
@@ -695,8 +715,8 @@ async function updateNote(db: D1Database, body: LeadCrmPayload, leadId: number):
   const results = await db.batch([
     db.prepare(
       `UPDATE crm_notes SET body = ?, pinned = ?, revision = revision + 1, action_id = ?, updated_at = datetime('now')
-       WHERE id = ? AND lead_id = ? AND revision = ?`,
-    ).bind(nextBody, nextPinned ? 1 : 0, actionId, noteId, leadId, expectedRevision),
+       WHERE id = ? AND lead_id = ? AND revision = ?${await activeLeadGuard(db)}`,
+    ).bind(nextBody, nextPinned ? 1 : 0, actionId, noteId, leadId, expectedRevision, leadId),
     db.prepare(
       `INSERT INTO lead_activity
          (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
@@ -714,7 +734,7 @@ async function updateNote(db: D1Database, body: LeadCrmPayload, leadId: number):
       actionId,
     ),
   ]);
-  if (resultChanges(results[0]) === 0) throw conflictError('Note was changed in another tab. Reload it before saving.');
+  if (resultChanges(results[0]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Note was changed in another tab. Reload it before saving.');
   const note = await db.prepare('SELECT * FROM crm_notes WHERE id = ?').bind(noteId).first<CrmNoteRow>();
   return { changed: true, note, action_id: actionId };
 }
@@ -739,12 +759,12 @@ async function deleteNote(db: D1Database, body: LeadCrmPayload, leadId: number):
        SELECT n.lead_id, 'note_deleted', NULL, NULL, '', 'admin', 'note', n.id, ?, ?
        FROM crm_notes n
        WHERE n.id = ? AND n.lead_id = ? AND n.revision = ?
-         AND NOT EXISTS (SELECT 1 FROM lead_activity a WHERE a.action_id = ? AND a.type = 'note_deleted')`,
-    ).bind(actionId, JSON.stringify({ deleted: current }), noteId, leadId, expectedRevision, actionId),
-    db.prepare('DELETE FROM crm_notes WHERE id = ? AND lead_id = ? AND revision = ?')
-      .bind(noteId, leadId, expectedRevision),
+         AND NOT EXISTS (SELECT 1 FROM lead_activity a WHERE a.action_id = ? AND a.type = 'note_deleted')${await activeLeadGuard(db)}`,
+    ).bind(actionId, JSON.stringify({ deleted: current }), noteId, leadId, expectedRevision, actionId, leadId),
+    db.prepare(`DELETE FROM crm_notes WHERE id = ? AND lead_id = ? AND revision = ?${await activeLeadGuard(db)}`)
+      .bind(noteId, leadId, expectedRevision, leadId),
   ]);
-  if (resultChanges(results[1]) === 0) throw conflictError('Note was changed in another tab. Reload it before deleting.');
+  if (resultChanges(results[1]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Note was changed in another tab. Reload it before deleting.');
   return { deleted: true, note_id: noteId, action_id: actionId };
 }
 
@@ -758,9 +778,9 @@ async function createTask(db: D1Database, body: LeadCrmPayload, leadId: number):
     db.prepare(
       `INSERT INTO crm_tasks (lead_id, title, kind, priority, due_at, revision, action_id)
        SELECT ?, ?, ?, ?, ?, 0, ?
-       WHERE NOT EXISTS (SELECT 1 FROM lead_activity WHERE action_id = ? AND type = 'task_created')
+       WHERE NOT EXISTS (SELECT 1 FROM lead_activity WHERE action_id = ? AND type = 'task_created')${await activeLeadGuard(db)}
        ON CONFLICT DO NOTHING`,
-    ).bind(leadId, title, kind, priority, dueAt, actionId, actionId),
+    ).bind(leadId, title, kind, priority, dueAt, actionId, actionId, leadId),
     db.prepare(
       `INSERT INTO lead_activity
          (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
@@ -772,7 +792,7 @@ async function createTask(db: D1Database, body: LeadCrmPayload, leadId: number):
   ]);
   const task = await db.prepare('SELECT * FROM crm_tasks WHERE lead_id = ? AND action_id = ?')
     .bind(leadId, actionId).first<CrmTaskRow>();
-  if (!task) throw conflictError('action_id was already used by another CRM mutation');
+  if (!task) throw await trashedLeadError(db, leadId) ?? conflictError('action_id was already used by another CRM mutation');
   if (task.title !== title || task.kind !== kind || task.priority !== priority || task.due_at !== dueAt) {
     throw conflictError('Повтор операции содержит другие данные');
   }
@@ -808,8 +828,8 @@ async function updateTask(db: D1Database, body: LeadCrmPayload, leadId: number):
     db.prepare(
       `UPDATE crm_tasks SET title = ?, kind = ?, status = ?, priority = ?, due_at = ?,
        completed_at = ${completedAtSql}, revision = revision + 1, action_id = ?, updated_at = datetime('now')
-       WHERE id = ? AND lead_id = ? AND revision = ?`,
-    ).bind(next.title, next.kind, next.status, next.priority, next.due_at, actionId, taskId, leadId, expectedRevision),
+       WHERE id = ? AND lead_id = ? AND revision = ?${await activeLeadGuard(db)}`,
+    ).bind(next.title, next.kind, next.status, next.priority, next.due_at, actionId, taskId, leadId, expectedRevision, leadId),
     db.prepare(
       `INSERT INTO lead_activity
          (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)
@@ -829,7 +849,7 @@ async function updateTask(db: D1Database, body: LeadCrmPayload, leadId: number):
       next.status !== current.status ? `task_${next.status}` : 'task_updated',
     ),
   ]);
-  if (resultChanges(results[0]) === 0) throw conflictError('Task was changed in another tab. Reload it before saving.');
+  if (resultChanges(results[0]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Task was changed in another tab. Reload it before saving.');
   const task = await db.prepare('SELECT * FROM crm_tasks WHERE id = ?').bind(taskId).first<CrmTaskRow>();
   return { changed: true, task, action_id: actionId };
 }
@@ -854,12 +874,12 @@ async function deleteTask(db: D1Database, body: LeadCrmPayload, leadId: number):
        SELECT t.lead_id, 'task_deleted', NULL, NULL, '', 'admin', 'task', t.id, ?, ?
        FROM crm_tasks t
        WHERE t.id = ? AND t.lead_id = ? AND t.revision = ?
-         AND NOT EXISTS (SELECT 1 FROM lead_activity a WHERE a.action_id = ? AND a.type = 'task_deleted')`,
-    ).bind(actionId, JSON.stringify({ deleted: current }), taskId, leadId, expectedRevision, actionId),
-    db.prepare('DELETE FROM crm_tasks WHERE id = ? AND lead_id = ? AND revision = ?')
-      .bind(taskId, leadId, expectedRevision),
+         AND NOT EXISTS (SELECT 1 FROM lead_activity a WHERE a.action_id = ? AND a.type = 'task_deleted')${await activeLeadGuard(db)}`,
+    ).bind(actionId, JSON.stringify({ deleted: current }), taskId, leadId, expectedRevision, actionId, leadId),
+    db.prepare(`DELETE FROM crm_tasks WHERE id = ? AND lead_id = ? AND revision = ?${await activeLeadGuard(db)}`)
+      .bind(taskId, leadId, expectedRevision, leadId),
   ]);
-  if (resultChanges(results[1]) === 0) throw conflictError('Task was changed in another tab. Reload it before deleting.');
+  if (resultChanges(results[1]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Task was changed in another tab. Reload it before deleting.');
   return { deleted: true, task_id: taskId, action_id: actionId };
 }
 

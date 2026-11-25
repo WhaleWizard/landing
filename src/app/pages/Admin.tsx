@@ -244,6 +244,9 @@ export function isLostAdminSession(
   } catch {
     // относительный адрес без схемы — сравниваем как есть
   }
+  // Кнопка «Тестовое событие» ходит в /api/meta-test-event вне /api/admin/,
+  // и её истёкшая сессия раньше не открывала повторный вход (DA-118).
+  if (pathname === '/api/meta-test-event') return payload?.code === 'SESSION_EXPIRED';
   if (!pathname.startsWith('/api/admin/') || pathname === '/api/admin/auth') return false;
   if (payload?.code === 'SESSION_EXPIRED') return true;
   return !hasPassword && payload?.error === 'Unauthorized';

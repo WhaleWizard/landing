@@ -104,6 +104,16 @@ function currentQualityDelivery(
     || history?.find((item) => item.quality === quality);
 }
 
+/**
+ * Заявка в корзине (DA-42). `SELECT *` возвращает `deleted_at` только после
+ * миграции 0020, поэтому наличие ключа и есть признак корзины в схеме.
+ */
+function isTrashedLead(row: object | null | undefined): boolean {
+  return Boolean(row && (row as { deleted_at?: unknown }).deleted_at);
+}
+
+const TRASHED_QUALITY_MESSAGE = 'Заявка в корзине. Восстановите её, чтобы менять оценку и отправлять события в Meta.';
+
 function qualityStateError(
   code: string,
   error: string,
@@ -172,6 +182,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         quality_action_id?: string;
       }>();
       if (!row) return json({ success: false, error: 'Lead not found' }, { status: 404, headers: noStore });
+      // Оценка из старой вкладки или повтор начатой операции не отправляют
+      // событие качества по заявке, которую уже убрали в корзину (DA-42).
+      if (isTrashedLead(row)) return qualityStateError('LEAD_TRASHED', TRASHED_QUALITY_MESSAGE);
+      const activeOnlySql = 'deleted_at' in row ? 'AND deleted_at IS NULL' : '';
 
       const actionId = normalizeActionId(body.action_id);
       const expectedRevision = Number(body.expected_quality_revision);
@@ -252,7 +266,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
          WHERE id = ? AND status IN (${cancellableStatuses.map(() => '?').join(', ')})
            AND EXISTS (
              SELECT 1 FROM leads
-             WHERE id = ? AND quality_revision = ? AND COALESCE(quality, '') = ?
+             WHERE id = ? AND quality_revision = ? AND COALESCE(quality, '') = ? ${activeOnlySql}
            )`,
       ).bind(eventId, ...cancellableStatuses, id, expectedRevision, currentQuality));
 
@@ -287,7 +301,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
              quality_updated_at = datetime('now'), quality_action_id = ?,
              quality_processing = ?, crm_revision = crm_revision + 1,
              crm_action_id = ?, updated_at = datetime('now')
-         WHERE id = ? AND quality_revision = ? AND COALESCE(quality, '') = ?
+         WHERE id = ? AND quality_revision = ? AND COALESCE(quality, '') = ? ${activeOnlySql}
          ${outboxGuards}`,
       ).bind(...updateValues));
       statements.push(env.DB.prepare(
@@ -311,6 +325,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const results = await env.DB.batch(statements);
       if (resultChanges(results[updateIndex]) === 0) {
         const refreshed = await env.DB.prepare('SELECT * FROM leads WHERE id = ?').bind(id).first<AdminLeadRow>();
+        if (isTrashedLead(refreshed)) return qualityStateError('LEAD_TRASHED', TRASHED_QUALITY_MESSAGE);
         const [withDelivery] = refreshed ? await attachAdminQualityDelivery(env.DB, [refreshed]) : [];
         const refreshedCurrent = withDelivery
           ? currentQualityDelivery(withDelivery.quality_meta_history as AdminQualityDeliveryItem[], currentQuality)
@@ -341,7 +356,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       // не пытается «отозвать» уже подтверждённое событие: история сохраняется.
       if (quality === 'target' || quality === 'nontarget') {
         const updated = await env.DB.prepare('SELECT * FROM leads WHERE id = ?').bind(id).first<LeadQualityRow>();
-        if (updated) {
+        if (updated && !isTrashedLead(updated)) {
           try {
             meta = await sendLeadQualityEvent(env, updated, quality);
           } finally {

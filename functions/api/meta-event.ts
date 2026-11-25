@@ -7,7 +7,7 @@ import { postMetaEvents, isConfirmedMetaReceipt, isTrustedTrackingRequest, type 
 import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutboxSent } from '../_lib/meta-outbox';
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, shouldRejectBySignature, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
-import { buildExternalIdSeed, createFbcFromFbclid, createFbcFromPageUrl, extractRequestContext, getMetaCookies, getMetaDataProcessingOptions, hasAnyUtm, isSha256Hex, normalizeDobPart, normalizeGender, normalizeLocationForMeta, normalizePagePath, normalizeTextForMeta, resolveEventTime, sanitizeNumber, sanitizeText, sanitizeTextArray, sanitizeUrlForMeta, sha256Normalized } from '../_lib/meta-request';
+import { buildExternalIdSeed, createFbcFromFbclid, createFbcFromPageUrl, extractRequestContext, getMetaCookies, getMetaDataProcessingOptions, hasAnyUtm, isSha256Hex, normalizeDobPart, normalizeGender, normalizeLocationForMeta, normalizeMadidForMeta, normalizePagePath, normalizeTextForMeta, resolveEventTime, sanitizeNumber, sanitizeText, sanitizeTextArray, sanitizeUrlForMeta, sha256Normalized } from '../_lib/meta-request';
 
 const MAX_META_EVENT_BODY_BYTES = 32 * 1024;
 
@@ -245,7 +245,7 @@ async function sendMetaEvent(payload: SendableMetaEvent, env: Env, request: Requ
   const ctx = extractRequestContext(request, eventSourceUrl);
 
   const externalIdSeed = buildExternalIdSeed(payload, fbp);
-  const [hashedExternalId, hashedCountry, hashedCity, hashedRegion, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, hashedMadid] = await Promise.all([
+  const [hashedExternalId, hashedCountry, hashedCity, hashedRegion, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, madid] = await Promise.all([
     externalIdSeed ? sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined,
     ctx.country ? sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined,
     ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
@@ -255,7 +255,7 @@ async function sendMetaEvent(payload: SendableMetaEvent, env: Env, request: Requ
     payload.dobm ? sha256Normalized(payload.dobm) : undefined,
     payload.doby ? sha256Normalized(payload.doby) : undefined,
     payload.ge ? sha256Normalized(payload.ge) : undefined,
-    payload.madid ? sha256Normalized(normalizeTextForMeta(payload.madid)) : undefined,
+    normalizeMadidForMeta(payload.madid),
   ]);
 
   const event = {
@@ -281,7 +281,7 @@ async function sendMetaEvent(payload: SendableMetaEvent, env: Env, request: Requ
       dobm: hashedDobm ? [hashedDobm] : undefined,
       doby: hashedDoby ? [hashedDoby] : undefined,
       ge: hashedGe ? [hashedGe] : undefined,
-      madid: hashedMadid ? [hashedMadid] : undefined,
+      madid: madid ? [madid] : undefined,
     },
     opt_out: payload.marketing_consent === false,
     referrer_url: sanitizeUrlForMeta(payload.referrer),
@@ -361,19 +361,19 @@ async function sendMetaEvent(payload: SendableMetaEvent, env: Env, request: Requ
     if (!response.ok) {
       const errorText = await response.text();
       await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), `HTTP ${response.status}: ${errorText.slice(0, 300)}`);
-      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+      await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] ${payload.event_name} event failed with HTTP ${response.status}: ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as MetaApiReceipt | null;
       if (!isConfirmedMetaReceipt(result)) {
         const message = `Meta 2xx without events_received confirmation: ${JSON.stringify(result).slice(0, 300)}`;
         await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
-        await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
         console.error(`[Meta CAPI] ${payload.event_name} returned no delivery confirmation`, result);
       } else {
         await markMetaEventSent(env, payload.event_name, payload.event_id);
         await markOutboxSent(env, outboxId);
-        await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'sent', events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
         console.log(`[Meta CAPI] ${payload.event_name} server event sent successfully`, {
           fbtrace_id: result?.fbtrace_id,
           events_received: result?.events_received,
@@ -383,7 +383,7 @@ async function sendMetaEvent(payload: SendableMetaEvent, env: Env, request: Requ
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
-    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: eventSourceUrl, service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    await recordMetaDiagnostics(env, { event_name: payload.event_name, event_id: payload.event_id, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: eventSourceUrl, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), service: payload.service, ...getMetaEventDiagnosticsContext(payload), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error(`[Meta CAPI] Error sending ${payload.event_name} event:`, error);
   }
 }

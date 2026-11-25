@@ -183,6 +183,7 @@ function LandingForm({
   }, []);
 
   const handleSetPhoneCountry = useCallback((code: string) => {
+    if (submittingRef.current) return;
     phoneCountryTouchedRef.current = true;
     setPhoneCountryCode(code);
   }, []);
@@ -201,12 +202,16 @@ function LandingForm({
   }, [service]);
 
   const handleSetContactMethod = useCallback((method: ContactMethod) => {
+    if (submittingRef.current) return;
     trackFirstFormInteraction('contactMethod');
     setContactMethod(method);
   }, [trackFirstFormInteraction]);
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      // Пока заявка отправляется, поля не меняются (DA-55): сервер получает снимок,
+      // а правка, набранная поверх, молча исчезала после «Спасибо».
+      if (submittingRef.current) return;
       trackFirstFormInteraction(e.target.name);
       setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
     },
@@ -677,7 +682,7 @@ function LandingForm({
                     name="consent"
                     type="checkbox"
                     checked={agreed}
-                    onChange={(event) => { setAgreed(event.target.checked); if (event.target.checked) setNotice(null); }}
+                    onChange={(event) => { if (submittingRef.current) return; setAgreed(event.target.checked); if (event.target.checked) setNotice(null); }}
                     aria-label="Согласие на обработку персональных данных"
                     aria-describedby="landing-form-consent-copy"
                     className="peer sr-only"

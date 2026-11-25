@@ -168,7 +168,14 @@ async function duplicateLeadResult(db: D1Database, eventId: string, hasDedupe: b
 // Реальную заявку подтверждаем только после устойчивой записи в D1. Если DB
 // binding пропал, клиент получает retryable 503 и сохраняет заявку в своей
 // офлайн-очереди вместо ложного успеха без записи в CRM.
-export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadResult> {
+/**
+ * `attempt` — номер попытки приёма. Поиск карточки контакта и запись идут
+ * разными запросами, и между ними карточку могут убрать в корзину (DA-38) или
+ * параллельная заявка того же человека успевает создать свою (DA-39). Сама
+ * запись проверяет оба случая атомарно; если условие не выполнилось, приём
+ * повторяется один раз с новым поиском — и попадает в правильную карточку.
+ */
+export async function storeLead(env: Env, lead: LeadRecord, attempt = 0): Promise<StoreLeadResult> {
   const eventId = String(lead.event_id || crypto.randomUUID());
   if (!env.DB) throw new LeadStorageError('D1 DB binding is missing');
 
@@ -431,9 +438,11 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       }
 
       values.push(existing.id, eventId, claimToken);
+      // Карточку могли убрать в корзину после поиска: в скрытую запись
+      // повторная заявка не пишется (DA-38).
       const updateStatement = db.prepare(
         `UPDATE leads SET ${set.join(', ')}
-         WHERE id = ?
+         WHERE id = ?${hasSoftDelete ? ' AND deleted_at IS NULL' : ''}
            AND EXISTS (
              SELECT 1 FROM lead_ingestions
              WHERE event_id = ? AND claim_token = ?
@@ -506,6 +515,9 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
         await db.prepare('DELETE FROM lead_ingestions WHERE event_id = ? AND claim_token = ? AND lead_id IS NULL')
           .bind(eventId, claimToken)
           .run();
+        // Карточка ушла в корзину между поиском и записью: ищем заново —
+        // заявка станет новой карточкой или подклеится к другой активной.
+        if (attempt === 0) return storeLead(env, lead, attempt + 1);
         throw new LeadStorageError('D1 repeat lead update was not committed');
       }
 
@@ -609,14 +621,37 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       );
     }
 
+    // Новая карточка создаётся, только если активной карточки этого контакта
+    // всё ещё нет: две одновременные заявки одного человека иначе обе
+    // проходили поиск впустую и создавали две карточки (DA-39). Проверка
+    // внутри того же INSERT, то есть в одной транзакции с записью.
+    const guardContact = hasDedupe && hasDedupeKeys && Boolean(keys.email || keys.phone || keys.telegram);
+    const contactGuard = guardContact
+      ? `
+       AND NOT EXISTS (
+         SELECT 1 FROM leads
+         WHERE ${hasSoftDelete ? 'deleted_at IS NULL AND ' : ''}(
+           (? IS NOT NULL AND dedupe_email = ?)
+           OR (? IS NOT NULL AND dedupe_phone = ?)
+           OR (? IS NOT NULL AND dedupe_telegram = ?)
+         )
+       )`
+      : '';
+    const contactGuardValues = guardContact
+      ? [
+        keys.email || null, keys.email || null,
+        keys.phone || null, keys.phone || null,
+        keys.telegram || null, keys.telegram || null,
+      ]
+      : [];
     const insertStatement = db.prepare(
       `INSERT INTO leads (${insertCols.join(', ')})
        SELECT ${placeholders.join(', ')}
        WHERE EXISTS (
          SELECT 1 FROM lead_ingestions WHERE event_id = ? AND claim_token = ?
-       )
+       )${contactGuard}
        ON CONFLICT(event_id) DO NOTHING`,
-    ).bind(...insertVals, eventId, claimToken);
+    ).bind(...insertVals, eventId, claimToken, ...contactGuardValues);
     const linkStatement = db.prepare(
       `UPDATE lead_ingestions
        SET lead_id = (SELECT id FROM leads WHERE event_id = ? LIMIT 1),
@@ -640,6 +675,9 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
       await db.prepare('DELETE FROM lead_ingestions WHERE event_id = ? AND claim_token = ? AND lead_id IS NULL')
         .bind(eventId, claimToken)
         .run();
+      // Параллельная заявка того же контакта успела создать карточку: ищем
+      // заново, и эта заявка станет её повторным обращением.
+      if (guardContact && attempt === 0) return storeLead(env, lead, attempt + 1);
       throw new LeadStorageError('D1 lead insert was not committed');
     }
 
@@ -660,6 +698,42 @@ export async function storeLead(env: Env, lead: LeadRecord): Promise<StoreLeadRe
     console.error('[Leads] Durable D1 storage failed:', message);
     if (error instanceof LeadStorageError) throw error;
     throw new LeadStorageError(message || 'Unknown D1 storage failure');
+  }
+}
+
+/**
+ * Право отправить уведомление об обращении — одно на обращение (DA-32).
+ *
+ * `telegram_delivered`: 0 — не доставлено, 1 — доставлено, 2 — отправляется.
+ * Первая попытка и повтор той же заявки (браузер не получил ответ) больше не
+ * шлют два сообщения: уведомление отправляет тот, кто перевёл 0 → 2. Неудача
+ * возвращает 0 (`releaseLeadNotification`), и следующий повтор заявки
+ * досылает уведомление. Отправка, зависшая дольше двух минут (воркер
+ * прервался), снова становится доступной.
+ */
+export async function claimLeadNotification(env: Env, eventId: string | undefined): Promise<boolean> {
+  if (!env.DB || !eventId) return false;
+  try {
+    const result = await env.DB.prepare(
+      `UPDATE leads SET telegram_delivered = 2, updated_at = datetime('now')
+       WHERE event_id = ?
+         AND (telegram_delivered = 0
+           OR (telegram_delivered = 2 AND updated_at < datetime('now', '-2 minutes')))`,
+    ).bind(eventId).run();
+    return Number(result.meta?.changes || 0) > 0;
+  } catch {
+    return false;
+  }
+}
+
+export async function releaseLeadNotification(env: Env, eventId: string | undefined): Promise<void> {
+  if (!env.DB || !eventId) return;
+  try {
+    await env.DB.prepare('UPDATE leads SET telegram_delivered = 0 WHERE event_id = ? AND telegram_delivered = 2')
+      .bind(eventId)
+      .run();
+  } catch {
+    // Не страшно: зависшая отметка освободится сама через две минуты.
   }
 }
 

@@ -636,6 +636,69 @@ test('a trashed lead never absorbs a new submission from the same contact', asyn
   );
 });
 
+/** Выполняет `before` один раз перед первой транзакцией приёма — «между поиском и записью». */
+function interleaveBeforeFirstBatch(d1, before) {
+  let fired = false;
+  return {
+    prepare: (sql) => d1.prepare(sql),
+    async batch(statements) {
+      if (!fired) { fired = true; await before(); }
+      return d1.batch(statements);
+    },
+  };
+}
+
+test('DA-38: a lead trashed between matching and writing never absorbs the new submission', async () => {
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { sqlite, d1 } = createProductionLeadDatabase();
+  const first = await storeLead({ DB: d1 }, { event_id: 'race-trash-1', name: 'Первый', email: 'race@example.com' });
+
+  const racing = interleaveBeforeFirstBatch(d1, async () => {
+    sqlite.exec(`UPDATE leads SET deleted_at = datetime('now') WHERE id = ${first.leadId}`);
+  });
+  const second = await storeLead({ DB: racing }, { event_id: 'race-trash-2', name: 'Второй', email: 'race@example.com' });
+
+  assert.equal(second.durable, true);
+  assert.equal(second.repeat, false, 'the submission becomes a fresh lead, not a hidden repeat');
+  assert.notEqual(second.leadId, first.leadId);
+  const trashed = sqlite.prepare('SELECT submissions_count, deleted_at FROM leads WHERE id = ?').get(first.leadId);
+  assert.equal(trashed.submissions_count, 1, 'the trashed card is untouched');
+  assert.ok(trashed.deleted_at);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM leads WHERE deleted_at IS NULL').get().n, 1);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM lead_ingestions WHERE event_id = 'race-trash-2' AND lead_id = ?").get(second.leadId).n, 1);
+});
+
+test('DA-39: two simultaneous submissions of one contact end in one active card', async () => {
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { sqlite, d1 } = createProductionLeadDatabase();
+  let parallel;
+  const racing = interleaveBeforeFirstBatch(d1, async () => {
+    // Вторая заявка того же человека проходит целиком, пока первая уже
+    // выполнила пустой поиск и ещё не записала карточку.
+    parallel = await storeLead({ DB: d1 }, { event_id: 'race-dup-2', name: 'Тот же', email: 'Same@Example.com' });
+  });
+  const first = await storeLead({ DB: racing }, { event_id: 'race-dup-1', name: 'Тот же', email: 'same@example.com' });
+
+  assert.equal(parallel.repeat, false);
+  assert.equal(first.durable, true);
+  assert.equal(first.repeat, true, 'the later write joins the card created in parallel');
+  assert.equal(first.leadId, parallel.leadId);
+  const active = sqlite.prepare('SELECT id, submissions_count FROM leads WHERE deleted_at IS NULL').all();
+  assert.equal(active.length, 1, 'one person, one active card');
+  assert.equal(active[0].submissions_count, 2);
+});
+
+test('DA-39 control: different contacts submitted at the same time stay separate cards', async () => {
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { sqlite, d1 } = createProductionLeadDatabase();
+  const racing = interleaveBeforeFirstBatch(d1, async () => {
+    await storeLead({ DB: d1 }, { event_id: 'race-other-2', name: 'Другой', email: 'other@example.com' });
+  });
+  const first = await storeLead({ DB: racing }, { event_id: 'race-other-1', name: 'Первый', email: 'first@example.com' });
+  assert.equal(first.repeat, false);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM leads WHERE deleted_at IS NULL').get().n, 2);
+});
+
 test('trash hides a lead from active lists and a restore brings it back intact', async () => {
   const trash = await bundleTypeScript('functions/api/admin/lead-trash.ts');
   const { sqlite, d1 } = createLeadDatabase();
@@ -820,4 +883,77 @@ test('Google Organic landing is written with consent and cleared on a repeat wit
   const repeat = await storeLead({ DB: d1 }, { ...contact, event_id: 'organic-repeat', marketing_consent: false });
   assert.equal(repeat.repeat, true);
   assert.equal(path(), '');
+});
+
+test('DA-42: a stale tab cannot rate a trashed lead or send its quality event to Meta', async () => {
+  const leadsApi = await bundleTypeScript('functions/api/admin/leads.ts');
+  const originalFetch = globalThis.fetch;
+  const graphCalls = [];
+  globalThis.fetch = async (url) => {
+    if (String(url).includes('graph.facebook.com')) graphCalls.push(String(url));
+    return new Response(JSON.stringify({ events_received: 1, fbtrace_id: 't' }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  };
+  const rate = (env, id, extra = {}) => leadsApi.onRequestPost({
+    request: new Request('https://www.whalewzrd.com/api/admin/leads', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': TRASH_ENV_PASSWORD },
+      body: JSON.stringify({ id, quality: 'target', expected_quality_revision: 0, action_id: randomUUID(), ...extra }),
+    }),
+    env,
+    waitUntil: () => {},
+  });
+  try {
+    for (const timing of ['before the request', 'between the read and the write']) {
+      const { sqlite, d1 } = createProductionLeadDatabase();
+      const leadId = Number(sqlite.prepare(
+        "INSERT INTO leads (event_id, name, email, marketing_consent) VALUES (?, 'Оценка', 'rate@example.com', 1)",
+      ).run(randomUUID()).lastInsertRowid);
+      const trash = () => sqlite.prepare("UPDATE leads SET deleted_at = datetime('now'), crm_revision = crm_revision + 1 WHERE id = ?").run(leadId);
+      let db = d1;
+      if (timing === 'before the request') trash();
+      else db = { prepare: (sql) => d1.prepare(sql), batch: async (statements) => { trash(); return d1.batch(statements); } };
+      const env = { DB: db, ADMIN_PASSWORD: TRASH_ENV_PASSWORD, META_CAPI_ACCESS_TOKEN: 'test-token', VITE_META_PIXEL_ID: '1234567890' };
+      const response = await rate(env, leadId);
+      const payload = await response.json();
+      assert.equal(response.status, 409, `${timing}: ${JSON.stringify(payload)}`);
+      assert.equal(payload.code, 'LEAD_TRASHED', timing);
+      assert.equal(sqlite.prepare('SELECT quality FROM leads WHERE id = ?').get(leadId).quality || '', '', `${timing}: quality untouched`);
+      assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM meta_outbox WHERE event_name IN ('QualifiedLead','UnqualifiedLead')").get().n, 0, `${timing}: nothing queued for Meta`);
+      sqlite.close();
+    }
+    assert.equal(graphCalls.length, 0, 'no quality event reached Meta');
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('DA-63: a repeat submission keeps the quality event history of the earlier submission', async () => {
+  const { storeLead } = await importTypeScript('functions/_lib/leads.ts', { fresh: true });
+  const { attachAdminQualityDelivery } = await bundleTypeScript('functions/_lib/admin-lead-quality-status.ts');
+  const { sqlite, d1 } = createProductionLeadDatabase();
+  const first = await storeLead({ DB: d1 }, { event_id: 'history-1', name: 'История', email: 'history@example.com', marketing_consent: true });
+  // Оценку поставили по первому обращению, событие ушло в очередь Meta.
+  sqlite.prepare("UPDATE leads SET quality = 'target', quality_action_id = 'act-1' WHERE id = ?").run(first.leadId);
+  sqlite.prepare(
+    `INSERT INTO meta_outbox (id, event_name, event_id, payload_json, status, attempts, next_retry_at, created_at, updated_at)
+     VALUES ('lq:target:history-1:a:act-1', 'QualifiedLead', 'lq:target:history-1:a:act-1', '{}', 'retry', 1, 0, strftime('%s','now'), strftime('%s','now'))`,
+  ).run();
+  // Посторонняя заявка с похожим началом ID не должна попасть в историю.
+  sqlite.prepare(
+    `INSERT INTO meta_outbox (id, event_name, event_id, payload_json, status, attempts, next_retry_at, created_at, updated_at)
+     VALUES ('lq:target:history-10', 'QualifiedLead', 'lq:target:history-10', '{}', 'sent', 1, 0, strftime('%s','now'), strftime('%s','now'))`,
+  ).run();
+
+  const repeat = await storeLead({ DB: d1 }, { event_id: 'history-2', name: 'История', email: 'history@example.com', marketing_consent: true });
+  assert.equal(repeat.repeat, true);
+  const row = sqlite.prepare('SELECT * FROM leads WHERE id = ?').get(first.leadId);
+  assert.equal(row.event_id, 'history-2');
+  assert.equal(row.quality, '', 'the repeat resets the current rating as before');
+
+  const [card] = await attachAdminQualityDelivery(d1, [row]);
+  const ids = card.quality_meta_history.map((item) => item.event_id);
+  assert.deepEqual(ids, ['lq:target:history-1:a:act-1'], 'the earlier QualifiedLead stays visible, the look-alike does not');
+  assert.equal(card.quality_meta_history[0].previous_submission, true);
+  assert.equal(card.quality_meta_history[0].current, false);
+  assert.equal(card.quality_meta_event_id, undefined, 'there is no current rating after the repeat');
 });

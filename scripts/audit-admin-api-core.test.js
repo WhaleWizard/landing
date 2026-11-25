@@ -778,17 +778,23 @@ test('F-084/F-094: тестовое событие принимает сесси
   assert.equal(bySession.status, 400, JSON.stringify(bySession.payload));
   assert.match(bySession.payload.error, /META_CAPI_ACCESS_TOKEN/);
 
-  assert.equal((await metaTestEventCall(env)).status, 403);
+  // Без сессии — 401 SESSION_EXPIRED: админка по нему открывает повторный вход (DA-118).
+  const noSession = await metaTestEventCall(env);
+  assert.equal(noSession.status, 401);
+  assert.equal(noSession.payload.code, 'SESSION_EXPIRED');
   assert.equal((await metaTestEventCall(env, { 'X-Admin-Password': ADMIN_PASSWORD })).status, 400, 'без 2FA пароль принимается');
-  assert.equal((await metaTestEventCall(env, { 'X-Admin-Password': 'wrong' })).status, 403);
+  assert.equal((await metaTestEventCall(env, { 'X-Admin-Password': 'wrong' })).status, 401);
+  const wrongSecret = await metaTestEventCall(env, { 'x-meta-debug-secret': 'wrong-secret' });
+  assert.equal(wrongSecret.status, 403, 'неверный секрет внешнего вызова — честный отказ');
+  assert.equal(wrongSecret.payload.code, 'FORBIDDEN');
 
   const expired = await session.createAdminSessionToken(env, Date.now() - 13 * 60 * 60 * 1000);
-  assert.equal((await metaTestEventCall(env, { Cookie: `ww_admin_session=${expired}` })).status, 403, 'просроченная сессия');
-  assert.equal((await metaTestEventCall(env, { Cookie: 'ww_admin_session=1.9999999999.00' })).status, 403, 'подделка');
+  assert.equal((await metaTestEventCall(env, { Cookie: `ww_admin_session=${expired}` })).status, 401, 'просроченная сессия');
+  assert.equal((await metaTestEventCall(env, { Cookie: 'ww_admin_session=1.9999999999.00' })).status, 401, 'подделка');
 
   enableTwoFactor(sqlite);
   const passwordOnly = await metaTestEventCall(env, { 'X-Admin-Password': ADMIN_PASSWORD });
-  assert.equal(passwordOnly.status, 403, 'при включённой защите один пароль не проходит');
+  assert.equal(passwordOnly.status, 401, 'при включённой защите один пароль не проходит');
   assert.match(passwordOnly.payload.error, /сесси/i, 'ошибка говорит про сессию, а не про секрет');
   assert.equal((await metaTestEventCall(env, cookie)).status, 400, 'сессия проходит и при включённой защите');
 });
@@ -1659,4 +1665,44 @@ test('SEC-04: buildLeadTelegramText вырезает переносы строк
   assert.ok(!text.includes('\n/start'), 'команды бота на отдельной строке не появились');
   assert.ok(!text.includes('\n/admin'), 'команда /admin на отдельной строке не появилась');
   assert.ok(text.includes('allowed\nnewlines in the body'), 'переносы в теле сообщения сохранены');
+});
+
+test('DA-119: an unconfirmed test event explains the reason instead of a bare HTTP 502', async (t) => {
+  const restoreCache = installMemoryCache();
+  const originalFetch = globalThis.fetch;
+  let graphResponse;
+  globalThis.fetch = async (input) => {
+    const url = typeof input === 'string' ? input : input.url;
+    if (url.includes('graph.facebook.com')) return graphResponse();
+    throw new Error(`Неожиданный внешний запрос в тесте: ${url}`);
+  };
+  t.after(() => { restoreCache(); globalThis.fetch = originalFetch; });
+  const env = {
+    DB: new D1Database(freshDatabase()),
+    ADMIN_PASSWORD,
+    META_CAPI_ACCESS_TOKEN: 'token',
+    VITE_META_PIXEL_ID: '1',
+    META_CAPI_TEST_CODE: 'TEST1',
+  };
+  const password = { 'X-Admin-Password': ADMIN_PASSWORD };
+  const json = (body, status = 200) => () => new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
+
+  graphResponse = json({ events_received: 0, fbtrace_id: 'x' });
+  const unconfirmed = await metaTestEventWithGeo(env, { headers: password });
+  assert.equal(unconfirmed.status, 502);
+  assert.equal(unconfirmed.payload.success, false);
+  assert.match(unconfirmed.payload.error, /не подтвердила приём/);
+
+  graphResponse = json({ error: { code: 190, message: 'Invalid OAuth access token' } }, 400);
+  const rejected = await metaTestEventWithGeo(env, { headers: password });
+  assert.match(rejected.payload.error, /Meta отклонила событие: Invalid OAuth/);
+
+  graphResponse = () => new Response('<html>bad gateway</html>', { status: 502 });
+  const notJson = await metaTestEventWithGeo(env, { headers: password });
+  assert.match(notJson.payload.error, /HTTP 502 без JSON/);
+
+  graphResponse = json({ events_received: 1, fbtrace_id: 'ok' });
+  const confirmed = await metaTestEventWithGeo(env, { headers: password });
+  assert.equal(confirmed.status, 200);
+  assert.equal(confirmed.payload.error, undefined);
 });

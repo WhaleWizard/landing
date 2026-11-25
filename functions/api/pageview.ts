@@ -8,7 +8,7 @@ import { enqueueMetaEvent, getOutboxRetryDelaySeconds, markOutboxRetry, markOutb
 import { getTrackingSignatureMode, recordTrackingSignatureAudit, shouldRejectBySignature, verifyTrackingSignature } from '../_lib/tracking-signature';
 import { sanitizeUrlQueryParams } from '../_lib/url-sanitize';
 import { recordPageStats } from '../_lib/leads';
-import { buildExternalIdSeed, createFbcFromFbclid, createFbcFromPageUrl, extractRequestContext, getMetaCookies, getMetaDataProcessingOptions, hasAnyUtm, isSha256Hex, normalizeDobPart, normalizeGender, normalizeLocationForMeta, normalizePagePath, normalizeTextForMeta, resolveEventTime, sanitizeNumber, sanitizeText, sanitizeTextArray, sanitizeUrlForMeta, sha256Normalized } from '../_lib/meta-request';
+import { buildExternalIdSeed, createFbcFromFbclid, createFbcFromPageUrl, extractRequestContext, getMetaCookies, getMetaDataProcessingOptions, hasAnyUtm, isSha256Hex, normalizeDobPart, normalizeGender, normalizeLocationForMeta, normalizeMadidForMeta, normalizePagePath, normalizeTextForMeta, resolveEventTime, sanitizeNumber, sanitizeText, sanitizeTextArray, sanitizeUrlForMeta, sha256Normalized } from '../_lib/meta-request';
 
 const MAX_PAGEVIEW_BODY_BYTES = 32 * 1024;
 
@@ -155,10 +155,18 @@ function normalizePageViewPayload(payload: PageViewPayload): PageViewPayload {
   };
 }
 
+/**
+ * `onClaim(isNew)` сообщает, чьё это событие (DA-33). Запись в outbox
+ * вставляется один раз на `event_id`, поэтому два одновременных запроса одного
+ * просмотра (повтор браузера после потерянного ответа) больше не уходят в Meta
+ * дважды и не считаются во внутренней статистике дважды: второй получает
+ * `isNew = false` и выходит.
+ */
 async function sendMetaPageView(
   payload: PageViewPayload,
   env: Env,
-  request: Request
+  request: Request,
+  onClaim?: (isNew: boolean) => void,
 ): Promise<void> {
   const token = env.META_CAPI_ACCESS_TOKEN;
   const pixelId = env.VITE_META_PIXEL_ID || '926332213606723';
@@ -216,6 +224,7 @@ async function sendMetaPageView(
 
   const eventTime = resolveEventTime(payload.event_time);
   if (await wasMetaEventAlreadySent(env, 'PageView', payload.event_id)) {
+    onClaim?.(false);
     await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: payload.event_id, event_time: eventTime, status: 'skipped', error_message: 'duplicate_event_id', page_path: payload.page_path, page_url: payload.page_url, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), marketing_consent: payload.marketing_consent });
     return;
   }
@@ -228,7 +237,7 @@ async function sendMetaPageView(
   const fbc = payload.fbc || metaCookies.fbc || createFbcFromFbclid(payload.fbclid, eventTime) || createFbcFromPageUrl(eventSourceUrl, eventTime);
   const ctx = extractRequestContext(request, eventSourceUrl);
   const externalIdSeed = buildExternalIdSeed(payload, fbp);
-  const [hashedExternalId, hashedCountry, hashedCity, hashedRegion, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, hashedMadid] = await Promise.all([
+  const [hashedExternalId, hashedCountry, hashedCity, hashedRegion, hashedZip, hashedDobd, hashedDobm, hashedDoby, hashedGe, madid] = await Promise.all([
     externalIdSeed ? sha256Normalized(normalizeTextForMeta(externalIdSeed)) : undefined,
     ctx.country ? sha256Normalized(normalizeLocationForMeta(ctx.country)) : undefined,
     ctx.city ? sha256Normalized(normalizeLocationForMeta(ctx.city)) : undefined,
@@ -238,7 +247,7 @@ async function sendMetaPageView(
     payload.dobm ? sha256Normalized(payload.dobm) : undefined,
     payload.doby ? sha256Normalized(payload.doby) : undefined,
     payload.ge ? sha256Normalized(payload.ge) : undefined,
-    payload.madid ? sha256Normalized(normalizeTextForMeta(payload.madid)) : undefined,
+    normalizeMadidForMeta(payload.madid),
   ]);
 
   const event = {
@@ -264,7 +273,7 @@ async function sendMetaPageView(
       dobm: hashedDobm ? [hashedDobm] : undefined,
       doby: hashedDoby ? [hashedDoby] : undefined,
       ge: hashedGe ? [hashedGe] : undefined,
-      madid: hashedMadid ? [hashedMadid] : undefined,
+      madid: madid ? [madid] : undefined,
     },
     opt_out: false,
     referrer_url: sanitizeUrlForMeta(payload.referrer),
@@ -327,7 +336,13 @@ async function sendMetaPageView(
   // В outbox кладём готовое тело запроса к Graph API: при сбое обработчик
   // очереди (processMetaOutbox) дошлёт его без контекста исходного запроса.
   const outboxId = `pv:${payload.event_id}`;
-  await enqueueMetaEvent(env, { id: outboxId, event_name: 'PageView', event_id: payload.event_id || outboxId, payload_json: body });
+  const queued = await enqueueMetaEvent(env, { id: outboxId, event_name: 'PageView', event_id: payload.event_id || outboxId, payload_json: body });
+  if (!queued.inserted && queued.state && ['sent', 'pending', 'retry', 'sending'].includes(queued.state.status)) {
+    // Этот просмотр уже взял другой запрос: отправит он или очередь досылки.
+    onClaim?.(false);
+    return;
+  }
+  onClaim?.(true);
 
   try {
     const response = await postMetaEvents(env, { apiVersion, pixelId, token, body });
@@ -335,14 +350,14 @@ async function sendMetaPageView(
     if (!response.ok) {
       const errorText = await response.text();
       await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), `HTTP ${response.status}: ${errorText.slice(0, 300)}`);
-      await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+      await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_code: response.status, error_message: errorText, page_path: payload.page_path, page_url: eventSourceUrl, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
       console.error(`[Meta CAPI] PageView event failed: ${response.status} ${errorText}`);
     } else {
       const result = await response.json().catch(() => null) as MetaApiReceipt | null;
       if (!isConfirmedMetaReceipt(result)) {
         const message = `Meta 2xx without events_received confirmation: ${JSON.stringify(result).slice(0, 300)}`;
         await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
-        await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+        await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, events_received: result?.events_received, fbtrace_id: result?.fbtrace_id, page_path: payload.page_path, page_url: eventSourceUrl, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
         console.error('[Meta CAPI] PageView returned no delivery confirmation', result);
       } else {
         await markMetaEventSent(env, 'PageView', eventId);
@@ -356,6 +371,8 @@ async function sendMetaPageView(
           fbtrace_id: result?.fbtrace_id,
           page_path: payload.page_path,
           page_url: eventSourceUrl,
+          event_source_url: eventSourceUrl,
+          page_path_normalized: normalizePagePath(payload.page_path),
           has_fbp: Boolean(fbp),
           has_fbc: Boolean(fbc),
           has_external_id: Boolean(hashedExternalId),
@@ -378,7 +395,7 @@ async function sendMetaPageView(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     await markOutboxRetry(env, outboxId, 1, Math.floor(Date.now() / 1000) + getOutboxRetryDelaySeconds(1), message);
-    await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: eventSourceUrl, has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
+    await recordMetaDiagnostics(env, { event_name: 'PageView', service: payload.service, event_id: eventId, event_time: eventTime, status: 'failed', error_message: message, page_path: payload.page_path, page_url: eventSourceUrl, event_source_url: eventSourceUrl, page_path_normalized: normalizePagePath(payload.page_path), has_fbp: Boolean(fbp), has_fbc: Boolean(fbc), has_external_id: Boolean(hashedExternalId), has_email: isSha256Hex(payload.em), has_phone: isSha256Hex(payload.ph), has_fbclid: Boolean(payload.fbclid), has_utm: hasAnyUtm(payload, ctx), marketing_consent: payload.marketing_consent, consent_version: payload.consent_version, consent_source: payload.consent_source, consent_region: payload.consent_region, consent_timestamp: payload.consent_timestamp });
     console.error('[Meta CAPI] Error sending PageView event:', error);
   }
 }
@@ -435,14 +452,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
   // этого завышена, и разделы обязаны об этом говорить, а не рисовать точную
   // цифру. Считать шире — только по решению владельца, отправку без согласия
   // здесь не добавлять.
-  if (parsedBody.skip_stats !== true) {
-    waitUntil(recordPageStats(env, payload.page_path || payload.page_url, request));
-  }
-
-  // Отправляем асинхронно, не замедляя клиентскую навигацию.
-  // Запись в outbox и отметки sent/retry делает сам sendMetaPageView.
-  if (!parsedBody.stats_only) {
-    waitUntil(sendMetaPageView(payload, env, request));
+  const countView = parsedBody.skip_stats !== true;
+  if (parsedBody.stats_only) {
+    if (countView) waitUntil(recordPageStats(env, payload.page_path || payload.page_url, request));
+  } else {
+    // Отправляем асинхронно, не замедляя клиентскую навигацию.
+    // Запись в outbox и отметки sent/retry делает сам sendMetaPageView.
+    // Просмотр считается тем запросом, который взял событие (DA-33); если до
+    // outbox дело не дошло (нет токена, ошибка) — считается как раньше.
+    let counted: Promise<unknown> | null = null;
+    const countOnce = (isNew: boolean) => {
+      counted ??= isNew && countView
+        ? recordPageStats(env, payload.page_path || payload.page_url, request).catch(() => undefined)
+        : Promise.resolve();
+      return counted;
+    };
+    waitUntil((async () => {
+      try {
+        await sendMetaPageView(payload, env, request, (isNew) => { void countOnce(isNew); });
+      } finally {
+        await countOnce(true);
+      }
+    })());
   }
   // Заодно фоном дошлём события, не доставленные в Meta ранее. Очередь
   // разбирается не на каждом просмотре, а примерно на каждом десятом: на

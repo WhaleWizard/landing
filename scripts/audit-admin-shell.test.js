@@ -320,6 +320,10 @@ test('F-077: редактор FAQ знает о несохранённом', () 
 
 test('F-078: потерянная сессия отличается от любой другой ошибки 401', () => {
   const lost = admin.isLostAdminSession;
+  // DA-118: кнопка «Тестовое событие» живёт вне /api/admin/, но её истёкшая сессия тоже открывает вход.
+  assert.equal(lost('/api/meta-test-event', 401, { code: 'SESSION_EXPIRED' }, true), true);
+  assert.equal(lost('/api/meta-test-event', 403, { code: 'FORBIDDEN' }, true), false);
+  assert.equal(lost('/api/meta-test-event', 401, { error: 'Unauthorized' }, false), false);
   assert.equal(lost('/api/admin/site-sections', 401, { code: 'SESSION_EXPIRED', error: 'Сессия истекла' }, true), true);
   assert.equal(lost('https://www.whalewzrd.com/api/admin/media?x=1', 401, { code: 'SESSION_EXPIRED' }, true), true);
   // Без второго фактора разделы отвечают голым Unauthorized: это «нет сессии»

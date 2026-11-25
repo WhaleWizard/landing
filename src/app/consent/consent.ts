@@ -751,7 +751,12 @@ function readStoredFbc(now = Date.now()): StoredFbc | undefined {
   }
 }
 
-function getOrCreateFbc(fbclid: string | undefined): string | undefined {
+/**
+ * `fbclidSeenAt` — когда этот `fbclid` впервые пришёл в адресе (CL-20). Meta
+ * ждёт в `fbc` время появления клика, а не момент сборки события: иначе `fbc`,
+ * пересобранный из сохранённой атрибуции, получал время заявки.
+ */
+function getOrCreateFbc(fbclid: string | undefined, fbclidSeenAt?: number): string | undefined {
   if (!hasMarketingConsent()) return undefined;
   const now = Date.now();
   const stored = readStoredFbc(now);
@@ -759,7 +764,8 @@ function getOrCreateFbc(fbclid: string | undefined): string | undefined {
   if (!fbclid) return stored?.value;
   if (stored?.fbclid === fbclid && stored.expiresAt > now) return stored.value;
 
-  const value = createFbcFromFbclid(fbclid, now);
+  const clickTime = fbclidSeenAt && fbclidSeenAt <= now && now - fbclidSeenAt < META_FBC_TTL_MS ? fbclidSeenAt : now;
+  const value = createFbcFromFbclid(fbclid, clickTime);
   if (value) {
     safeWriteLocalStorage(META_FBC_KEY, JSON.stringify({
       fbclid,
@@ -917,22 +923,25 @@ function getOrCreateMetaExternalId(): string | undefined {
 type StoredAttribution = {
   values: Partial<Record<'utm_source' | 'utm_medium' | 'utm_campaign' | 'utm_content' | 'utm_term' | 'utm_id' | 'fbclid' | 'gclid' | 'wbraid' | 'gbraid' | 'yclid', string>>;
   expiresAt: number;
+  /** Время, когда сохранённый `fbclid` впервые пришёл в адресе (CL-20). */
+  fbclidAt?: number;
 };
 
-function readStoredAttribution(now = Date.now()): StoredAttribution['values'] {
+function readStoredAttributionRecord(now = Date.now()): StoredAttribution | null {
   const raw = safeReadLocalStorage(META_ATTRIBUTION_KEY);
-  if (!raw) return {};
+  if (!raw) return null;
 
   try {
     const parsed = JSON.parse(raw) as StoredAttribution;
-    if (!parsed?.values || parsed.expiresAt <= now) return {};
-    return parsed.values;
+    if (!parsed?.values || parsed.expiresAt <= now) return null;
+    return parsed;
   } catch {
-    return {};
+    return null;
   }
 }
 
-function getAttributionWithFallback(currentUrl: URL): StoredAttribution['values'] {
+/** Атрибуция и время первого появления её `fbclid`. */
+function getAttributionWithFallback(currentUrl: URL): StoredAttribution['values'] & { fbclidAt?: number } {
   const current = {
     utm_source: getUrlParam(currentUrl, 'utm_source'),
     utm_medium: getUrlParam(currentUrl, 'utm_medium'),
@@ -947,7 +956,8 @@ function getAttributionWithFallback(currentUrl: URL): StoredAttribution['values'
     yclid: getUrlParam(currentUrl, 'yclid'),
   };
 
-  const stored = readStoredAttribution();
+  const storedRecord = readStoredAttributionRecord();
+  const stored = storedRecord?.values ?? {};
   const merged = { ...stored };
   let hasCurrentValue = false;
 
@@ -958,14 +968,20 @@ function getAttributionWithFallback(currentUrl: URL): StoredAttribution['values'
     }
   }
 
+  // Новый `fbclid` получает текущее время, прежний сохраняет своё.
+  const fbclidAt = merged.fbclid
+    ? (merged.fbclid === stored.fbclid && storedRecord?.fbclidAt ? storedRecord.fbclidAt : Date.now())
+    : undefined;
+
   if (hasCurrentValue) {
     safeWriteLocalStorage(META_ATTRIBUTION_KEY, JSON.stringify({
       values: merged,
       expiresAt: Date.now() + META_FBC_TTL_MS,
+      ...(fbclidAt ? { fbclidAt } : {}),
     } satisfies StoredAttribution));
   }
 
-  return merged;
+  return { ...merged, fbclidAt };
 }
 
 function getConsentSnapshot(): Pick<MetaBrowserContext, 'marketing_consent' | 'consent_version' | 'consent_source' | 'consent_region' | 'consent_timestamp'> {
@@ -1016,7 +1032,7 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
   // но не превращает отказ от маркетинга в скрытое профилирование.
   if (!consentSnapshot.marketing_consent) return baseContext;
 
-  const attribution = getAttributionWithFallback(currentUrl);
+  const { fbclidAt, ...attribution } = getAttributionWithFallback(currentUrl);
   const fbclid = attribution.fbclid;
   const { firstTouch, lastTouch } = captureTouchPoint(trackingPageUrl);
   const storedUserData = getStoredMetaUserData();
@@ -1030,7 +1046,7 @@ export function getMetaBrowserContext(pagePath = window.location.pathname): Meta
     fn: storedUserData.fn,
     ln: storedUserData.ln,
     fbp: getOrCreateFbp(),
-    fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid),
+    fbc: getCookieValue('_fbc') || getOrCreateFbc(fbclid, fbclidAt),
     fbclid,
     ...consentSnapshot,
     landing_page_url: firstTouch.url,

@@ -345,7 +345,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         ? 'COALESCE(last_submitted_at, created_at)'
         : hasCreatedAt ? 'created_at' : 'NULL';
       const missingTelegramPredicate = hasTelegramDelivered && hasCreatedAt
-        ? `telegram_delivered=0 AND datetime(${leadTime}) >= datetime('now', '-7 day')`
+        ? `telegram_delivered<>1 AND datetime(${leadTime}) >= datetime('now', '-7 day')`
         : '0';
       const leadSummary = await db.prepare(
         `SELECT

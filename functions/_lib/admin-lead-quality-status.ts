@@ -15,6 +15,8 @@ export interface AdminQualityDeliveryItem {
   sent_at?: number | null;
   updated_at?: string | null;
   current: boolean;
+  /** Событие оценки прошлого обращения той же карточки (до повторной заявки). */
+  previous_submission?: boolean;
 }
 
 export interface AdminQualityLeadRow {
@@ -187,6 +189,88 @@ function resolveEvidence(
   };
 }
 
+/**
+ * Прежние обращения карточки (DA-63). Повторная заявка меняет `event_id`
+ * карточки и сбрасывает действие оценки, а события качества названы по
+ * обращению, на котором их ставили (`lq:<оценка>:<event_id>[:a:<действие>]`).
+ * Без этого списка история уже отправленной оценки пропадала из карточки,
+ * хотя очередь продолжала её досылать.
+ */
+async function readPriorSubmissionIds(db: D1Database, leads: AdminQualityLeadRow[]): Promise<Map<number, string[]>> {
+  const byLead = new Map<number, string[]>();
+  const current = new Map(leads.map((lead) => [Number(lead.id), String(lead.event_id || '')]));
+  const ids = Array.from(current.keys()).filter((id) => Number.isFinite(id) && id > 0);
+  for (const part of chunks(ids, QUERY_CHUNK_SIZE)) {
+    try {
+      const result = await db.prepare(
+        `SELECT lead_id, event_id FROM lead_ingestions WHERE lead_id IN (${part.map(() => '?').join(', ')})`,
+      ).bind(...part).all<{ lead_id: number; event_id: string }>();
+      for (const row of result.results || []) {
+        const leadId = Number(row.lead_id);
+        if (!row.event_id || row.event_id === current.get(leadId)) continue;
+        byLead.set(leadId, [...(byLead.get(leadId) || []), row.event_id]);
+      }
+    } catch (error) {
+      if (!isMissingTableError(error)) throw error;
+      return byLead;
+    }
+  }
+  return byLead;
+}
+
+/** Шаблоны LIKE для событий качества одного обращения — с действием и без. */
+function priorQualityPatterns(bases: string[]): string[] {
+  return bases.flatMap((base) => [`lq:%:${base}`, `lq:%:${base}:a:%`]);
+}
+
+/** Событие качества относится к этому обращению, а не к другому с тем же началом. */
+function priorQualityOf(eventId: string, base: string): AdminLeadQuality | null {
+  for (const quality of ['target', 'nontarget'] as const) {
+    const prefix = `lq:${quality}:${base}`;
+    if (eventId === prefix || eventId.startsWith(`${prefix}:a:`)) return quality;
+  }
+  return null;
+}
+
+async function readPriorOutbox(db: D1Database, bases: string[]): Promise<MetaOutboxEventState[]> {
+  const rows: MetaOutboxEventState[] = [];
+  for (const part of chunks(priorQualityPatterns(bases), QUERY_CHUNK_SIZE)) {
+    try {
+      const result = await db.prepare(
+        `SELECT id, event_name, event_id, status, attempts, last_error, sent_at, updated_at
+         FROM meta_outbox
+         WHERE event_name IN ('QualifiedLead', 'UnqualifiedLead')
+           AND (${part.map(() => 'id LIKE ?').join(' OR ')})`,
+      ).bind(...part).all<MetaOutboxEventState>();
+      rows.push(...(result.results || []));
+    } catch (error) {
+      if (!isMissingTableError(error)) throw error;
+      return [];
+    }
+  }
+  return rows;
+}
+
+async function readPriorDiagnostics(db: D1Database, bases: string[]): Promise<DiagnosticRow[]> {
+  const rows: DiagnosticRow[] = [];
+  for (const part of chunks(priorQualityPatterns(bases), QUERY_CHUNK_SIZE)) {
+    try {
+      const result = await db.prepare(
+        `SELECT id, event_name, event_id, status, events_received, error_message, created_at
+         FROM meta_capi_diagnostics
+         WHERE event_name IN ('QualifiedLead', 'UnqualifiedLead')
+           AND (${part.map(() => 'event_id LIKE ?').join(' OR ')})
+         ORDER BY created_at DESC, id DESC`,
+      ).bind(...part).all<DiagnosticRow>();
+      rows.push(...(result.results || []));
+    } catch (error) {
+      if (!isMissingTableError(error)) throw error;
+      return [];
+    }
+  }
+  return rows;
+}
+
 async function readOutbox(db: D1Database, eventIds: string[]): Promise<MetaOutboxEventState[]> {
   const rows: MetaOutboxEventState[] = [];
   for (const part of chunks(eventIds, QUERY_CHUNK_SIZE)) {
@@ -248,7 +332,16 @@ export async function attachAdminQualityDelivery<T extends AdminQualityLeadRow>(
     ...qualityEventIds(lead, 'target'),
     ...qualityEventIds(lead, 'nontarget'),
   ])));
-  const [outboxRows, diagnosticRows] = await Promise.all([readOutbox(db, ids), readDiagnostics(db, ids)]);
+  const priorByLead = await readPriorSubmissionIds(db, leads);
+  const priorBases = Array.from(new Set(Array.from(priorByLead.values()).flat()));
+  const [outboxRows, diagnosticRows, priorOutbox, priorDiagnostics] = await Promise.all([
+    readOutbox(db, ids),
+    readDiagnostics(db, ids),
+    priorBases.length ? readPriorOutbox(db, priorBases) : Promise.resolve([]),
+    priorBases.length ? readPriorDiagnostics(db, priorBases) : Promise.resolve([]),
+  ]);
+  outboxRows.push(...priorOutbox);
+  diagnosticRows.push(...priorDiagnostics);
   const evidence = new Map<string, Evidence>();
 
   for (const row of outboxRows) {
@@ -273,6 +366,16 @@ export async function attachAdminQualityDelivery<T extends AdminQualityLeadRow>(
       for (const eventId of qualityEventIds(lead, quality)) {
         const item = evidence.get(eventId);
         if (item) history.push(resolveEvidence(eventId, quality, item));
+      }
+    }
+    const seen = new Set(history.map((item) => item.event_id));
+    for (const base of priorByLead.get(Number(lead.id)) || []) {
+      for (const [eventId, item] of evidence) {
+        if (seen.has(eventId)) continue;
+        const quality = priorQualityOf(eventId, base);
+        if (!quality) continue;
+        history.push({ ...resolveEvidence(eventId, quality, item), previous_submission: true });
+        seen.add(eventId);
       }
     }
 

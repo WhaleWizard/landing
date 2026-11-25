@@ -270,13 +270,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     && !(await isAdmin2faEnabled(env));
 
   if (!bySecret && !bySession && !byAdmin) {
+    const triedSecret = Boolean(request.headers.get('x-meta-debug-secret'));
     return json(
       {
         success: false,
-        code: 'FORBIDDEN',
+        // Без сессии и без секрета это истёкшая сессия кнопки в админке:
+        // по коду SESSION_EXPIRED интерфейс открывает повторный вход (DA-118).
+        // Неверный секрет внешнего вызова остаётся честным отказом 403.
+        code: triedSecret ? 'FORBIDDEN' : 'SESSION_EXPIRED',
         error: 'Нет доступа: нужна действующая сессия админки (войдите заново), пароль админки при выключенной двухфакторной защите или секрет META_CAPI_DEBUG_SECRET в заголовке x-meta-debug-secret',
       },
-      { status: 403, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+      { status: triedSecret ? 403 : 401, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
 
@@ -350,6 +354,16 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
         };
       }),
       meta: parsed || resultText,
+      // Причина неудачи словами (DA-119): раньше интерфейс видел только
+      // «HTTP 502», хотя диагностика знала, что Meta ответила 200 без
+      // подтверждения приёма или вернула ошибку Graph.
+      ...(confirmed ? {} : {
+        error: parsed?.error?.message
+          ? `Meta отклонила событие: ${parsed.error.message}`
+          : response.ok
+            ? 'Meta ответила, но не подтвердила приём событий (events_received = 0). Проверьте пиксель и код тестирования в Events Manager.'
+            : `Meta ответила ошибкой HTTP ${response.status}${parsed ? '' : ' без JSON'}.`,
+      }),
     },
     { status: confirmed ? 200 : 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
   );
