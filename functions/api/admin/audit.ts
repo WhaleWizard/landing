@@ -1,6 +1,7 @@
 import { verifyAdminPassword } from '../../_lib/auth';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { json } from '../../_lib/http';
+import { migrationRequiredPayload } from '../../_lib/migration-guard';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -43,12 +44,28 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
 
   try {
     const url = new URL(request.url);
-    const limit = Math.min(Math.max(Number(url.searchParams.get('limit')) || 100, 10), 300);
+    const limit = Math.min(Math.max(Math.trunc(Number(url.searchParams.get('limit'))) || 100, 10), 300);
+    const offset = Math.min(Math.max(Math.trunc(Number(url.searchParams.get('offset'))) || 0, 0), 100_000);
     const actorFilter = url.searchParams.get('actor') || '';
-    const typeFilter = url.searchParams.get('type') || '';
+    // Несколько кодов через запятую: у одного действия бывает старый и новый
+    // код («trashed» и «lead_trashed»), и фильтр «В корзину» должен находить
+    // оба (DA-116).
+    const typeFilter = (url.searchParams.get('type') || '').split(',').map((item) => item.trim()).filter(Boolean).slice(0, 10);
+    const query = (url.searchParams.get('q') || '').trim().slice(0, 200);
 
-    let query = `
-      SELECT 
+    // Схема журнала собирается двумя миграциями (DA-117): таблицу создаёт
+    // 0012, автора и ID действия добавляет 0014. Без любой из них раздел
+    // говорит, какую применить, а не показывает пустой журнал или 500.
+    const columns = new Set(((await env.DB.prepare('PRAGMA table_info(lead_activity)').all<{ name: string }>()).results || []).map((column) => column.name));
+    if (!columns.size) {
+      return json(migrationRequiredPayload('0012_admin_control_center.sql', 'до неё журналу действий негде храниться.', 'lead_activity'), { status: 503, headers: noStore });
+    }
+    if (!['actor', 'entity_type', 'entity_id', 'action_id', 'metadata_json'].every((column) => columns.has(column))) {
+      return json(migrationRequiredPayload('0014_crm_workspace.sql', 'до неё в журнале нет автора и номера действия.', 'lead_activity'), { status: 503, headers: noStore });
+    }
+
+    let sql = `
+      SELECT
         la.id,
         la.lead_id,
         la.type,
@@ -68,49 +85,78 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       LEFT JOIN leads l ON l.id = la.lead_id
       WHERE 1=1
     `;
-
     const params: Array<string | number> = [];
-
     if (actorFilter) {
-      query += ` AND la.actor = ?`;
+      sql += ' AND la.actor = ?';
       params.push(actorFilter);
     }
+    if (typeFilter.length) {
+      sql += ` AND la.type IN (${typeFilter.map(() => '?').join(', ')})`;
+      params.push(...typeFilter);
+    }
+    sql += ' ORDER BY la.created_at DESC, la.id DESC';
 
-    if (typeFilter) {
-      query += ` AND la.type = ?`;
-      params.push(typeFilter);
+    // Поиск идёт по всему журналу, а не по последним 200 строкам в браузере
+    // (DA-114). Сравнение — в коде, а не в SQL: LOWER и LIKE в SQLite не
+    // знают кириллицы, и «иван» не нашёл бы «Иван». Журнал небольшой, а
+    // просмотр ограничен десятью тысячами последних записей.
+    if (query) {
+      const all = (await env.DB.prepare(`${sql} LIMIT ${AUDIT_SEARCH_SCAN}`).bind(...params).all<AuditActivityRecord>()).results || [];
+      const matched = all.filter((record) => auditRecordMatches(record, query));
+      return json({
+        success: true,
+        activities: matched.slice(offset, offset + limit),
+        total: matched.length,
+        offset,
+        limit,
+        hasMore: offset + limit < matched.length,
+        scanLimited: all.length >= AUDIT_SEARCH_SCAN,
+        timestamp: new Date().toISOString(),
+      }, { headers: noStore });
     }
 
-    query += ` ORDER BY la.created_at DESC, la.id DESC LIMIT ?`;
-    params.push(limit);
-
-    const stmt = env.DB.prepare(query).bind(...params);
-    const result = await stmt.all<AuditActivityRecord>();
-
+    const countSql = `SELECT COUNT(*) AS total FROM lead_activity la WHERE 1=1${actorFilter ? ' AND la.actor = ?' : ''}${typeFilter.length ? ` AND la.type IN (${typeFilter.map(() => '?').join(', ')})` : ''}`;
+    const [page, count] = await Promise.all([
+      env.DB.prepare(`${sql} LIMIT ? OFFSET ?`).bind(...params, limit, offset).all<AuditActivityRecord>(),
+      env.DB.prepare(countSql).bind(...params).first<{ total: number }>(),
+    ]);
+    const total = Number(count?.total || 0);
     return json({
       success: true,
-      activities: result.results || [],
-      total: result.results?.length || 0,
+      activities: page.results || [],
+      total,
+      offset,
+      limit,
+      hasMore: offset + limit < total,
       timestamp: new Date().toISOString(),
     }, { headers: noStore });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    // Graceful fallback if lead_activity table hasn't migrated yet
-    if (message.includes('no such table: lead_activity')) {
-      return json({
-        success: true,
-        activities: [],
-        migrationRequired: '0014_crm_workspace.sql',
-        error: 'Таблица журнала действий lead_activity ещё не создана. Примените миграцию 0014_crm_workspace.sql',
-      }, { headers: noStore });
-    }
-
     return json({
       success: false,
       error: `Ошибка чтения журнала действий: ${message}`,
     }, { status: 500, headers: noStore });
   }
 };
+
+/** Сколько последних записей просматривает поиск по журналу. */
+const AUDIT_SEARCH_SCAN = 10_000;
+
+/**
+ * Совпадение записи с поиском: имя, телефон, примечание, ID действия и
+ * номер записи — тот самый «#201», который журнал показывает в деталях
+ * записи без своего action_id (DA-115).
+ */
+export function auditRecordMatches(record: Pick<AuditActivityRecord, 'id' | 'lead_name' | 'lead_phone' | 'note' | 'action_id'>, query: string): boolean {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  const number = q.replace(/^#/, '');
+  if (/^\d+$/.test(number) && String(record.id) === number) return true;
+  const digits = q.replace(/\D/g, '');
+  if (digits.length >= 3 && String(record.lead_phone || '').replace(/\D/g, '').includes(digits)) return true;
+  return [record.lead_name, record.lead_phone, record.note, record.action_id]
+    .some((value) => String(value || '').toLowerCase().includes(q));
+}
 
 function getMockAuditTrail(): AuditActivityRecord[] {
   const now = new Date();

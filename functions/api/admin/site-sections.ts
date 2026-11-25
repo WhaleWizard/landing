@@ -182,6 +182,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
       ).bind(versionId, body.key).first<{ snapshot_json: string }>();
       if (!snapshot) return json({ success: false, error: 'Version not found' }, { status: 404, headers: noStore });
       const sanitized = JSON.stringify(safeSiteJsonObject(body.key, snapshot.snapshot_json));
+      // Черновик уже ровно такой (DA-92): повторное восстановление ничего не
+      // меняет — ни версии, ни лишнего снимка, который вытеснил бы из
+      // двадцати показанных версий полезную.
+      if (existing?.draft_json && JSON.stringify(safeSiteJsonObject(body.key, existing.draft_json)) === sanitized) {
+        return json({ success: true, restored: true, unchanged: true, version }, { headers: noStore });
+      }
       const update = db.prepare(
         `UPDATE site_sections SET draft_json=?, status='draft', version=version+1, updated_at=datetime('now')
          WHERE section_key=? AND version=?`,

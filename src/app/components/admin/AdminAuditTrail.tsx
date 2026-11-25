@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ArrowRight,
   Bot,
@@ -59,6 +59,22 @@ const TYPE_LABELS: Record<string, { label: string; color: string }> = {
   tags_updated: { label: 'Теги изменены', color: '' },
 };
 
+/**
+ * Фильтр по типу: одна строка на одно действие (DA-116). У части действий
+ * есть старый и новый код («trashed» и «lead_trashed»), и два одинаковых
+ * пункта «В корзину» показывали разные записи. Значение — коды через запятую.
+ */
+export const TYPE_FILTER_OPTIONS = (() => {
+  const byLabel = new Map<string, string[]>();
+  for (const [code, item] of Object.entries(TYPE_LABELS)) {
+    byLabel.set(item.label, [...(byLabel.get(item.label) || []), code]);
+  }
+  return [...byLabel].map(([label, codes]) => ({ value: codes.join(','), label }));
+})();
+
+/** Сколько записей журнала приходит за один раз. */
+const AUDIT_PAGE_SIZE = 100;
+
 const STATUS_NAMES: Record<string, string> = {
   new: 'Новый',
   contacted: 'Контакт',
@@ -98,6 +114,9 @@ export default function AdminAuditTrail({
   onOpenLead?: (leadId: number) => void;
 }) {
   const [activities, setActivities] = useState<AuditRecord[]>([]);
+  // Всего записей под текущими фильтрами и есть ли ещё (DA-114).
+  const [total, setTotal] = useState<number>(0);
+  const [hasMore, setHasMore] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   const [isDemo, setIsDemo] = useState<boolean>(false);
@@ -107,15 +126,30 @@ export default function AdminAuditTrail({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [actorFilter, setActorFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  // Поиск уходит на сервер с небольшой паузой после ввода, а не на каждую букву.
+  const [appliedQuery, setAppliedQuery] = useState<string>('');
+  useEffect(() => {
+    const timer = window.setTimeout(() => setAppliedQuery(searchQuery.trim()), 300);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
 
-  const fetchAudit = useCallback(async () => {
+  /**
+   * Поиск и фильтры применяет сервер ко всему журналу (DA-114): раньше
+   * браузер получал последние 200 записей и искал только в них, и действие
+   * двухсотпервым по счёту не находилось. `append` — «Показать ещё».
+   */
+  const fetchAudit = useCallback(async (append = false, offset = 0) => {
     activeRequest.current?.abort();
     const request = new AbortController();
     activeRequest.current = request;
     setLoading(true);
     setError('');
     try {
-      const res = await fetch('/api/admin/audit?limit=200', {
+      const params = new URLSearchParams({ limit: String(AUDIT_PAGE_SIZE), offset: String(append ? offset : 0) });
+      if (appliedQuery) params.set('q', appliedQuery);
+      if (actorFilter !== 'all') params.set('actor', actorFilter);
+      if (typeFilter !== 'all') params.set('type', typeFilter);
+      const res = await fetch(`/api/admin/audit?${params}`, {
         headers: { 'X-Admin-Password': password },
         credentials: 'same-origin',
         cache: 'no-store',
@@ -126,14 +160,21 @@ export default function AdminAuditTrail({
         error?: string;
         activities?: AuditRecord[];
         isDemo?: boolean;
+        total?: number;
+        hasMore?: boolean;
       } | null;
 
+      // Без миграции сервер отвечает 503 с её именем в тексте ошибки
+      // (DA-117) — экран показывает это, а не пустой журнал.
       if (!res.ok || !data?.success) {
         throw new Error(data?.error || `HTTP ${res.status}`);
       }
 
       if (request.signal.aborted) return;
-      setActivities(data.activities || []);
+      const page = data.activities || [];
+      setActivities((current) => (append ? [...current, ...page.filter((item) => !current.some((known) => known.id === item.id))] : page));
+      setTotal(Number(data.total ?? page.length));
+      setHasMore(Boolean(data.hasMore));
       setIsDemo(Boolean(data.isDemo));
     } catch (err) {
       if (!request.signal.aborted) setError(err instanceof Error ? err.message : 'Не удалось загрузить аудит-лог');
@@ -143,7 +184,7 @@ export default function AdminAuditTrail({
         setLoading(false);
       }
     }
-  }, [password]);
+  }, [actorFilter, appliedQuery, password, typeFilter]);
 
   useEffect(() => {
     void fetchAudit();
@@ -153,27 +194,8 @@ export default function AdminAuditTrail({
     };
   }, [fetchAudit]);
 
-  // Filtered Activities
-  const filteredActivities = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return activities.filter((item) => {
-      if (actorFilter !== 'all' && item.actor !== actorFilter) return false;
-      if (typeFilter !== 'all' && item.type !== typeFilter) return false;
-
-      if (!q) return true;
-      const leadName = item.lead_name?.toLowerCase() || '';
-      const leadPhone = item.lead_phone?.toLowerCase() || '';
-      const note = item.note?.toLowerCase() || '';
-      const actionId = item.action_id?.toLowerCase() || '';
-
-      return (
-        leadName.includes(q) ||
-        leadPhone.includes(q) ||
-        note.includes(q) ||
-        actionId.includes(q)
-      );
-    });
-  }, [activities, actorFilter, typeFilter, searchQuery]);
+  // Отбор уже сделал сервер; в локальном демо-режиме фильтры не применяются.
+  const filteredActivities = activities;
 
   // Export to CSV
   const handleExportCsv = () => {
@@ -201,7 +223,10 @@ export default function AdminAuditTrail({
     link.download = `audit_log_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-    notify.success('Журнал аудита выгружен в CSV');
+    // В файл попадают загруженные записи — их число названо (DA-114).
+    notify.success('Журнал аудита выгружен в CSV', total > filteredActivities.length
+      ? `Выгружено ${filteredActivities.length} из ${total} найденных. Нажмите «Показать ещё», чтобы выгрузить больше.`
+      : `Записей: ${filteredActivities.length}`);
   };
 
   return (
@@ -226,7 +251,9 @@ export default function AdminAuditTrail({
             className="admin-button"
             onClick={handleExportCsv}
             disabled={loading || filteredActivities.length === 0}
-            title="Выгрузить записи с текущими фильтрами"
+            title={total > filteredActivities.length
+              ? `Выгрузить загруженные записи: ${filteredActivities.length} из ${total}`
+              : 'Выгрузить записи с текущими фильтрами'}
           >
             <Download className="h-4 w-4 mr-1.5" />
             Выгрузить CSV
@@ -300,7 +327,7 @@ export default function AdminAuditTrail({
               onValueChange={setTypeFilter}
               options={[
                 { value: 'all', label: 'Все типы действий' },
-                ...Object.entries(TYPE_LABELS).map(([value, item]) => ({ value, label: item.label })),
+                ...TYPE_FILTER_OPTIONS,
               ]}
             />
           </div>
@@ -412,6 +439,18 @@ export default function AdminAuditTrail({
           })
         )}
       </div>
+
+      {/* Сколько показано и догрузка следующей страницы (DA-114). */}
+      {activities.length > 0 && !isDemo && (
+        <div className="flex flex-wrap items-center gap-3 mt-3">
+          <span className="admin-hint">Показано {activities.length} из {total}</span>
+          {hasMore && (
+            <button type="button" className="admin-button" disabled={loading} onClick={() => void fetchAudit(true, activities.length)}>
+              Показать ещё
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

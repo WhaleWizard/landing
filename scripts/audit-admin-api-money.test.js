@@ -2479,3 +2479,89 @@ test('DA-107, DA-108: повторное обращение попадает в 
   assert.equal(summary.planned, 1, 'черновик с датой сам не выйдет');
   assert.equal(summary.drafts, 1);
 });
+
+// ─── Пакет 4e: журнал, редактор текстов, кадрирование ───────────────────────
+
+test('DA-92: повторное восстановление того же варианта не плодит версии и не поднимает ревизию', async (t) => {
+  t.after(installMemoryCache());
+  const sections = await harness('functions/api/admin/site-sections.ts');
+  const key = 'site:about';
+  const save = (title, expectedVersion) => sections.post({ key, action: 'save', label: 'О себе', expectedVersion, content: { aboutIntro: { title } } });
+  const first = await save('Первый вариант', 0);
+  assert.equal(first.status, 200, JSON.stringify(first.payload));
+  const second = await save('Второй вариант', 1);
+  assert.equal(second.status, 200, JSON.stringify(second.payload));
+  const versionId = sections.sqlite.prepare('SELECT id FROM site_section_versions WHERE section_key = ? ORDER BY id DESC LIMIT 1').get(key).id;
+  const snapshots = () => sections.sqlite.prepare('SELECT count(*) AS n FROM site_section_versions WHERE section_key = ?').get(key).n;
+  const version = () => sections.sqlite.prepare('SELECT version FROM site_sections WHERE section_key = ?').get(key).version;
+
+  const restored = await sections.post({ key, action: 'restore', versionId, expectedVersion: version() });
+  assert.equal(restored.status, 200, JSON.stringify(restored.payload));
+  const afterRestore = { snapshots: snapshots(), version: version() };
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const again = await sections.post({ key, action: 'restore', versionId, expectedVersion: version() });
+    assert.equal(again.status, 200);
+    assert.equal(again.payload.unchanged, true);
+  }
+  assert.deepEqual({ snapshots: snapshots(), version: version() }, afterRestore, 'три повтора — ни новых снимков, ни новых версий');
+  sections.sqlite.close();
+});
+
+test('DA-114, DA-115, DA-116: журнал ищет по всей базе, по номеру записи и объединяет синонимы действий', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const leadId = insertLead(sqlite, { name: 'Иван Петров' });
+  const add = sqlite.prepare("INSERT INTO lead_activity (lead_id, type, note, action_id, created_at) VALUES (?, ?, ?, ?, datetime('now', ?))");
+  add.run(leadId, 'note_added', 'Самая первая уникальная запись', '', '-300 minutes');
+  for (let index = 0; index < 200; index += 1) add.run(leadId, 'status_change', `Шаг ${index}`, `act-${index}`, `-${299 - index} minutes`);
+  add.run(leadId, 'trashed', 'Старый формат', '', '-1 minutes');
+  add.run(leadId, 'lead_trashed', 'Новый формат', 'act-trash', '-0 minutes');
+  const audit = await harness('functions/api/admin/audit.ts', { sqlite });
+
+  const page = await audit.get({ limit: 100 });
+  assert.equal(page.payload.total, 203);
+  assert.equal(page.payload.activities.length, 100);
+  assert.equal(page.payload.hasMore, true);
+
+  const oldest = await audit.get({ q: 'САМАЯ ПЕРВАЯ' });
+  assert.deepEqual(oldest.payload.activities.map((item) => item.note), ['Самая первая уникальная запись'], 'запись старше 200 последних находится');
+  assert.equal((await audit.get({ q: 'иван' })).payload.total, 203, 'кириллица без учёта регистра');
+
+  const firstId = sqlite.prepare("SELECT id FROM lead_activity WHERE note = 'Самая первая уникальная запись'").get().id;
+  assert.deepEqual((await audit.get({ q: `#${firstId}` })).payload.activities.map((item) => item.id), [firstId], 'номер записи с решёткой');
+  assert.ok((await audit.get({ q: String(firstId), limit: 300 })).payload.activities.some((item) => item.id === firstId), 'и без неё');
+
+  const trashed = await audit.get({ type: 'trashed,lead_trashed' });
+  assert.deepEqual(trashed.payload.activities.map((item) => item.note).sort(), ['Новый формат', 'Старый формат'], 'один фильтр «В корзину» — оба кода');
+  const { TYPE_FILTER_OPTIONS } = await loadModule('src/app/components/admin/AdminAuditTrail.tsx');
+  const labels = TYPE_FILTER_OPTIONS.map((option) => option.label);
+  assert.equal(new Set(labels).size, labels.length, 'в списке фильтров нет одинаковых подписей');
+  assert.equal(TYPE_FILTER_OPTIONS.find((option) => option.label === 'В корзину').value, 'trashed,lead_trashed');
+});
+
+test('DA-117: журнал называет нужную миграцию и на базе до 0012, и между 0012 и 0014', async (t) => {
+  t.after(installMemoryCache());
+  const before = new DatabaseSync(':memory:');
+  t.after(() => before.close());
+  for (const file of ALL_MIGRATIONS.filter((name) => name < '0012')) before.exec(readFileSync(`migrations/${file}`, 'utf8'));
+  const noTable = await (await harness('functions/api/admin/audit.ts', { sqlite: before })).get();
+  assert.equal(noTable.status, 503);
+  assert.equal(noTable.payload.code, 'MIGRATION_REQUIRED');
+  assert.equal(noTable.payload.migration, '0012_admin_control_center.sql');
+
+  before.exec(readFileSync('migrations/0012_admin_control_center.sql', 'utf8'));
+  const noColumns = await (await harness('functions/api/admin/audit.ts', { sqlite: before })).get();
+  assert.equal(noColumns.status, 503, 'не 500 «no such column»');
+  assert.equal(noColumns.payload.migration, '0014_crm_workspace.sql');
+});
+
+test('DA-132: подпись размера кадра и экспорт считают одно и то же', async () => {
+  const { cropOutputSize } = await loadModule('src/app/components/admin/MediaCropperModal.tsx');
+  const original = { ratio: null, targetW: 1200 };
+  assert.deepEqual(cropOutputSize(original, { w: 180, h: 360 }), { w: 1200, h: 2400 }, 'портрет в исходном соотношении');
+  assert.deepEqual(cropOutputSize(original, { w: 500, h: 500 }), { w: 1200, h: 1200 });
+  assert.deepEqual(cropOutputSize(original, { w: 1600, h: 900 }), { w: 1200, h: 675 });
+  assert.deepEqual(cropOutputSize({ ratio: 4 / 5, targetW: 1080 }, { w: 180, h: 360 }), { w: 1080, h: 1350 }, 'заданное соотношение не зависит от картинки');
+  assert.equal(cropOutputSize(original, null), null);
+});

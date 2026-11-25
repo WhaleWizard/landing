@@ -114,6 +114,11 @@ export default function AdminMedia({ password, articles, target }: { password: s
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const uploadPending = useRef(false);
+  const uploadInputRef = useRef<HTMLInputElement>(null);
+  // Ошибка относится к чтению списка, а не к действию над файлами (FX-05).
+  const [listFailed, setListFailed] = useState(false);
+  // Файлы, которые не загрузились в последней пачке, — для «Повторить» (DA-134).
+  const [failedUploads, setFailedUploads] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [moveNeedsRefresh, setMoveNeedsRefresh] = useState(false);
   const [copiedKey, setCopiedKey] = useState('');
@@ -197,6 +202,7 @@ export default function AdminMedia({ password, articles, target }: { password: s
     const requestId = ++listRequest.current;
     setLoading(true);
     setError('');
+    setListFailed(false);
     try {
       const res = await fetch(cursor ? `/api/admin/media?cursor=${encodeURIComponent(cursor)}` : '/api/admin/media', {
         headers: { 'X-Admin-Password': password },
@@ -216,7 +222,10 @@ export default function AdminMedia({ password, articles, target }: { password: s
       if (!cursor) setMoveNeedsRefresh(false);
       setAltMigration(payload.altMigration || '');
     } catch (err) {
-      if (requestId === listRequest.current) setError(err instanceof Error ? err.message : 'Не удалось загрузить список файлов');
+      if (requestId === listRequest.current) {
+        setError(err instanceof Error ? err.message : 'Не удалось загрузить список файлов');
+        setListFailed(true);
+      }
     } finally {
       if (requestId === listRequest.current) setLoading(false);
     }
@@ -478,10 +487,15 @@ export default function AdminMedia({ password, articles, target }: { password: s
     uploadPending.current = true;
     setUploading(true);
     setError('');
+    setFailedUploads([]);
     let uploaded = 0;
+    // Исход по каждому файлу (DA-134): после сбоя на одном остальные всё
+    // равно отправляются, а в итоге названо, какой не загрузился и почему.
+    const failures: Array<{ file: File; reason: string }> = [];
     try {
       let saved = 0;
       for (const original of items) {
+        try {
         // Пережимаем в браузере и делаем копии под разные экраны: в хранилище
         // и посетителям уходит лёгкий WebP, а не оригинал с телефона на 8 МБ.
         const prepared = await prepareImageUpload(original);
@@ -503,6 +517,17 @@ export default function AdminMedia({ password, articles, target }: { password: s
           throw new Error(payload?.error || (res.ok ? 'Сервер не подтвердил загрузку файла' : `HTTP ${res.status}`));
         }
         uploaded++;
+        } catch (fileError) {
+          // Из окна кадрирования файл один: его ошибка уходит в окно как раньше.
+          if (fromCrop) throw fileError;
+          failures.push({ file: original, reason: fileError instanceof Error ? fileError.message : 'Не удалось загрузить файл' });
+        }
+      }
+      if (failures.length) {
+        if (uploaded > 0) await load();
+        setFailedUploads(failures.map((item) => item.file));
+        setError(`Загружено ${uploaded} из ${items.length}. Не загружены: ${failures.map((item) => `«${item.file.name}» — ${item.reason}`).join('; ')}.`);
+        return;
       }
       const where = activeFolder ? `Папка «${activeFolder}»` : '';
       const lighter = saved > 0 ? `Сжатие сэкономило ${formatBytes(saved)}` : '';
@@ -531,7 +556,10 @@ export default function AdminMedia({ password, articles, target }: { password: s
 
   if (loading && !files.length) return <AdminSectionSkeleton tiles={0} rows={4} />;
 
-  if (error && !files.length) {
+  // Экран «медиатека недоступна» — только когда не загрузился сам список
+  // (FX-05). Ошибка загрузки файла в пустую медиатеку раньше заменяла весь
+  // раздел этим экраном: пропадали кнопка загрузки и повтор.
+  if (error && listFailed && !files.length) {
     return (
       <AdminPanel className="p-6 space-y-3" role="alert">
         <p className="text-sm text-[var(--adm-fg)]/75">{error}</p>
@@ -550,17 +578,26 @@ export default function AdminMedia({ password, articles, target }: { password: s
         description={`${nextCursor ? 'Загружено: ' : ''}${withPlural(files.length, ['файл', 'файла', 'файлов'])} · ${withPlural(folders.length, ['папка', 'папки', 'папок'])}`}
         action={(
           <div className="admin-media-actions flex flex-wrap gap-2">
-            <label className={`admin-button admin-button--primary cursor-pointer ${uploading ? 'pointer-events-none opacity-50' : ''}`}>
+            {/* Кнопка, а не подпись к скрытому полю (DA-130): подпись нельзя
+                выбрать с клавиатуры, и загрузка была доступна только мышью. */}
+            <button
+              type="button"
+              className={`admin-button admin-button--primary cursor-pointer ${uploading ? 'pointer-events-none opacity-50' : ''}`}
+              disabled={uploading}
+              onClick={() => uploadInputRef.current?.click()}
+            >
               <Upload className="h-3.5 w-3.5" /> {uploading ? 'Загрузка…' : 'Загрузить'}
-              <input
-                type="file"
-                multiple
-                accept={UPLOAD_ACCEPT}
-                className="hidden"
-                aria-label="Выбрать файлы для загрузки"
-                onChange={(event) => { void uploadFiles(event.target.files); event.target.value = ''; }}
-              />
-            </label>
+            </button>
+            <input
+              ref={uploadInputRef}
+              type="file"
+              multiple
+              accept={UPLOAD_ACCEPT}
+              className="hidden"
+              tabIndex={-1}
+              aria-label="Выбрать файлы для загрузки"
+              onChange={(event) => { void uploadFiles(event.target.files); event.target.value = ''; }}
+            />
             <AdminButton onClick={() => void createFolder()} compact disabled={busy}>
               <FolderPlus className="h-3.5 w-3.5" /> Новая папка
             </AdminButton>
@@ -571,7 +608,18 @@ export default function AdminMedia({ password, articles, target }: { password: s
         )}
       />
 
-      {error && !preview ? <div className="admin-notice admin-notice--danger" role="alert">{error}</div> : null}
+      {error && !preview ? (
+        <div className="admin-notice admin-notice--danger" role="alert">
+          {error}
+          {failedUploads.length > 0 && (
+            <div className="mt-2">
+              <AdminButton compact disabled={uploading} onClick={() => void uploadFiles(failedUploads)}>
+                <RefreshCw className="h-3.5 w-3.5" /> Повторить незагруженные ({failedUploads.length})
+              </AdminButton>
+            </div>
+          )}
+        </div>
+      ) : null}
       {nextCursor && (
         <div className="admin-notice flex flex-wrap items-center gap-3">
           <span>Поиск и фильтры применяются к загруженным файлам.</span>

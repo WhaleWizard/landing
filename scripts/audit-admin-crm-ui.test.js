@@ -119,6 +119,11 @@ const spendModule = await bundle(`
   export { toIsoDate } from './src/app/components/admin/plannerModel';
 `);
 
+const mediaModule = await bundle(`
+  export { default as AdminMedia } from './src/app/components/admin/AdminMedia';
+  export { default as MediaCropperModal } from './src/app/components/admin/MediaCropperModal';
+`);
+
 const todayModule = await bundle(`
   export { default as TodayPlan, applyPlanTaskOp } from './src/app/components/admin/TodayPlan';
   export { default as TodayNote } from './src/app/components/admin/TodayNote';
@@ -1343,4 +1348,75 @@ test('DA-95: заголовок «Сегодня» называет все ср�
   assert.match(headline, /Горят 20 дел/, 'в сумме 8 шагов и 12 задач');
   assert.match(headline, /первые 15/, 'честно сказано, сколько из них в списке');
   await view.unmount();
+});
+
+// ─── Пакет 4e: медиатека и окно кадрирования (DA-130, DA-133, DA-134) ───────
+
+test('DA-130, DA-134: загрузку открывает настоящая кнопка, а итог пачки называет незагруженный файл и даёт повторить', async () => {
+  let failSecond = true;
+  const uploads = [];
+  // Своя подмена сети: тело загрузки — FormData, общий mockFetch разбирает тела как JSON.
+  const reply = (payload, status = 200) => ({ ok: status < 400, status, json: async () => payload });
+  globalThis.fetch = async (url, init = {}) => {
+    const address = String(url);
+    if (address.includes('/api/admin/upload')) {
+      // Имя и содержимое файла в FormData тестового окружения теряются —
+      // файл узнаём по порядку отправки: второй по счёту — «b.pdf».
+      uploads.push(init.body.has('file'));
+      const name = `file-${uploads.length}`;
+      if (failSecond && uploads.length === 2) return reply({ success: false, error: 'Хранилище временно недоступно' }, 503);
+      return reply({ success: true, url: `https://pub.r2.dev/uploads/${name}` });
+    }
+    if (address.includes('/api/admin/media')) return reply({ success: true, files: [], folders: [] });
+    return reply({ success: true });
+  };
+  const view = await mount(mediaModule.AdminMedia, { password: 'x', articles: [] });
+  await settle(6);
+  const button = [...view.container.querySelectorAll('button')].find((node) => node.textContent.includes('Загрузить'));
+  assert.ok(button, 'загрузка — это кнопка, её можно выбрать клавишей Tab');
+  const input = view.container.querySelector('input[type="file"]');
+  assert.equal(input.tabIndex, -1, 'скрытое поле не стоит в цепочке Tab отдельно');
+  let opened = 0;
+  input.click = () => { opened += 1; };
+  await click(button);
+  assert.equal(opened, 1, 'кнопка открывает выбор файлов');
+
+  const files = ['a.pdf', 'b.pdf', 'c.pdf'].map((name) => new window.File([name], name, { type: 'application/pdf' }));
+  Object.defineProperty(input, 'files', { configurable: true, value: files });
+  await act(async () => { input.dispatchEvent(new window.Event('change', { bubbles: true })); });
+  await settle(12);
+  assert.deepEqual(uploads, [true, true, true], 'после сбоя второго третий всё равно отправлен');
+  const alert = view.container.querySelector('[role="alert"]');
+  assert.ok(alert, 'итог показан');
+  assert.match(alert.textContent, /Загружено 2 из 3/);
+  assert.match(alert.textContent, /«b\.pdf» — Хранилище временно недоступно/);
+  const retry = [...alert.querySelectorAll('button')].find((node) => node.textContent.includes('Повторить незагруженные (1)'));
+  assert.ok(retry, 'можно повторить только незагруженный');
+
+  failSecond = false;
+  await click(retry);
+  await settle(12);
+  assert.equal(uploads.length, 4, 'повтор отправил только незагруженный');
+  assert.equal(view.container.querySelector('[role="alert"]'), null, 'ошибка ушла');
+  await view.unmount();
+});
+
+test('DA-133: окно кадрирования забирает фокус и закрывается по Escape', async () => {
+  let closed = 0;
+  const opener = document.createElement('button');
+  document.body.appendChild(opener);
+  opener.focus();
+  const view = await mount(mediaModule.MediaCropperModal, {
+    isOpen: true,
+    file: { key: 'uploads/pic.png', url: 'data:image/png;base64,iVBORw0KGgo=', name: 'pic.png' },
+    onClose() { closed += 1; },
+    async onSave() {},
+  });
+  await wait(40);
+  const dialog = document.querySelector('.admin-cropper-modal');
+  assert.ok(dialog && dialog.contains(document.activeElement), 'фокус внутри окна, а не на странице');
+  await act(async () => { document.dispatchEvent(new window.KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); });
+  assert.equal(closed, 1, 'Escape закрывает окно');
+  await view.unmount();
+  opener.remove();
 });

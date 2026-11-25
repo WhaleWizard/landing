@@ -1,4 +1,5 @@
 import AdminOverlay from './AdminOverlay';
+import { useDialogFocus } from '../hooks/useDialogFocus';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Check, Crop, Download, RefreshCw, X, ZoomIn,
@@ -73,6 +74,17 @@ const PRESETS: PresetConfig[] = [
   },
 ];
 
+/**
+ * Размер результата — один расчёт и для подписи, и для экспорта (DA-132):
+ * у «Оригинала» соотношение берётся из самой картинки, а подпись раньше
+ * считала его как 3:2 и показывала 1200 × 800 для портрета 1200 × 2400.
+ */
+export function cropOutputSize(preset: { ratio: number | null; targetW: number }, natural: { w: number; h: number } | null): { w: number; h: number } | null {
+  const ratio = preset.ratio || (natural && natural.h > 0 ? natural.w / natural.h : null);
+  if (!ratio) return null;
+  return { w: preset.targetW, h: Math.round(preset.targetW / ratio) };
+}
+
 export default function MediaCropperModal({
   file,
   isOpen,
@@ -89,6 +101,12 @@ export default function MediaCropperModal({
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const imageElementRef = useRef<HTMLImageElement | null>(null);
+  // Общий механизм диалогов админки (DA-133): фокус переходит в окно,
+  // Tab не уходит на страницу под ним, Escape закрывает, фокус возвращается
+  // на кнопку, которой окно открыли. Пока файл сохраняется, Escape молчит.
+  const dialogRef = useDialogFocus<HTMLDivElement>(isOpen && Boolean(file), () => {
+    if (!processing) onClose();
+  });
 
   // Сброс параметров при открытии нового файла
   useEffect(() => {
@@ -202,9 +220,11 @@ export default function MediaCropperModal({
     if (!img || !naturalSize || !file) return null;
 
     const currentConfig = PRESETS.find((p) => p.id === selectedPreset) || PRESETS[0];
-    const targetW = currentConfig.targetW;
-    const targetRatio = currentConfig.ratio || (naturalSize.w / naturalSize.h);
-    const targetH = Math.round(targetW / targetRatio);
+    const output = cropOutputSize(currentConfig, naturalSize);
+    if (!output) return null;
+    const targetW = output.w;
+    const targetH = output.h;
+    const targetRatio = targetW / targetH;
 
     // Внеэкранный полноразмерный холст для максимальной четкости
     const offscreenCanvas = document.createElement('canvas');
@@ -310,6 +330,8 @@ export default function MediaCropperModal({
       onClick={onClose}
     >
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="admin-cropper-modal"
         onClick={(e) => e.stopPropagation()}
       >
@@ -363,7 +385,10 @@ export default function MediaCropperModal({
                 Оригинал: <strong>{naturalSize ? `${naturalSize.w} × ${naturalSize.h} px` : '—'}</strong>
               </span>
               <span>
-                Итоговый кроп: <strong>{currentConfig.targetW} × {Math.round(currentConfig.targetW / (currentConfig.ratio || 1.5))} px</strong>
+                Итоговый кроп: <strong>{(() => {
+                  const output = cropOutputSize(currentConfig, naturalSize);
+                  return output ? `${output.w} × ${output.h} px` : '—';
+                })()}</strong>
               </span>
               <span>
                 Формат: <strong>WebP (92%)</strong>
