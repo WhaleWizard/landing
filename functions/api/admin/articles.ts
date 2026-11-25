@@ -425,6 +425,51 @@ function incomingArticleId(article: Article): number {
  * Остальные статьи не трогаются: id не перенумеровываются, отсутствующие
  * слаги не удаляются. Защита опорной статьи действует так же, как в PUT.
  */
+const UPLOAD_KEY_PATTERN = /uploads\/[^\s"'<>()\\]+/g;
+
+/** Ключи файлов медиатеки, на которые ссылается статья: без параметров и якоря. */
+function referencedUploadKeys(article: Article): Set<string> {
+  const text = [article.image, article.content, article.caseData ? JSON.stringify(article.caseData) : ''].filter(Boolean).join('\n');
+  const keys = new Set<string>();
+  for (const match of text.matchAll(UPLOAD_KEY_PATTERN)) {
+    let key = match[0].split(/[?#]/, 1)[0].replace(/[.,;:!?]+$/, '');
+    try { key = decodeURIComponent(key); } catch { /* ссылка не в URL-кодировке */ }
+    keys.add(key);
+  }
+  return keys;
+}
+
+/**
+ * Новые ссылки статьи на файлы медиатеки должны вести на существующие
+ * файлы (DA-77, DA-80): восстановление старой версии с уже удалённой
+ * обложкой или сохранение, проскочившее между проверкой и удалением файла,
+ * раньше записывали ссылку в пустоту. Проверяются только ссылки, которых в
+ * сохранённой статье не было, — старая битая ссылка сохранение не блокирует.
+ */
+async function missingNewUploads(env: Env, incoming: Article, existing: Article | null): Promise<string[]> {
+  if (!env.BUCKET) return [];
+  const before = existing ? referencedUploadKeys(existing) : new Set<string>();
+  const added = [...referencedUploadKeys(incoming)].filter((key) => !before.has(key)).slice(0, 30);
+  const missing: string[] = [];
+  for (const key of added) {
+    if (!(await env.BUCKET.head(key))) missing.push(key);
+  }
+  return missing;
+}
+
+function missingUploadsError(missing: string[]): Response {
+  const names = missing.slice(0, 3).map((key) => `«${key.split('/').pop()}»`).join(', ') + (missing.length > 3 ? ` и ещё ${missing.length - 3}` : '');
+  return json(
+    {
+      success: false,
+      code: 'MEDIA_MISSING',
+      missing,
+      error: `В статье есть ссылки на файлы, которых уже нет в медиатеке: ${names}. Выберите для них другие файлы — текст остался в редакторе.`,
+    },
+    { status: 409, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+  );
+}
+
 function articleConflictError(current: Article): Response {
   return json(
     {
@@ -509,6 +554,10 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
         if (currentSlug) return slugChangeError(currentSlug);
       }
       if (!isProtectedArticleUnchanged(existing ? [existing] : [], [incoming])) return protectedArticleError();
+      if (mode) {
+        const missing = await missingNewUploads(env, incoming, existing);
+        if (missing.length) return missingUploadsError(missing);
+      }
       const article: Article = {
         ...incoming,
         slug,

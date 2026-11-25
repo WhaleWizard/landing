@@ -32,7 +32,7 @@ import {
 } from 'lucide-react';
 import { useArticles } from '../context/ArticlesContext';
 import { HOME_ARTICLES_LIMIT } from '../utils/homeArticles';
-import { appendImageUpload, prepareImageUpload } from '../utils/prepareImageUpload';
+import { appendImageUpload, prepareImageUpload, uploadIdFor } from '../utils/prepareImageUpload';
 import { ARTICLE_CATEGORY_VALUES, sectionForCategory, sectionOfArticle, BLOG_SECTIONS } from '../data/blogSections';
 import { withPlural } from '../utils/plural';
 import { articleImageAttributes } from '../utils/articleImages';
@@ -1696,6 +1696,8 @@ export default function Admin() {
       // Обложка из генератора весит 1–2 МБ PNG: браузер пережимает её в WebP
       // и делает копии под разные экраны, чтобы статья не ждала пересборки.
       appendImageUpload(form, await prepareImageUpload(file));
+      const uploadId = await uploadIdFor(file);
+      if (uploadId) form.append('upload_id', uploadId);
       form.append('password', password);
       const res = await fetch('/api/admin/upload', {
         method: 'POST',

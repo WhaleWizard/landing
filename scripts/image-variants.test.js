@@ -311,3 +311,126 @@ test('медиатека: копии не видны, удаляются и пе
   assert.equal(deleted.status, 200);
   assert.deepEqual([...bucket.objects.keys()], [other.payload.key], 'после удаления остаётся только чужой файл');
 });
+
+// ─── Пакет 3e: медиатека (DA-72…DA-79, DA-81) ───────────────────────────────
+
+/** Окружение с одной общей базой: так тест видит статьи и клиентов, которых сам завёл. */
+function sharedEnv(bucket, sqlite = freshDatabase()) {
+  const DB = new D1Database(sqlite);
+  return { sqlite, env: { ADMIN_PASSWORD: PASSWORD, BUCKET: bucket, R2_PUBLIC_HOST: HOST, DB, USE_D1_ARTICLES: 'true' } };
+}
+
+async function mediaWith(env, body) {
+  const request = new Request('https://example.test/api/admin/media', {
+    method: 'POST',
+    headers: { 'X-Admin-Password': PASSWORD, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const response = await media.onRequestPost({ request, env });
+  return { status: response.status, payload: await response.json() };
+}
+
+test('DA-73: ссылка с ?v=2 или #page=2 держит файл так же, как обычная', async () => {
+  const bucket = new FakeBucket();
+  const { sqlite, env } = sharedEnv(bucket);
+  for (const name of ['guide.pdf', 'checklist.pdf']) {
+    await bucket.put(`uploads/docs/2026-11-01/${name}`, new Uint8Array(4), { httpMetadata: { contentType: 'application/pdf' } });
+  }
+  sqlite.prepare(
+    `INSERT INTO articles (id, slug, title, category, read_time, date, description, content, image, status)
+     VALUES (1, 'docs', 'Статья с документами', 'Блог', '5', '2026', 'Описание', ?, '/og.jpg', 'published')`,
+  ).run(`<p><a href="${HOST}/uploads/docs/2026-11-01/guide.pdf?v=2">Гайд</a> <a href="${HOST}/uploads/docs/2026-11-01/checklist.pdf#page=2">Чек-лист</a></p>`);
+  for (const name of ['guide.pdf', 'checklist.pdf']) {
+    const refused = await mediaWith(env, { action: 'delete', key: `uploads/docs/2026-11-01/${name}` });
+    assert.equal(refused.status, 409, name);
+    assert.ok(bucket.objects.has(`uploads/docs/2026-11-01/${name}`), `${name} остался`);
+  }
+});
+
+test('DA-72: договор клиента и ресурс проекта нельзя удалить или перенести, свободный файл — можно', async () => {
+  const bucket = new FakeBucket();
+  const { sqlite, env } = sharedEnv(bucket);
+  const files = ['contract.pdf', 'report.pdf', 'free.pdf'].map((name) => `uploads/clients/2026-11-01/${name}`);
+  for (const key of files) await bucket.put(key, new Uint8Array(4), { httpMetadata: { contentType: 'application/pdf' } });
+  const clientId = Number(sqlite.prepare("INSERT INTO clients (name, contract_file_url) VALUES ('Клиент', ?)").run(`${HOST}/${files[0]}`).lastInsertRowid);
+  const workId = Number(sqlite.prepare("INSERT INTO client_work (client_id, kind, title) VALUES (?, 'project', 'Проект')").run(clientId).lastInsertRowid);
+  sqlite.prepare("INSERT INTO client_work_resources (work_id, kind, title, url) VALUES (?, 'link', 'Отчёт', ?)").run(workId, `${HOST}/${files[1]}`);
+
+  const contract = await mediaWith(env, { action: 'delete', key: files[0] });
+  assert.equal(contract.status, 409);
+  assert.match(contract.payload.error, /Клиент/);
+  const report = await mediaWith(env, { action: 'move', key: files[1], folder: 'archive' });
+  assert.equal(report.status, 409);
+  assert.match(report.payload.error, /Проект/);
+  assert.equal((await mediaWith(env, { action: 'delete', key: files[2] })).status, 200);
+  assert.ok(bucket.objects.has(files[0]) && bucket.objects.has(files[1]));
+});
+
+test('DA-74: сбой записи оригинала убирает уже записанные копии', async () => {
+  const bucket = new FakeBucket({ failOnPut: 5 });
+  const { status } = await callUpload(bucket, uploadForm({ width: 1536, height: 1024, variants: fullSet(1536) }));
+  assert.equal(status, 500);
+  assert.equal(bucket.objects.size, 0, 'ни одной невидимой копии');
+});
+
+test('DA-81: повтор той же загрузки после потерянного ответа не даёт второй комплект', async () => {
+  const bucket = new FakeBucket();
+  const id = 'a'.repeat(32);
+  const first = await callUpload(bucket, uploadForm({ width: 1536, height: 1024, variants: fullSet(1536), extra: { upload_id: id } }));
+  const again = await callUpload(bucket, uploadForm({ width: 1536, height: 1024, variants: fullSet(1536), extra: { upload_id: id } }));
+  assert.equal(first.status, 200);
+  assert.equal(again.status, 200);
+  assert.equal(again.payload.key, first.payload.key, 'тот же адрес');
+  assert.equal(again.payload.idempotent, true);
+  assert.equal(bucket.objects.size, 5, 'один оригинал и четыре копии');
+  const other = await callUpload(bucket, uploadForm({ width: 1536, height: 1024, variants: fullSet(1536), extra: { upload_id: 'b'.repeat(32) } }));
+  assert.notEqual(other.payload.key, first.payload.key, 'другой файл — отдельная загрузка');
+});
+
+test('DA-75: картинку без полного набора копий не переносят, адрес не меняется', async () => {
+  const bucket = new FakeBucket();
+  const { payload } = await callUpload(bucket, uploadForm({ width: 1536, height: 1024, variants: fullSet(1536) }));
+  const variants = server.variantKeysFor(payload.key);
+  await bucket.delete([variants[1], variants[2]]);
+  const moved = await callMedia(bucket, { action: 'move', key: payload.key, folder: 'covers' });
+  assert.equal(moved.status, 409);
+  assert.match(moved.payload.error, /копий/);
+  assert.ok(bucket.objects.has(payload.key), 'оригинал на месте');
+  assert.ok(![...bucket.objects.keys()].some((key) => key.startsWith('uploads/covers/')), 'в новой папке ничего не появилось');
+});
+
+test('DA-79: сбой посреди переноса откатывает записанное, повтор проходит', async () => {
+  const bucket = new FakeBucket();
+  const { payload } = await callUpload(bucket, uploadForm({ width: 1536, height: 1024, variants: fullSet(1536) }));
+  bucket.failOnPut = bucket.puts + 2;
+  const failed = await callMedia(bucket, { action: 'move', keys: [payload.key], folder: 'covers' });
+  assert.equal(failed.payload.failed.length, 1);
+  assert.ok(![...bucket.objects.keys()].some((key) => key.startsWith('uploads/covers/')), 'скрытых копий в новой папке нет');
+  bucket.failOnPut = 0;
+  const retried = await callMedia(bucket, { action: 'move', keys: [payload.key], folder: 'covers' });
+  assert.equal(retried.payload.moved.length, 1, JSON.stringify(retried.payload));
+});
+
+test('DA-76: подпись к уже перенесённому файлу не сохраняется по старому адресу', async () => {
+  const bucket = new FakeBucket();
+  const { sqlite, env } = sharedEnv(bucket);
+  const { payload } = await callUpload(bucket, uploadForm({ name: 'photo.webp' }));
+  const moved = await mediaWith(env, { action: 'move', key: payload.key, folder: 'covers' });
+  assert.equal(moved.status, 200);
+  const stale = await mediaWith(env, { action: 'set_alt', key: payload.key, alt: 'Старая вкладка' });
+  assert.equal(stale.status, 409);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM media_alt').get().n, 0);
+  assert.equal((await mediaWith(env, { action: 'set_alt', key: moved.payload.key, alt: 'Подпись' })).status, 200);
+});
+
+test('DA-78: папку, в которую идёт загрузка, удалить нельзя', async () => {
+  const bucket = new FakeBucket();
+  await callMedia(bucket, { action: 'create_folder', name: 'uploading' });
+  // Копии уже записаны, оригинала ещё нет — загрузка в процессе.
+  const key = 'uploads/uploading/2026-11-01/1-photo--1536x1024.webp';
+  for (const variant of server.variantKeysFor(key)) await bucket.put(variant, webp(8), { customMetadata: { variantOf: key } });
+  const refused = await callMedia(bucket, { action: 'delete_folder', name: 'uploading' });
+  assert.equal(refused.status, 409);
+  assert.match(refused.payload.error, /загружается/);
+  assert.equal([...bucket.objects.keys()].filter((item) => item.startsWith('uploads/uploading/')).length, 5, 'метка и копии на месте');
+});

@@ -149,6 +149,21 @@ export function formatBytes(bytes: number): string {
   return `${bytes} Б`;
 }
 
+/**
+ * Номер загрузки — отпечаток содержимого выбранного файла (DA-81). Сервер
+ * строит из него ключ: повтор того же файла после потерянного ответа
+ * возвращает уже записанный объект, а не кладёт вторую копию. Пустая строка
+ * (нет WebCrypto) — сервер просто сделает случайный ключ, как раньше.
+ */
+export async function uploadIdFor(file: Blob): Promise<string> {
+  try {
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('').slice(0, 32);
+  } catch {
+    return '';
+  }
+}
+
 /** Поля формы для `/api/admin/upload`: оригинал, его размеры и копии. */
 export function appendImageUpload(form: FormData, prepared: PreparedImageUpload): void {
   form.append('file', prepared.file);

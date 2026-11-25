@@ -775,3 +775,38 @@ test('FX-03: у запланированной статьи правка из с
   const tabB = await patch(sqlite, { mode: 'update', expected_updated_at: opened.updatedAt, article: { ...opened, description: 'Правка B' } });
   assert.equal(tabB.status, 409);
 });
+
+test('DA-77, DA-80: новая ссылка на удалённый файл медиатеки не сохраняется; старая битая ссылка правку не блокирует', async () => {
+  const sqlite = freshDatabase();
+  const stored = new Set(['uploads/covers/2026-11-01/live.webp']);
+  const bucket = { head: async (key) => (stored.has(key) ? { key } : null) };
+  const env = { ...makeEnv(sqlite), BUCKET: bucket };
+  const call = async (body) => {
+    const response = await endpoint.onRequestPatch({
+      request: new Request('https://example.test/api/admin/articles', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': PASSWORD },
+        body: JSON.stringify(body),
+      }),
+      env,
+      waitUntil: () => {},
+    });
+    return { status: response.status, payload: await response.json() };
+  };
+  const host = 'https://pub-test.r2.dev';
+  const created = await call({ mode: 'create', article: article({ slug: 'cover-check', image: `${host}/uploads/covers/2026-11-01/live.webp` }) });
+  assert.equal(created.status, 200, JSON.stringify(created.payload));
+
+  // Восстановление версии со старой, уже удалённой обложкой.
+  const restored = await call({ mode: 'update', expected_updated_at: created.payload.article.updatedAt,
+    article: { ...created.payload.article, image: `${host}/uploads/covers/2026-10-01/deleted.webp?v=1` } });
+  assert.equal(restored.status, 409);
+  assert.equal(restored.payload.code, 'MEDIA_MISSING');
+  assert.match(restored.payload.error, /deleted\.webp/);
+
+  // Файл обложки исчез уже после сохранения — правка текста всё равно проходит.
+  stored.clear();
+  const edited = await call({ mode: 'update', expected_updated_at: created.payload.article.updatedAt,
+    article: { ...created.payload.article, title: 'Правка без замены обложки' } });
+  assert.equal(edited.status, 200, JSON.stringify(edited.payload));
+});

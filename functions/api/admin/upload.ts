@@ -205,10 +205,24 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const storedName = plan
       ? safeName.replace(/(\.[a-z0-9]+)$/i, `${dimensionSuffix(plan.width, plan.height)}$1`)
       : safeName;
-    const key = `${UPLOADS_PREFIX}${folder ? `${folder}/` : ''}${new Date().toISOString().slice(0, 10)}/${Date.now()}-${crypto.randomUUID()}-${storedName}`;
+    // Номер загрузки — отпечаток содержимого из браузера (DA-81). С ним ключ
+    // одинаков для повтора того же файла: потерянный ответ и повторная
+    // отправка больше не дают два оригинала и двойной набор копий. Без номера
+    // (старые вкладки) ключ, как раньше, случайный.
+    const uploadIdRaw = String(formData.get('upload_id') || '').toLowerCase();
+    const uploadId = /^[a-f0-9]{32,64}$/.test(uploadIdRaw) ? uploadIdRaw.slice(0, 32) : '';
+    const key = `${UPLOADS_PREFIX}${folder ? `${folder}/` : ''}${new Date().toISOString().slice(0, 10)}/${uploadId || `${Date.now()}-${crypto.randomUUID()}`}-${storedName}`;
     const contentType = String(file.type || 'application/octet-stream').toLowerCase();
     const isImage = contentType.startsWith('image/');
     const immutable = 'public, max-age=31536000, immutable';
+
+    const variantWidths = plan ? plan.files.map((item) => item.width) : [];
+    const success = (extra: Record<string, unknown> = {}) => json(
+      { success: true, url: publicUploadUrl(getPublicHost(env), key), key, contentType, size: file.size, variants: variantWidths, ...extra },
+      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+    );
+    // Тот же файл уже загружен под этим номером — это повтор, а не новый файл.
+    if (uploadId && await env.BUCKET.head(key)) return success({ idempotent: true });
 
     // Сначала копии, оригинал последним: ссылка уходит в статью, только когда
     // на месте всё, на что она укажет. Сбой посередине убирает записанное.
@@ -230,23 +244,30 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
     }
 
-    await env.BUCKET.put(key, file.stream(), {
-      httpMetadata: {
-        contentType,
-        cacheControl: immutable,
-        contentDisposition: isImage ? 'inline' : `attachment; filename="${safeName}"`,
-      },
-      customMetadata: {
-        originalName: safeName,
-        uploadedBy: 'admin',
-      },
-    });
-
-    const publicUrl = publicUploadUrl(getPublicHost(env), key);
-    return json(
-      { success: true, url: publicUrl, key, contentType, size: file.size, variants: plan ? plan.files.map((item) => item.width) : [] },
-      { headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
-    );
+    // Сбой записи оригинала тоже убирает уже записанные копии (DA-74):
+    // иначе в хранилище оставались невидимые в медиатеке файлы.
+    let original: unknown;
+    try {
+      original = await env.BUCKET.put(key, file.stream(), {
+        httpMetadata: {
+          contentType,
+          cacheControl: immutable,
+          contentDisposition: isImage ? 'inline' : `attachment; filename="${safeName}"`,
+        },
+        customMetadata: {
+          originalName: safeName,
+          uploadedBy: 'admin',
+        },
+        ...(uploadId ? { onlyIf: new Headers({ 'If-None-Match': '*' }) } : {}),
+      });
+    } catch (error) {
+      for (const target of writtenVariants) await env.BUCKET.delete(target).catch(() => undefined);
+      throw error;
+    }
+    // Параллельный повтор того же файла успел записать оригинал первым:
+    // копии у обоих одинаковые, результат тот же.
+    if (original === null) return success({ idempotent: true });
+    return success();
   } catch (error) {
     // Внутренняя причина уходит в лог, а не в ответ: текст исключения парсера
     // рассказывал вызывающей стороне об устройстве обработчика.

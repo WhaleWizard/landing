@@ -92,24 +92,34 @@ export default function MediaCropperModal({
 
   // Сброс параметров при открытии нового файла
   useEffect(() => {
-    if (isOpen && file) {
-      setZoom(1.0);
-      setOffsetX(50);
-      setOffsetY(50);
-      setImageError(false);
-      setNaturalSize(null);
+    if (!isOpen || !file) return undefined;
+    setZoom(1.0);
+    setOffsetX(50);
+    setOffsetY(50);
+    setImageError(false);
+    setNaturalSize(null);
+    // Картинка предыдущего файла больше не годится ни для превью, ни для
+    // экспорта: поздний ответ прошлой загрузки подменял пиксели холста, и
+    // в файл с именем нового уходило старое изображение (DA-131).
+    imageElementRef.current = null;
 
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
-        imageElementRef.current = img;
-      };
-      img.onerror = () => {
-        setImageError(true);
-      };
-      img.src = file.url;
-    }
+    let current = true;
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      if (!current) return;
+      setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
+      imageElementRef.current = img;
+    };
+    img.onerror = () => {
+      if (current) setImageError(true);
+    };
+    img.src = file.url;
+    return () => {
+      current = false;
+      img.onload = null;
+      img.onerror = null;
+    };
   }, [isOpen, file]);
 
   // Перерисовка превью на Canvas при изменении параметров

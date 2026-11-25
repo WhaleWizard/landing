@@ -9,7 +9,7 @@ import type { Article } from '../hooks/useArticlesApi';
 import { confirmAsk, notify } from './AdminFeedback';
 import { promptAsk } from './AdminPrompt';
 import { AdminBlank, AdminSectionSkeleton } from './AdminFeedback';
-import { appendImageUpload, formatBytes, prepareImageUpload } from '../../utils/prepareImageUpload';
+import { appendImageUpload, formatBytes, prepareImageUpload, uploadIdFor } from '../../utils/prepareImageUpload';
 import { withPlural } from '../../utils/plural';
 import { useDialogFocus, useDialogScrollLock } from '../hooks/useDialogFocus';
 import MediaCropperModal from './MediaCropperModal';
@@ -279,6 +279,10 @@ export default function AdminMedia({ password, articles, target }: { password: s
     try {
       const { response, payload } = await sendMediaAction(password, body);
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
+      // Действие выполнено, но с оговоркой — например, удалённый файл успели
+      // добавить в статью из соседней вкладки (DA-77).
+      const warning = (payload as { warning?: unknown }).warning;
+      if (typeof warning === 'string' && warning) notify.error('Проверьте публикацию', warning);
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Действие не выполнено');
@@ -321,9 +325,14 @@ export default function AdminMedia({ password, articles, target }: { password: s
     }
     if (!targets.length) return;
     const label = targets.length === 1 ? `«${targets[0].name}»` : withPlural(targets.length, ['файл', 'файла', 'файлов']);
+    // Окно называет файлы и предупреждает о скрытых фильтром (DA-129):
+    // раньше поиск оставлял на экране один файл, а удалялись все отмеченные.
+    const visibleKeys = new Set(visibleFiles.map((file) => file.key));
+    const hidden = targets.filter((file) => !visibleKeys.has(file.key));
+    const names = targets.slice(0, 8).map((file) => `«${file.name}»`).join(', ') + (targets.length > 8 ? ` и ещё ${targets.length - 8}` : '');
     const confirmed = await confirmAsk({
       title: `Удалить ${label}?`,
-      description: 'Файлы исчезнут из хранилища без возможности восстановления.',
+      description: `${targets.length > 1 ? `Будут удалены: ${names}. ` : ''}${hidden.length ? `${withPlural(hidden.length, ['файл', 'файла', 'файлов'])} из выбранных сейчас скрыто поиском или фильтром — ${hidden.length === 1 ? 'он тоже будет удалён' : 'они тоже будут удалены'}. ` : ''}Файлы исчезнут из хранилища без возможности восстановления.`,
       confirmLabel: 'Удалить',
       tone: 'danger',
     });
@@ -479,6 +488,8 @@ export default function AdminMedia({ password, articles, target }: { password: s
         saved += prepared.savedBytes;
         const form = new FormData();
         appendImageUpload(form, prepared);
+        const uploadId = await uploadIdFor(original);
+        if (uploadId) form.append('upload_id', uploadId);
         form.append('password', password);
         if (activeFolder) form.append('folder', activeFolder);
         const res = await fetch('/api/admin/upload', {

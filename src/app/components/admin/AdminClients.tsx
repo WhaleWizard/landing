@@ -12,6 +12,7 @@ import { CountUpValue } from './AttributionCharts';
 import CaseBuilderDialog from './CaseBuilderDialog';
 import type { CaseDataDraft } from './caseFromClient';
 import ClientLaunchpad from './ClientLaunchpad';
+import { uploadIdFor } from '../../utils/prepareImageUpload';
 
 /**
  * Клиенты — то, что начинается после выигранной сделки.
@@ -259,6 +260,8 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
     try {
       const form = new FormData();
       form.append('file', file);
+      const uploadId = await uploadIdFor(file);
+      if (uploadId) form.append('upload_id', uploadId);
       const response = await fetch('/api/admin/upload', {
         method: 'POST',
         headers: { 'X-Admin-Password': password },

@@ -144,6 +144,35 @@ async function readSiteSectionUsageRows(db: D1Database): Promise<Array<{ section
 }
 
 /**
+ * Файлы из карточек клиентов и проектов (DA-72): договор, отчёты по месяцам,
+ * ресурсы проекта. Загружаются в ту же медиатеку, и раньше удаление или
+ * перенос такого файла проходили, а карточка оставалась со ссылкой в пустоту.
+ * Таблицы появляются с миграциями 0032 и 0044 — до них источника просто нет.
+ */
+async function readWorkspaceUsageRows(db: D1Database): Promise<UsageSource[]> {
+  // Одним запросом: проверка использования стоит в бюджете обращений
+  // переноса (`MOVE_BUDGET`). До миграции 0044 проектов нет — тогда только
+  // клиенты и их месяцы (0032), а до неё источника нет вовсе.
+  const clientParts = [
+    "SELECT 'Клиент: ' || name AS title, contract_file_url AS url FROM clients WHERE contract_file_url != ''",
+    "SELECT 'Отчёт клиента ' || c.name || ' за ' || m.month, m.report_url FROM client_months m JOIN clients c ON c.id = m.client_id WHERE m.report_url != ''",
+  ];
+  const workParts = [
+    "SELECT 'Проект: ' || w.title, r.url FROM client_work_resources r JOIN client_work w ON w.id = r.work_id WHERE r.url != ''",
+    "SELECT 'Отчёт проекта ' || w.title || ' за ' || m.month, m.report_url FROM client_work_months m JOIN client_work w ON w.id = m.work_id WHERE m.report_url != ''",
+  ];
+  for (const parts of [[...clientParts, ...workParts], clientParts]) {
+    try {
+      const rows = await db.prepare(parts.join(' UNION ALL ')).all<{ title: string; url: string }>();
+      return (rows.results || []).map((row) => ({ title: String(row.title), haystack: String(row.url || '') }));
+    } catch (error) {
+      if (!/no such (table|column)/i.test(error instanceof Error ? error.message : String(error))) throw error;
+    }
+  }
+  return [];
+}
+
+/**
  * Публикации и разделы сайта для проверки использования. `null` — проверить не удалось:
  * база данных недоступна или запрос упал. Это не «ничего не используется».
  */
@@ -151,9 +180,10 @@ async function readUsageSources(env: Env, request: Request): Promise<UsageSource
   try {
     if (shouldUseD1Articles(env)) {
       if (!env.DB) return null;
-      const [articleRows, siteSectionRows] = await Promise.all([
+      const [articleRows, siteSectionRows, workspaceSources] = await Promise.all([
         readArticleUsageRows(env.DB),
         readSiteSectionUsageRows(env.DB),
+        readWorkspaceUsageRows(env.DB),
       ]);
       const articleSources: UsageSource[] = articleRows.map((row) => ({
         title: String(row.title || row.slug || ''),
@@ -163,7 +193,7 @@ async function readUsageSources(env: Env, request: Request): Promise<UsageSource
         title: `Раздел сайта: ${row.label || row.page_path || row.section_key}`,
         haystack: [row.draft_json, row.published_json].filter(Boolean).join('\n'),
       }));
-      return [...articleSources, ...siteSources];
+      return [...articleSources, ...siteSources, ...workspaceSources];
     }
     // Статьи живут в JSONBin: читаем тем же путём, что публичный сайт. Пустой
     // список здесь означает, что ни один источник не ответил (JSONBin пустой
@@ -181,6 +211,7 @@ async function readUsageSources(env: Env, request: Request): Promise<UsageSource
         title: `Раздел сайта: ${row.label || row.page_path || row.section_key}`,
         haystack: [row.draft_json, row.published_json].filter(Boolean).join('\n'),
       }));
+      siteSources.push(...await readWorkspaceUsageRows(env.DB));
     }
     return [...articleSources, ...siteSources];
   } catch (error) {
@@ -191,7 +222,11 @@ async function readUsageSources(env: Env, request: Request): Promise<UsageSource
 
 /** Варианты записи одной ссылки: как есть, раскодированная, без хвостовой пунктуации из текста. */
 function referenceKeys(token: string): string[] {
-  const keys = new Set<string>([token]);
+  // `guide.pdf?v=2` и `checklist.pdf#page=2` указывают на тот же объект
+  // (DA-73): раньше ключ сравнивался вместе с хвостом, и файл считался
+  // свободным.
+  const path = token.split(/[?#]/, 1)[0];
+  const keys = new Set<string>([token, path]);
   try { keys.add(decodeURIComponent(token)); } catch { /* ссылка не в URL-кодировке */ }
   for (const key of [...keys]) {
     const trimmed = key.replace(/[.,;:!?]+$/, '');
@@ -293,35 +328,58 @@ async function moveUpload(env: Env, bucket: R2Bucket, key: string, folder: strin
   const writtenVariants: string[] = [];
   const onlyIfMissing = new Headers({ 'If-None-Match': '*' });
   const conflict: MoveOutcome = { ok: false, error: 'В папке назначения уже есть файл или его копия с таким именем', status: 409 };
-  for (const pair of variantMoves) {
-    const variant = await bucket.get(pair.from);
-    if (!variant) continue;
-    const copy = await bucket.put(pair.to, variant.body, { onlyIf: onlyIfMissing,
-      httpMetadata: variant.httpMetadata, customMetadata: { ...variant.customMetadata, variantOf: target } });
+  const rollback = async () => {
+    for (const written of writtenVariants) await bucket.delete(written).catch(() => undefined);
+  };
+  // Исключение хранилища посреди переноса тоже откатывает записанное
+  // (DA-79): иначе скрытая копия в новой папке блокировала повтор.
+  try {
+    for (const pair of variantMoves) {
+      const variant = await bucket.get(pair.from);
+      // Имя оригинала обещает браузеру все ширины. Перенос с неполным
+      // набором копий выдал бы на новом адресе пустые места вместо картинки
+      // (DA-75): записанное откатывается, файл остаётся на месте.
+      if (!variant) {
+        await rollback();
+        return { ok: false, error: 'У картинки не хватает уменьшенных копий — загрузите её заново, затем переносите', status: 409 };
+      }
+      const copy = await bucket.put(pair.to, variant.body, { onlyIf: onlyIfMissing,
+        httpMetadata: variant.httpMetadata, customMetadata: { ...variant.customMetadata, variantOf: target } });
+      if (copy === null) {
+        // Копия от прошлой прерванной попытки этого же переноса — своя, а не
+        // чужой файл: её можно оставить и идти дальше.
+        const existing = await bucket.head(pair.to);
+        if (existing?.customMetadata?.variantOf === target && existing.size === variant.size) {
+          writtenVariants.push(pair.to);
+          continue;
+        }
+        await rollback();
+        return conflict;
+      }
+      if (!(await bucket.head(pair.to))) {
+        await rollback();
+        return { ok: false, error: 'Копия картинки не перенеслась, файл оставлен на месте', status: 500 };
+      }
+      writtenVariants.push(pair.to);
+    }
+
+    const copy = await bucket.put(target, source.body, {
+      onlyIf: onlyIfMissing,
+      httpMetadata: source.httpMetadata,
+      customMetadata: source.customMetadata,
+    });
     if (copy === null) {
-      for (const written of writtenVariants) await bucket.delete(written);
+      await rollback();
       return conflict;
     }
-    if (!(await bucket.head(pair.to))) {
-      for (const written of writtenVariants) await bucket.delete(written);
-      return { ok: false, error: 'Копия картинки не перенеслась, файл оставлен на месте', status: 500 };
+    const written = await bucket.head(target);
+    if (!written) {
+      await rollback();
+      return { ok: false, error: 'Копия не создалась, файл оставлен на месте', status: 500 };
     }
-    writtenVariants.push(pair.to);
-  }
-
-  const copy = await bucket.put(target, source.body, {
-    onlyIf: onlyIfMissing,
-    httpMetadata: source.httpMetadata,
-    customMetadata: source.customMetadata,
-  });
-  if (copy === null) {
-    for (const variant of writtenVariants) await bucket.delete(variant);
-    return conflict;
-  }
-  const written = await bucket.head(target);
-  if (!written) {
-    for (const variant of writtenVariants) await bucket.delete(variant);
-    return { ok: false, error: 'Копия не создалась, файл оставлен на месте', status: 500 };
+  } catch (error) {
+    await rollback();
+    throw error;
   }
   await bucket.delete(key);
   for (const pair of variantMoves) await bucket.delete(pair.from);
@@ -467,12 +525,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (refused) return refused;
       // Оригиналы и их варианты укладываются в один вызов R2.
       await bucket.delete(keys.flatMap((key) => [key, ...variantKeysFor(key)]));
+      // Ссылка могла появиться между проверкой и удалением — например, в
+      // соседней вкладке сохранили статью с этой обложкой (DA-77). Хранилище
+      // и база не дают общей транзакции, поэтому после удаления проверяем ещё
+      // раз и честно говорим, где теперь пустое место. Сохранение статьи со
+      // ссылкой на уже удалённый файл сервер отклоняет сам.
+      const after = await readUsageSources(env, request);
+      const lateUsage = after ? keys.flatMap((key) => usageFor(buildUsageIndex(after), key)) : [];
       // Подпись без файла не нужна, но её потеря не должна ронять удаление.
       if (env.DB) {
         try {
           await env.DB.prepare('DELETE FROM media_alt WHERE object_key IN (SELECT value FROM json_each(?))')
             .bind(JSON.stringify(keys)).run();
         } catch { /* таблицы может не быть — это не мешает удалить файл */ }
+      }
+      if (lateUsage.length) {
+        const titles = [...new Set(lateUsage)];
+        return json({
+          success: true,
+          deleted: keys.length,
+          warning: `Пока файл удалялся, его добавили: ${titles.slice(0, 3).map((title) => `«${title}»`).join(', ')}. Замените там картинку.`,
+          usage: titles,
+        }, { headers: noStore });
       }
       return json({ success: true, deleted: keys.length }, { headers: noStore });
     }
@@ -486,6 +560,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         return json({ success: false, error: 'База D1 не подключена' }, { status: 503, headers: noStore });
       }
       const alt = cleanAlt(body.alt);
+      // Старая вкладка после переноса или удаления файла сохраняла подпись по
+      // несуществующему ключу (DA-76): подпись повисала отдельно, а у самого
+      // файла оставалась прежняя.
+      if (alt && !(await bucket.head(key))) {
+        return json({ success: false, code: 'MEDIA_MOVED', error: 'Файл перенесли или удалили. Обновите медиатеку и сохраните подпись заново.' }, { status: 409, headers: noStore });
+      }
       try {
         if (alt) {
           await env.DB
@@ -533,12 +613,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!folder) return json({ success: false, error: 'Некорректное имя папки' }, { status: 400, headers: noStore });
       const listing = await bucket.list({ prefix: `${UPLOADS_PREFIX}${folder}/`, limit: 20 });
       const files = listing.objects.filter((object) => !isFolderMarker(object.key) && !isImageVariantKey(object.key));
-      if (files.length > 0 || listing.truncated) {
+      // Уменьшенные копии без оригинала — это загрузка, которая идёт прямо
+      // сейчас (копии пишутся первыми), или след прерванной. Удаление папки
+      // их уносило, и загрузка выдавала адрес картинки без копий (DA-78).
+      const variants = listing.objects.filter((object) => isImageVariantKey(object.key));
+      if (files.length > 0 || variants.length > 0 || listing.truncated) {
         return json({
           success: false,
           error: files.length
             ? 'Папка не пуста. Сначала перенесите или удалите файлы из неё.'
-            : 'Не удалось проверить, что папка пуста.',
+            : variants.length
+              ? 'В папку сейчас загружается картинка или осталась прерванная загрузка. Подождите минуту и обновите медиатеку.'
+              : 'Не удалось проверить, что папка пуста.',
         }, { status: 409, headers: noStore });
       }
       for (const object of listing.objects) await bucket.delete(object.key);
