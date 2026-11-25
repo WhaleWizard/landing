@@ -96,7 +96,9 @@ export default function TodayPlan({
       await enqueueSave(queue, async () => {
         const saved = await editPlannerWeek(password, weekStart, (week) => {
           const tasks = applyPlanTaskOp(week.days[dayIndex].tasks, op);
-          if (tasks.length > MAX_TASKS) throw new Error(`В плане уже ${MAX_TASKS} задач — новая не поместится`);
+          // Предел — только на добавление (DA-85): в планере в дне бывает до
+          // тридцати дел, и отметить или удалить четырнадцатое нельзя было.
+          if (op.type === 'add' && tasks.length > MAX_TASKS) throw new Error(`В плане уже ${MAX_TASKS} задач — новая не поместится`);
           week.days[dayIndex] = { ...week.days[dayIndex], tasks };
           return week;
         });

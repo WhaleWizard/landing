@@ -271,11 +271,18 @@ export default function AdminToday({
   const headline = useMemo(() => {
     if (!data?.success) return 'Рабочая сводка появится, когда подключится база.';
     const critical = items.filter((item) => item.level === 'critical').length;
-    const urgent = focus.filter((item) => item.kind === 'lead_overdue' || item.kind === 'task_overdue').length;
+    const shown = focus.filter((item) => item.kind === 'lead_overdue' || item.kind === 'task_overdue').length;
+    // Список фокуса ограничен (до 5 шагов и 10 задач), а заголовок говорит о
+    // всех срочных делах (DA-95): полное число берётся из сводки сервера.
+    const totalUrgent = (data.summary?.overdueActions ?? 0) + (data.summary?.tasksOverdue ?? 0);
+    const urgent = Math.max(shown, totalUrgent);
     if (urgent > 0) {
       // Местоимение согласуется по тому же правилу, что и глагол: у «21 дело»
       // оно единственного числа, а не «начни с них».
-      return `${plural(urgent, ['Горит', 'Горят', 'Горят'])} ${urgent} ${plural(urgent, ['дело', 'дела', 'дел'])} — начни с ${plural(urgent, ['него', 'них', 'них'])}.`;
+      const head = `${plural(urgent, ['Горит', 'Горят', 'Горят'])} ${urgent} ${plural(urgent, ['дело', 'дела', 'дел'])}`;
+      return shown < urgent
+        ? `${head} — в списке первые ${shown}, начни с них.`
+        : `${head} — начни с ${plural(urgent, ['него', 'них', 'них'])}.`;
     }
     if (critical > 0) {
       return `${critical} ${plural(critical, ['блок требует', 'блока требуют', 'блоков требуют'])} решения.`;
@@ -284,7 +291,7 @@ export default function AdminToday({
       return `Срочного нет, в работе ${focus.length} ${plural(focus.length, ['дело', 'дела', 'дел'])}.`;
     }
     return 'Сводка сайта и ближайшие рабочие задачи.';
-  }, [data?.success, focus, items]);
+  }, [data?.success, data?.summary, focus, items]);
 
   const plannerProgress = data?.planner && data.planner.total > 0
     ? Math.round((data.planner.done / data.planner.total) * 100)

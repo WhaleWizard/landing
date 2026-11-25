@@ -116,7 +116,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, error: 'Слишком большой объём данных' }, { status: 413, headers: noStore });
   }
 
-  let body: { password?: string; template?: unknown; clear?: boolean };
+  let body: { password?: string; template?: unknown; clear?: boolean; expectedUpdatedAt?: string | null };
   try {
     body = raw.text ? JSON.parse(raw.text) : {};
   } catch {
@@ -135,9 +135,50 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const template = normalizeTemplate(body.template);
   const shouldClear = Boolean(body.clear) || isEmptyTemplate(template);
-  const updatedAt = new Date().toISOString();
+  const expected = body.expectedUpdatedAt;
+  if (expected !== undefined && expected !== null && (typeof expected !== 'string' || !expected || expected.length > 40)) {
+    return json({ success: false, error: 'Некорректная версия шаблона' }, { status: 400, headers: noStore });
+  }
+  // Версия строго растёт: две записи в одну миллисекунду иначе дали бы одну
+  // версию, и старая вкладка прошла бы проверку.
+  const previousTime = typeof expected === 'string' ? Date.parse(expected) : NaN;
+  const nextTime = Number.isFinite(previousTime) && previousTime < 8.64e15 ? previousTime + 1 : 0;
+  const updatedAt = new Date(Math.max(Date.now(), nextTime)).toISOString();
+  const conflict = () => json({
+    success: false,
+    code: 'TEMPLATE_CONFLICT',
+    error: 'Шаблон уже изменили в другой вкладке. Обновите страницу и повторите.',
+  }, { status: 409, headers: noStore });
 
   try {
+    // Форма присылает версию, которую видела (DA-82): null — шаблона не было.
+    // Без поля — прежняя запись поверх, для уже открытых старых вкладок.
+    if (expected !== undefined) {
+      const dataJson = JSON.stringify(template);
+      const current = await env.DB.prepare('SELECT data_json, updated_at FROM planner_template WHERE id = 1')
+        .first<{ data_json: string; updated_at: string }>();
+      if (shouldClear) {
+        if (!current) return json({ success: true, template: null, updatedAt: null }, { headers: noStore });
+        if (expected === null) return conflict();
+        const result = await env.DB.prepare('DELETE FROM planner_template WHERE id = 1 AND updated_at = ?').bind(expected).run();
+        if (!result.meta?.changes) return conflict();
+        return json({ success: true, template: null, updatedAt: null }, { headers: noStore });
+      }
+      const result = expected === null
+        ? await env.DB.prepare('INSERT INTO planner_template (id, data_json, updated_at) VALUES (1, ?, ?) ON CONFLICT(id) DO NOTHING').bind(dataJson, updatedAt).run()
+        : await env.DB.prepare('UPDATE planner_template SET data_json = ?, updated_at = ? WHERE id = 1 AND updated_at = ?').bind(dataJson, updatedAt, expected).run();
+      if (!result.meta?.changes) {
+        // Повтор после потерянного ответа: в базе ровно эти данные.
+        const stored = await env.DB.prepare('SELECT data_json, updated_at FROM planner_template WHERE id = 1')
+          .first<{ data_json: string; updated_at: string }>();
+        if (stored && stored.data_json === dataJson) {
+          return json({ success: true, template, updatedAt: stored.updated_at, replay: true }, { headers: noStore });
+        }
+        return conflict();
+      }
+      return json({ success: true, template, updatedAt }, { headers: noStore });
+    }
+
     if (shouldClear) {
       await env.DB.prepare('DELETE FROM planner_template WHERE id = 1').run();
       return json({ success: true, template: null, updatedAt: null }, { headers: noStore });

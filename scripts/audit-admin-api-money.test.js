@@ -2312,3 +2312,170 @@ test('DA-12: цель из устаревшей вкладки не перекр
   assert.equal(goals.sqlite.prepare('SELECT spend_cap FROM admin_goals').get().spend_cap, 0, 'ничего не записано');
   goals.sqlite.close();
 });
+
+// ─── Пакет 4d: планер, уведомления, «Сегодня» ───────────────────────────────
+
+const habitWeek = (name) => ({ goals: [], habits: [{ id: 'h1', name, days: [true, false, false, false, false, false, false] }], days: [] });
+
+test('DA-83: несуществующая дата недели — ошибка, а не соседний месяц', async (t) => {
+  t.after(installMemoryCache());
+  const planner = await harness('functions/api/admin/planner.ts');
+  assert.equal((await planner.get({ week: '2026-02-31' })).status, 400);
+  assert.equal((await planner.get({ week: '2027-02-29' })).status, 400, 'невисокосный год');
+  const leap = await planner.get({ week: '2028-02-29' });
+  assert.equal(leap.status, 200);
+  assert.equal(leap.payload.week, '2028-02-28', 'существующая дата приводится к понедельнику');
+  const write = await planner.post({ week: '2026-02-31', data: habitWeek('Спорт'), expectedUpdatedAt: null });
+  assert.equal(write.status, 400);
+  assert.equal(planner.sqlite.prepare('SELECT count(*) AS n FROM planner_weeks').get().n, 0, 'ничего не записано в март');
+  planner.sqlite.close();
+});
+
+test('DA-86: удалённая последняя привычка не возвращается после обновления страницы', async (t) => {
+  t.after(installMemoryCache());
+  const planner = await harness('functions/api/admin/planner.ts');
+  const saved = await planner.post({ week: '2026-11-02', data: habitWeek('Спорт'), expectedUpdatedAt: null });
+  assert.equal(saved.status, 200, JSON.stringify(saved.payload));
+  const next = await planner.get({ week: '2026-11-09' });
+  assert.deepEqual(next.payload.data.habits.map((habit) => habit.name), ['Спорт'], 'новая неделя получает привычки прошлой');
+  // Владелец удалил последнюю привычку в ещё не сохранённой неделе.
+  const cleared = await planner.post({ week: '2026-11-09', data: { goals: [], habits: [], days: [] }, expectedUpdatedAt: null });
+  assert.equal(cleared.status, 200, JSON.stringify(cleared.payload));
+  assert.ok(cleared.payload.updatedAt, 'пустая неделя сохранена с версией');
+  const reread = await planner.get({ week: '2026-11-09' });
+  assert.deepEqual(reread.payload.data.habits, [], 'после обновления привычка не вернулась');
+  assert.equal(reread.payload.updatedAt, cleared.payload.updatedAt);
+  // Пустая неделя, которую нечем заполнить, по-прежнему не копится в базе.
+  const lonely = await planner.post({ week: '2025-01-06', data: { goals: [], habits: [], days: [] }, expectedUpdatedAt: null });
+  assert.equal(lonely.payload.updatedAt, null);
+  assert.equal(planner.sqlite.prepare("SELECT count(*) AS n FROM planner_weeks WHERE week_start = '2025-01-06'").get().n, 0);
+  planner.sqlite.close();
+});
+
+test('DA-82: шаблон недели из старой вкладки не перезаписывает и не удаляет свежий', async (t) => {
+  t.after(installMemoryCache());
+  const template = await harness('functions/api/admin/planner-template.ts');
+  const first = await template.post({ template: { goals: ['Отчёт'], days: [] }, expectedUpdatedAt: null });
+  assert.equal(first.status, 200, JSON.stringify(first.payload));
+  const base = first.payload.updatedAt;
+  assert.equal((await template.post({ template: { goals: ['Другое'], days: [] }, expectedUpdatedAt: null })).status, 409, 'второй «первый» шаблон — конфликт');
+
+  const tabA = await template.post({ template: { goals: ['Отчёт', 'Звонок'], days: [] }, expectedUpdatedAt: base });
+  assert.equal(tabA.status, 200);
+  const staleClear = await template.post({ clear: true, expectedUpdatedAt: base });
+  assert.equal(staleClear.status, 409, '«Забыть шаблон» по старому снимку отклонён');
+  assert.deepEqual((await template.get()).payload.template.goals, ['Отчёт', 'Звонок']);
+
+  const retry = await template.post({ template: { goals: ['Отчёт', 'Звонок'], days: [] }, expectedUpdatedAt: base });
+  assert.equal(retry.status, 200, 'повтор после потерянного ответа — не конфликт');
+  assert.equal(retry.payload.updatedAt, tabA.payload.updatedAt);
+
+  const clear = await template.post({ clear: true, expectedUpdatedAt: tabA.payload.updatedAt });
+  assert.equal(clear.status, 200);
+  assert.equal((await template.get()).payload.template, null);
+  assert.equal((await template.post({ clear: true, expectedUpdatedAt: tabA.payload.updatedAt })).status, 200, 'повтор удаления безопасен');
+  template.sqlite.close();
+});
+
+/** День по Ташкенту — календарь владельца, по которому живут уведомления. */
+function tashkentDay(date = new Date()) {
+  return new Date(date.getTime() + 5 * 3_600_000).toISOString().slice(0, 10);
+}
+
+test('DA-103: уведомление о потолке расхода не учитывает расходы после сегодняшнего дня', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const today = tashkentDay();
+  const period = today.slice(0, 7);
+  sqlite.prepare("INSERT INTO admin_goals (period, spend_cap, currency) VALUES (?, 100, 'USD')").run(period);
+  sqlite.prepare("INSERT INTO ad_spend (day, source, amount, currency) VALUES (?, 'meta', 60, 'USD')").run(today);
+  sqlite.prepare("INSERT INTO ad_spend (day, source, amount, currency) VALUES (?, 'meta', 75, 'USD')").run(`${shiftMonth(period, 1)}-05`);
+  const alerts = await loadModule('functions/_lib/admin-alerts.ts');
+  const drafts = await alerts.collectAlerts({ DB: new D1Database(sqlite) });
+  assert.ok(!drafts.some((draft) => draft.fingerprint.startsWith('goal-spend-over')), '60 из 100 — потолок не превышен');
+});
+
+test('DA-104: фоновый и ручной расчёт уведомлений живут по одному календарю владельца', async (t) => {
+  t.after(installMemoryCache());
+  // 01:10 первого декабря по Ташкенту — по Гринвичу ещё 30 ноября.
+  t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-11-30T20:10:00Z') });
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  sqlite.prepare("INSERT INTO admin_goals (period, spend_cap, currency) VALUES ('2026-12', 50, 'USD')").run();
+  sqlite.prepare("INSERT INTO ad_spend (day, source, amount, currency) VALUES ('2026-12-01', 'meta', 80, 'USD')").run();
+  const alerts = await loadModule('functions/_lib/admin-alerts.ts');
+  const cron = await alerts.collectAlerts({ DB: new D1Database(sqlite) });
+  assert.ok(cron.some((draft) => draft.fingerprint === 'goal-spend-over:2026-12'), 'запуск по расписанию уже в декабре');
+  const page = await harness('functions/api/admin/alerts.ts', { sqlite });
+  await page.get({ timezone_offset: 0 });
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM admin_alerts WHERE fingerprint = 'goal-spend-over:2026-12' AND resolved_at IS NULL").get().n, 1,
+    'открытие раздела с другим смещением не снимает декабрьское уведомление');
+});
+
+test('DA-105, DA-106: ошибка Telegram видна на экране, а два запуска не шлют одну и ту же порцию дважды', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const alerts = await loadModule('functions/_lib/admin-alerts.ts');
+  const env = { DB: new D1Database(sqlite), TELEGRAM_BOT_TOKEN: 'token', TELEGRAM_CHAT_ID: '1' };
+  await alerts.syncAlerts(env, [{ fingerprint: 'leads-no-answer', kind: 'leads', severity: 'attention', title: '2 заявки ждут', detail: '—', destination: 'leads' }]);
+
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  globalThis.fetch = async () => new Response('Service Unavailable', { status: 503 });
+  const page = await harness('functions/api/admin/alerts.ts', { sqlite, env: { TELEGRAM_BOT_TOKEN: 'token', TELEGRAM_CHAT_ID: '1' } });
+  const failed = await page.post({ action: 'notify' });
+  assert.equal(failed.payload.sent, 0);
+  assert.match(String(failed.payload.notifyError), /503/, 'экран получает ошибку в том поле, которое читает');
+  assert.equal(sqlite.prepare('SELECT notified_at FROM admin_alerts').get().notified_at, null, 'повод вернулся в ожидание');
+
+  const sent = [];
+  globalThis.fetch = async (input, init) => {
+    sent.push(JSON.parse(String(init?.body || '{}')).text);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  const [first, second] = await Promise.all([alerts.notifyAlerts(env), alerts.notifyAlerts(env)]);
+  assert.equal(sent.length, 1, 'в Telegram ушло одно сообщение');
+  assert.equal(first.sent + second.sent, 1);
+  assert.match(sqlite.prepare('SELECT notified_at FROM admin_alerts').get().notified_at, /^\d{4}-\d{2}-\d{2} /, 'отметка доставки — время, а не метка захвата');
+});
+
+test('DA-112: событие, дошедшее до Meta после временного отказа, не считается отклонённым', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  const at = (minutes) => new Date(Date.now() - minutes * 60_000).toISOString();
+  const insert = sqlite.prepare('INSERT INTO meta_capi_diagnostics (event_name, event_id, status, created_at) VALUES (?, ?, ?, ?)');
+  insert.run('Lead', 'e1', 'failed', at(10));
+  insert.run('Lead', 'e1', 'sent', at(5));
+  insert.run('Lead', 'e2', 'failed', at(3));
+  insert.run('PageView', 'e1', 'failed', at(2));
+  const alerts = await loadModule('functions/_lib/admin-alerts.ts');
+  const meta = (await alerts.collectAlerts({ DB: new D1Database(sqlite) })).find((draft) => draft.fingerprint === 'meta-failed-24h');
+  assert.ok(meta);
+  assert.match(meta.title, /отклонила 2 события/, 'e1 дошло; e2 и PageView с тем же ID — нет');
+  const stats = await harness('functions/api/admin/stats.ts', { sqlite });
+  const { capi } = (await stats.get()).payload;
+  assert.equal(capi.sent24h, 1);
+  assert.equal(capi.failed24h, 2);
+});
+
+test('DA-107, DA-108: повторное обращение попадает в «Заявки за 7 дней», черновик с датой не «запланирован»', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  t.after(() => sqlite.close());
+  insertLead(sqlite, { name: 'Вернулся', created_at: sqlDateTime(daysAgo(8)), last_submitted_at: sqlDateTime(new Date()) });
+  const stats = await harness('functions/api/admin/stats.ts', { sqlite });
+  assert.equal((await stats.get()).payload.totals.leads7, 1);
+
+  const tomorrow = new Date(Date.now() + 86_400_000).toISOString();
+  const article = sqlite.prepare("INSERT INTO articles (id, slug, title, date, description, content, status, published_at) VALUES (?, ?, ?, '2026-11-01', 'd', 'c', ?, ?)");
+  article.run(1, 'draft-dated', 'Черновик', 'draft', tomorrow);
+  article.run(2, 'scheduled', 'Запланирована', 'published', tomorrow);
+  const today = await harness('functions/api/admin/today.ts', { sqlite });
+  const { summary } = (await today.get()).payload;
+  assert.equal(summary.planned, 1, 'черновик с датой сам не выйдет');
+  assert.equal(summary.drafts, 1);
+});

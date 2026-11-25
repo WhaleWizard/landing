@@ -75,3 +75,23 @@ export function sqliteLocalModifier(offsetMinutes: number): string {
 export function isoSince(days: number): string {
   return new Date(Date.now() - days * 86_400_000).toISOString();
 }
+
+/**
+ * Смещение пояса в том же знаке, что `getTimezoneOffset()` браузера (для
+ * UTC+5 это −300), но для заданного пояса, а не для машины. Нужен там, где
+ * браузера нет: фоновые запуски по расписанию живут по календарю владельца,
+ * а не по Гринвичу.
+ */
+export function timezoneOffsetForZone(timeZone: string, now: Date = new Date()): number {
+  try {
+    const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+      timeZone, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+    }).formatToParts(now).map((part) => [part.type, part.value]));
+    const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute));
+    const minute = Math.floor(now.getTime() / 60_000) * 60_000;
+    const offset = Math.round((minute - asUtc) / 60_000);
+    return Number.isFinite(offset) && Math.abs(offset) <= MAX_OFFSET_MINUTES ? offset : 0;
+  } catch {
+    return 0;
+  }
+}

@@ -10,7 +10,6 @@ import {
   syncAlerts,
 } from '../../_lib/admin-alerts';
 import { json, readCappedJsonBody } from '../../_lib/http';
-import { timezoneOffsetFromRequest } from '../../_lib/local-day';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
@@ -38,7 +37,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   try {
     // Открытие раздела заодно пересчитывает поводы: иначе список показывал бы
     // состояние на момент последнего запуска cron, а не на сейчас.
-    const drafts = await collectAlerts(env, timezoneOffsetFromRequest(request));
+    // Календарь владельца, как у запуска по расписанию (DA-104).
+    const drafts = await collectAlerts(env);
     await syncAlerts(env, drafts);
     return json({
       success: true,
@@ -78,8 +78,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (body.action === 'notify') {
+      // Ошибка отправки приходит в notifyError, как у запуска по расписанию
+      // (DA-105): экран раньше искал это поле, не находил его и писал «Всё уже
+      // отправлено раньше», хотя Telegram ответил 503 и повод всё ещё ждёт.
       const result = await notifyAlerts(env);
-      return json({ success: true, ...result, alerts: await listAlerts(env.DB) }, { headers: noStore });
+      return json({ success: true, sent: result.sent, notifyError: result.error, alerts: await listAlerts(env.DB) }, { headers: noStore });
     }
 
     return json({ success: false, error: 'Неизвестное действие' }, { status: 400, headers: noStore });

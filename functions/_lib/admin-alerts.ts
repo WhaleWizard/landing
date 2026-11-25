@@ -1,5 +1,5 @@
-import { getLeadsColumns, hasLeadSoftDelete } from './leads';
-import { isoSince, localTodayIsoFromOffset, sqliteLocalModifier } from './local-day';
+import { getLeadsColumns, hasLeadSoftDelete, OWNER_TIME_ZONE } from './leads';
+import { isoSince, localTodayIsoFromOffset, sqliteLocalModifier, timezoneOffsetForZone } from './local-day';
 import type { Env } from './types';
 
 export const ADMIN_ALERTS_MIGRATION = '0028_admin_alerts.sql';
@@ -8,6 +8,8 @@ export const ADMIN_ALERTS_MIGRATION = '0028_admin_alerts.sql';
 const NO_ANSWER_HOURS = 2;
 /** С какой доли месяца отставание от плана перестаёт быть шумом. */
 const PACE_CHECK_FROM = 0.4;
+/** Через сколько захват порции уведомлений считается брошенным (DA-106). */
+const CLAIM_TTL_MS = 2 * 60_000;
 
 export interface AlertDraft {
   fingerprint: string;
@@ -56,12 +58,13 @@ async function tableExists(db: D1Database, name: string): Promise<boolean> {
  * нет, правило просто молчит. Тревога не должна зависеть от того, какие
  * миграции успели применить.
  */
-export async function collectAlerts(env: Env, timezoneOffsetMinutes = 0): Promise<AlertDraft[]> {
+export async function collectAlerts(env: Env, timezoneOffsetMinutes = timezoneOffsetForZone(OWNER_TIME_ZONE)): Promise<AlertDraft[]> {
   const db = env.DB;
   if (!db) return [];
-  // Месяц и день считаются по времени владельца, когда раздел открыт из
-  // браузера (смещение приходит с запросом). Cron смещения не знает и живёт
-  // по Гринвичу — в первые часы нового месяца он ещё смотрит на прошлый.
+  // Месяц и день считаются по календарю владельца и при открытии раздела, и
+  // при запуске по расписанию (DA-104): раньше cron жил по Гринвичу, и в
+  // первые часы месяца по Ташкенту два расчёта по очереди создавали и
+  // снимали одно и то же уведомление в общем журнале.
   const localToday = localTodayIsoFromOffset(timezoneOffsetMinutes);
   const localModifier = sqliteLocalModifier(timezoneOffsetMinutes);
 
@@ -123,10 +126,20 @@ export async function collectAlerts(env: Env, timezoneOffsetMinutes = 0): Promis
   // `datetime('now', '-1 day')` отдаёт другой формат и считал до 48 часов,
   // так что «за сутки» краснело на день дольше реальной проблемы.
   if (await tableExists(db, 'meta_capi_diagnostics')) {
+    // Событие считается по последней записи о нём (DA-112): временный отказ,
+    // после которого повтор дошёл до Meta, — это доставленное событие, а не
+    // отклонённое. Записи без event_id считаются каждая отдельно.
     const row = await db.prepare(`
-      SELECT SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed, COUNT(*) AS total
-      FROM meta_capi_diagnostics WHERE created_at >= ?
-    `).bind(isoSince(1)).first<{ failed: number; total: number }>();
+      SELECT
+        SUM(CASE WHEN rn = 1 AND status = 'failed' THEN 1 ELSE 0 END) AS failed,
+        SUM(CASE WHEN rn > 1 AND status = 'failed' THEN 1 ELSE 0 END) AS recovered
+      FROM (
+        SELECT status, ROW_NUMBER() OVER (
+          PARTITION BY event_name, COALESCE(event_id, 'row:' || id) ORDER BY created_at DESC, id DESC
+        ) AS rn
+        FROM meta_capi_diagnostics WHERE created_at >= ?
+      )
+    `).bind(isoSince(1)).first<{ failed: number; recovered: number }>();
     const failed = number(row?.failed);
     if (failed > 0) {
       drafts.push({
@@ -134,7 +147,7 @@ export async function collectAlerts(env: Env, timezoneOffsetMinutes = 0): Promis
         kind: 'meta',
         severity: failed >= 5 ? 'critical' : 'attention',
         title: `Meta отклонила ${failed} ${plural(failed, ['событие', 'события', 'событий'])} за сутки`,
-        detail: 'Отклонённые события не участвуют в оптимизации: реклама учится на неполных данных.',
+        detail: 'Эти события так и не дошли до Meta и не участвуют в оптимизации: реклама учится на неполных данных.',
         destination: 'meta',
       });
     }
@@ -168,8 +181,8 @@ export async function collectAlerts(env: Env, timezoneOffsetMinutes = 0): Promis
       if (number(goal.spend_cap) > 0 && await tableExists(db, 'ad_spend')) {
         const spend = await db.prepare(`
           SELECT COALESCE(SUM(amount), 0) AS total FROM ad_spend
-          WHERE day >= date(?, 'start of month') AND currency = ?
-        `).bind(localToday, currency).first<{ total: number }>();
+          WHERE day >= date(?, 'start of month') AND day <= date(?) AND currency = ?
+        `).bind(localToday, localToday, currency).first<{ total: number }>();
         const spent = number(spend?.total);
         if (spent > number(goal.spend_cap)) {
           drafts.push({
@@ -348,15 +361,33 @@ export async function notifyAlerts(env: Env): Promise<{ sent: number; error?: st
   if (!db) return { sent: 0 };
   if (!env.TELEGRAM_BOT_TOKEN || !env.TELEGRAM_CHAT_ID) return { sent: 0, error: 'telegram_not_configured' };
 
+  // Порция забирается за одним исполнителем ДО отправки (DA-106): два
+  // запуска подряд (cron и кнопка) иначе читали одни и те же поводы и
+  // присылали в Telegram две одинаковые копии. Захват — метка в notified_at
+  // «claim:<время в мс>:<id>»; если исполнитель упал между захватом и
+  // ответом, через две минуты метка считается брошенной и повод снова ждёт.
+  const claim = `claim:${String(Date.now()).padStart(13, '0')}:${crypto.randomUUID()}`;
+  const staleClaim = `claim:${String(Date.now() - CLAIM_TTL_MS).padStart(13, '0')}`;
+  await db.prepare(`
+    UPDATE admin_alerts SET notified_at = ?
+    WHERE id IN (
+      SELECT id FROM admin_alerts
+      WHERE resolved_at IS NULL AND (notified_at IS NULL OR (notified_at LIKE 'claim:%' AND notified_at < ?))
+      ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'attention' THEN 1 ELSE 2 END, id
+      LIMIT 10
+    ) AND (notified_at IS NULL OR (notified_at LIKE 'claim:%' AND notified_at < ?))
+  `).bind(claim, staleClaim, staleClaim).run();
   const pending = await db.prepare(`
-    SELECT id, severity, title, detail FROM admin_alerts
-    WHERE resolved_at IS NULL AND notified_at IS NULL
+    SELECT id, severity, title, detail FROM admin_alerts WHERE notified_at = ?
     ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'attention' THEN 1 ELSE 2 END, id
-    LIMIT 10
-  `).all<{ id: number; severity: string; title: string; detail: string }>();
+  `).bind(claim).all<{ id: number; severity: string; title: string; detail: string }>();
 
   const items = pending.results || [];
   if (!items.length) return { sent: 0 };
+  // Отправка не удалась — порция возвращается в ожидание для следующего запуска.
+  const release = async () => {
+    await db.prepare('UPDATE admin_alerts SET notified_at = NULL WHERE notified_at = ?').bind(claim).run();
+  };
 
   const lines = items.map((item) => {
     const mark = item.severity === 'critical' ? '🔴' : item.severity === 'attention' ? '🟡' : '⚪️';
@@ -378,17 +409,18 @@ export async function notifyAlerts(env: Env): Promise<{ sent: number; error?: st
     });
     if (!response.ok) {
       const body = await response.text().catch(() => '');
+      await release();
       return { sent: 0, error: `telegram_http_${response.status}: ${body.slice(0, 200)}` };
     }
   } catch (error) {
+    await release();
     return { sent: 0, error: error instanceof Error ? error.message : 'telegram_network_error' };
   }
 
   // Отметка ставится только после подтверждённой отправки: иначе повод
   // молча исчезнет, так и не дойдя до Telegram.
-  const ids = items.map((item) => item.id);
-  await db.prepare(`UPDATE admin_alerts SET notified_at = datetime('now') WHERE id IN (${ids.map(() => '?').join(',')})`)
-    .bind(...ids)
+  await db.prepare("UPDATE admin_alerts SET notified_at = datetime('now') WHERE notified_at = ?")
+    .bind(claim)
     .run();
 
   return { sent: items.length };

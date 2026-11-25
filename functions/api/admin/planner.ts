@@ -47,7 +47,9 @@ function isMissingTableError(error: unknown): boolean {
 function normalizeWeekStart(value: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const parsed = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(parsed.getTime())) return null;
+  // «2026-02-31» JS молча превращает в 3 марта — и неделя читалась и
+  // записывалась не та (DA-83). Дата обязана существовать в календаре.
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== value) return null;
   const weekday = parsed.getUTCDay(); // 0 — воскресенье
   const shift = weekday === 0 ? 6 : weekday - 1;
   parsed.setUTCDate(parsed.getUTCDate() - shift);
@@ -275,18 +277,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const conflict = () => json({ success: false, code: 'PLANNER_CONFLICT', error: 'Неделя уже изменена в другой вкладке. Обновите данные.' }, { status: 409, headers: noStore });
 
   try {
-    // Полностью очищенная неделя удаляется, чтобы база не копила пустые строки
-    // и «перенос привычек» брал последнюю реально заполненную неделю.
-    if (isBlankWeek(data)) {
-      if (expected === null) {
-        if (await env.DB.prepare('SELECT 1 FROM planner_weeks WHERE week_start = ?').bind(weekStart).first()) return conflict();
-      } else {
-        const result = await env.DB.prepare('DELETE FROM planner_weeks WHERE week_start = ? AND updated_at = ?').bind(weekStart, expected).run();
-        if (!result.meta?.changes) return conflict();
-      }
-      return json({ success: true, week: weekStart, updatedAt: null, cleared: true }, { headers: noStore });
-    }
-
     const dataJson = JSON.stringify(data);
     // Ответ на прошлую запись мог потеряться: браузер повторяет те же данные
     // со старой версией. Если в базе ровно они, это повтор, а не правка из
@@ -299,9 +289,31 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       }
       return null;
     };
-    const result = expected === null
-      ? await env.DB.prepare('INSERT INTO planner_weeks (week_start, data_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(week_start) DO NOTHING').bind(weekStart, dataJson, updatedAt).run()
-      : await env.DB.prepare('UPDATE planner_weeks SET data_json = ?, updated_at = ? WHERE week_start = ? AND updated_at = ?').bind(dataJson, updatedAt, weekStart, expected).run();
+    const write = () => (expected === null
+      ? env.DB!.prepare('INSERT INTO planner_weeks (week_start, data_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(week_start) DO NOTHING').bind(weekStart, dataJson, updatedAt).run()
+      : env.DB!.prepare('UPDATE planner_weeks SET data_json = ?, updated_at = ? WHERE week_start = ? AND updated_at = ?').bind(dataJson, updatedAt, weekStart, expected).run());
+
+    // Полностью очищенная неделя удаляется, чтобы база не копила пустые строки
+    // и «перенос привычек» брал последнюю реально заполненную неделю.
+    // Исключение — неделя, которую без строки заново заполнили бы привычки
+    // прошлой недели (DA-86): владелец удалил последнюю привычку, а после
+    // обновления страницы она возвращалась. Такая неделя хранится пустой.
+    if (isBlankWeek(data) && (await seedHabitsFromPreviousWeek(env.DB, weekStart)).length > 0) {
+      const result = await write();
+      if (!result.meta?.changes) return (await replay()) || conflict();
+      return json({ success: true, week: weekStart, updatedAt, cleared: true }, { headers: noStore });
+    }
+    if (isBlankWeek(data)) {
+      if (expected === null) {
+        if (await env.DB.prepare('SELECT 1 FROM planner_weeks WHERE week_start = ?').bind(weekStart).first()) return conflict();
+      } else {
+        const result = await env.DB.prepare('DELETE FROM planner_weeks WHERE week_start = ? AND updated_at = ?').bind(weekStart, expected).run();
+        if (!result.meta?.changes) return conflict();
+      }
+      return json({ success: true, week: weekStart, updatedAt: null, cleared: true }, { headers: noStore });
+    }
+
+    const result = await write();
     if (!result.meta?.changes) return (await replay()) || conflict();
 
     return json({ success: true, week: weekStart, updatedAt }, { headers: noStore });

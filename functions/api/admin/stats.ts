@@ -1,7 +1,7 @@
 import { json } from '../../_lib/http';
 import { CACHE_CONTROL } from '../../_lib/cache';
 import { verifyAdminPassword } from '../../_lib/auth';
-import { hasLeadSoftDelete } from '../../_lib/leads';
+import { getLeadsColumns, hasLeadSoftDelete } from '../../_lib/leads';
 import { isoSince } from '../../_lib/local-day';
 import {
   MIGRATION_BY_TABLE,
@@ -83,6 +83,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     const gaps = createSchemaGaps();
     // Заявки в корзине (миграция 0020) не учитываются в сводке дашборда.
     const activeCond = (await hasLeadSoftDelete(db)) ? 'deleted_at IS NULL' : '1=1';
+    // Заявка считается по последнему обращению контакта, как в «Воронке» и
+    // отчёте (DA-107): повторная заявка от давнего контакта иначе не попадала
+    // в «Заявки за 7 дней», хотя в отчёте месяца она есть.
+    const leadTime = (await getLeadsColumns(db)).has('last_submitted_at') ? 'COALESCE(last_submitted_at, created_at)' : 'created_at';
     const [viewsDaily, uniquesDaily, topPages, viewTotals, leadCounts, recentLeads, outboxPending, capiDay] = await Promise.all([
       // просмотры по дням за 14 дней (для графика и сравнения недель)
       safeAll<{ day: string; views: number }>(gaps, db.prepare(
@@ -110,7 +114,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       safeFirst<{ total: number; fresh: number; week: number }>(gaps, db.prepare(
         `SELECT COUNT(*) AS total,
                 SUM(CASE WHEN status = 'new' THEN 1 ELSE 0 END) AS fresh,
-                SUM(CASE WHEN created_at >= datetime('now', '-7 day') THEN 1 ELSE 0 END) AS week
+                SUM(CASE WHEN ${leadTime} >= datetime('now', '-7 day') THEN 1 ELSE 0 END) AS week
          FROM leads WHERE ${activeCond}`
       ).first()),
       // последние заявки для дашборда
@@ -124,10 +128,17 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       // события CAPI за сутки: отправлено/ошибки. Граница — в ISO, как и сама
       // колонка: `datetime('now', '-1 day')` отдаёт другой формат и считал
       // до 48 часов (см. isoSince).
+      // По последней записи о каждом событии (DA-112): временный отказ с
+      // последующей доставкой — одно доставленное событие, а не «1 + 1 отказ».
       safeFirst<{ sent: number; failed: number }>(gaps, db.prepare(
         `SELECT SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent,
                 SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed
-         FROM meta_capi_diagnostics WHERE created_at >= ?`
+         FROM (
+           SELECT status, ROW_NUMBER() OVER (
+             PARTITION BY event_name, COALESCE(event_id, 'row:' || id) ORDER BY created_at DESC, id DESC
+           ) AS rn
+           FROM meta_capi_diagnostics WHERE created_at >= ?
+         ) WHERE rn = 1`
       ).bind(isoSince(1)).first()),
     ]);
 
@@ -141,8 +152,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     // `'2026-09-11 00:30:00' > '2026-09-11'`, и индекс idx_leads_created
     // остаётся в деле — `date(created_at) >= …` его бы отключил.
     const leadsDaily = await safeAll<{ day: string; leads: number }>(gaps, db.prepare(
-      `SELECT date(created_at) AS day, COUNT(*) AS leads FROM leads
-       WHERE created_at >= date('now', '-13 day') AND ${activeCond}
+      `SELECT date(${leadTime}) AS day, COUNT(*) AS leads FROM leads
+       WHERE ${leadTime} >= date('now', '-13 day') AND ${activeCond}
        GROUP BY day ORDER BY day ASC`
     ).all());
 

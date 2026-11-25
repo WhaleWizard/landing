@@ -461,8 +461,10 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
         drafts = Number(row?.count || 0);
       }
       if (hasPublishedAt) {
+        // Черновик с датой выхода не выйдет сам (DA-108): запланированы
+        // только статьи в публикуемом статусе с будущей датой.
         const row = await db.prepare(
-          "SELECT COUNT(*) AS count FROM articles WHERE published_at IS NOT NULL AND datetime(published_at) > datetime('now')",
+          `SELECT COUNT(*) AS count FROM articles WHERE published_at IS NOT NULL AND datetime(published_at) > datetime('now')${hasStatus ? " AND COALESCE(status, '') <> 'draft'" : ''}`,
         ).first<{ count: number }>();
         planned = Number(row?.count || 0);
       }

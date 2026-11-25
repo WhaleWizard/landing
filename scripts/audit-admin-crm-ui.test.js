@@ -122,6 +122,11 @@ const spendModule = await bundle(`
 const todayModule = await bundle(`
   export { default as TodayPlan, applyPlanTaskOp } from './src/app/components/admin/TodayPlan';
   export { default as TodayNote } from './src/app/components/admin/TodayNote';
+  import AdminTodayView from './src/app/components/admin/AdminToday';
+  import { ArticlesProvider } from './src/app/context/ArticlesContext';
+  import { createElement } from 'react';
+  // «Сегодня» читает статьи из контекста — в админке его даёт оболочка.
+  export const AdminToday = (props) => createElement(ArticlesProvider, { initialLoad: 'manual' }, createElement(AdminTodayView, props));
   export { createRef } from 'react';
 `);
 
@@ -1250,4 +1255,92 @@ test('CL-05: в общих чек-листах у каждого проекта 
   } finally {
     keys.forEach((key) => localStorage.removeItem(key));
   }
+});
+
+// ─── Пакет 4d: «Сегодня» и планер в браузере (DA-85, DA-128) ────────────────
+
+test('DA-85: в дне из 14 задач можно отметить и удалить задачу, предел — только на добавление', async () => {
+  const tasks = Array.from({ length: 14 }, (_, index) => ({ id: `t${index}`, text: `Дело ${index + 1}`, done: false }));
+  const stored = { goals: [], habits: [], days: Array.from({ length: 7 }, () => dayWith([])) };
+  stored.days[0] = dayWith(tasks.map((task) => ({ ...task })));
+  const calls = mockFetch([
+    ['/api/admin/planner', async (_address, init) => {
+      if ((init.method || 'GET') === 'POST') { Object.assign(stored, JSON.parse(init.body).data); return { success: true }; }
+      return { success: true, data: JSON.parse(JSON.stringify(stored)) };
+    }],
+  ]);
+  const view = await mount(todayModule.TodayPlan, { password: 'x', tasks, weekStart: WEEK, dayIndex: 0, onNavigate() {}, onSaved() {} });
+  await click(view.container.querySelector('.today-plan__check'));
+  await settle();
+  assert.ok(calls.some((call) => call.method === 'POST'), 'отметка ушла на сервер');
+  assert.equal(stored.days[0].tasks[0].done, true);
+  assert.ok(!view.container.textContent.includes('не поместится'), 'нет ложной ошибки про предел');
+  await click(view.container.querySelector('.today-plan__remove'));
+  await settle();
+  assert.equal(stored.days[0].tasks.length, 13, 'удаление тоже прошло');
+  await view.unmount();
+});
+
+test('DA-128: сбой записи одной недели не помечает другую неделю несохранённой', async () => {
+  const thisWeek = plannerModule.currentWeekStart();
+  const nextWeek = plannerModule.shiftWeek(thisWeek, 1);
+  const store = new Map([[thisWeek, weekWith({ goals: [{ id: 'g1', text: 'Цель', done: false }] })]]);
+  let failing = true;
+  const respond = (payload, status = 200) => ({ ok: status < 400, status, json: async () => payload });
+  globalThis.fetch = async (url, init = {}) => {
+    const address = String(url);
+    if (address.includes('/api/admin/planner-template')) return respond({ success: true, template: null, updatedAt: null });
+    if (address.includes('/api/admin/planner')) {
+      if ((init.method || 'GET') === 'POST') {
+        const body = JSON.parse(init.body);
+        // Запись этой недели падает, остальные проходят.
+        if (failing && body.week === thisWeek) return respond({ success: false, error: 'Сервер недоступен' }, 500);
+        store.set(body.week, body.data);
+        return respond({ success: true, updatedAt: new Date().toISOString() });
+      }
+      const week = new URL(address, 'https://www.whalewzrd.com').searchParams.get('week');
+      return respond({ success: true, week, data: store.get(week) || null, updatedAt: null });
+    }
+    return respond({ success: true });
+  };
+  const badge = () => view.container.querySelector('.planner-hero__state [role="status"]').textContent;
+  const view = await mount(plannerModule.AdminPlanner, { password: 'x' });
+  await wait(30);
+  const goal = [...view.container.querySelectorAll('textarea, input')].find((field) => field.value === 'Цель');
+  await type(goal, 'Цель недели');
+  await wait(1400);
+  assert.match(badge(), /Не сохранено/, 'у недели со сбоем — честное «Не сохранено»');
+
+  await click(buttonByAria(view.container, 'Следующая неделя'));
+  await wait(60);
+  assert.doesNotMatch(badge(), /Не сохранено/, 'у соседней недели, которую не трогали, сбоя нет');
+
+  await click(buttonByAria(view.container, 'Предыдущая неделя'));
+  await wait(60);
+  assert.match(badge(), /Не сохранено|Сохраняю/, 'вернулись — сбой этой недели снова виден');
+  // Сервер ожил: «Повторить» записывает неделю, и очередь повторов пустеет.
+  failing = false;
+  await click([...view.container.querySelectorAll('.planner-hero__state button')].find((button) => button.textContent.includes('Повторить')));
+  await wait(60);
+  assert.doesNotMatch(badge(), /Не сохранено/);
+  assert.equal(store.get(thisWeek).goals[0].text, 'Цель недели');
+  await view.unmount();
+});
+
+test('DA-95: заголовок «Сегодня» называет все срочные дела, а не только попавшие в список', async () => {
+  const when = new Date(Date.now() - 3_600_000).toISOString();
+  const focus = [
+    ...Array.from({ length: 5 }, (_, index) => ({ id: `lead-overdue-${index}`, kind: 'lead_overdue', title: `Контакт ${index}`, subtitle: 'Шаг', when, destination: 'leads' })),
+    ...Array.from({ length: 10 }, (_, index) => ({ id: `task-${index}`, kind: 'task_overdue', title: `Задача ${index}`, subtitle: 'Сделка', when, destination: 'leads' })),
+  ];
+  mockFetch([
+    ['/api/admin/today', { success: true, items: [], focus, summary: { overdueActions: 8, tasksOverdue: 12, tasksOpen: 12 } }],
+    ['/api/admin/stats', { success: true, totals: {}, viewsDaily: [], uniquesDaily: [], leadsDaily: [], topPages: [], capi: {} }],
+  ]);
+  const view = await mount(todayModule.AdminToday, { password: 'x', onNavigate() {} });
+  await settle(8);
+  const headline = view.container.querySelector('.today-hero__headline').textContent;
+  assert.match(headline, /Горят 20 дел/, 'в сумме 8 шагов и 12 задач');
+  assert.match(headline, /первые 15/, 'честно сказано, сколько из них в списке');
+  await view.unmount();
 });

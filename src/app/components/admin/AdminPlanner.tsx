@@ -759,6 +759,10 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
   const revisions = useRef(new Map<string, string | null>());
   const blockedWeeks = useRef(new Set<string>());
   const [conflictWeeks, setConflictWeeks] = useState<string[]>([]);
+  // Недели, чья последняя запись не удалась (DA-128): «Не сохранено» —
+  // свойство недели, а не всего планера. Иначе сбой записи одной недели
+  // помечал несохранённой другую, которую никто не трогал.
+  const [failedWeeks, setFailedWeeks] = useState<string[]>([]);
   const timerRef = useRef<number | null>(null);
   const flushRef = useRef<() => Promise<void>>(async () => {});
   const localModeRef = useRef(false);
@@ -811,6 +815,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         else removePlannerDraft(key);
       }
       if (dataWeekRef.current === week) setSavedAt(new Date().toISOString());
+      setFailedWeeks((weeks) => (weeks.includes(week) ? weeks.filter((item) => item !== week) : weeks));
       setSaveState([...pendingRef.current.keys()].some((key) => !blockedWeeks.current.has(key)) ? 'pending' : 'saved');
     } catch (error) {
       // Возвращаем изменения в очередь и пробуем сами: сеть моргнула или сервер
@@ -822,6 +827,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         setSaveState('idle');
       } else {
         retry = true;
+        setFailedWeeks((weeks) => (weeks.includes(week) ? weeks : [...weeks, week]));
         setSaveState('error');
       }
     } finally {
@@ -877,6 +883,9 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
   // Неделя, в которую шаблон уже подставляли: без этого он возвращался бы
   // сразу после того, как все дела из него удалили вручную.
   const appliedWeekRef = useRef<string | null>(null);
+  // Версия шаблона с сервера (null — шаблона нет): запись и «Забыть шаблон»
+  // из старой вкладки не перекрывают свежую правку (DA-82).
+  const templateVersionRef = useRef<string | null>(null);
 
   const loadTemplate = useCallback(async () => {
     try {
@@ -886,7 +895,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         cache: 'no-store',
       });
       const payload = await response.json().catch(() => null) as {
-        success?: boolean; template?: PlannerTemplate | null; migration?: string;
+        success?: boolean; template?: PlannerTemplate | null; migration?: string; updatedAt?: string | null;
       } | null;
       if (!response.ok || !payload?.success) {
         if (payload?.migration) setTemplateMigration(payload.migration);
@@ -894,6 +903,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         return;
       }
       setTemplateMigration('');
+      templateVersionRef.current = payload.updatedAt ?? null;
       setTemplate(isEmptyTemplate(payload.template ?? null) ? null : payload.template ?? null);
     } catch {
       // Шаблон — удобство, а не основа: планер работает и без него.
@@ -918,16 +928,20 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
           password: passwordRef.current,
           template: next || { days: [], goals: [] },
           clear: !next,
+          expectedUpdatedAt: templateVersionRef.current,
         }),
       });
       const payload = await response.json().catch(() => null) as {
-        success?: boolean; error?: string; template?: PlannerTemplate | null; migration?: string;
+        success?: boolean; error?: string; template?: PlannerTemplate | null; migration?: string; updatedAt?: string | null;
       } | null;
       if (!response.ok || !payload?.success) {
         if (payload?.migration) setTemplateMigration(payload.migration);
+        // Шаблон изменили в другой вкладке: показываем свежий, а не свой снимок.
+        if (response.status === 409) void loadTemplate();
         throw new Error(payload?.error || `HTTP ${response.status}`);
       }
       setTemplateMigration('');
+      templateVersionRef.current = payload.updatedAt ?? null;
       setTemplate(isEmptyTemplate(payload.template ?? null) ? null : payload.template ?? null);
       return true;
     } catch (error) {
@@ -936,7 +950,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     } finally {
       setTemplateBusy(false);
     }
-  }, []);
+  }, [loadTemplate]);
 
   const [carryingDay, setCarryingDay] = useState<number | null>(null);
 
@@ -1292,11 +1306,17 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     setFocusId(habit.id);
   };
 
+  // Состояние открытой недели (DA-128): сбой записи другой недели здесь не
+  // показывается как «Не сохранено».
+  const weekFailed = failedWeeks.includes(weekStart);
+  const shownState: SaveState = weekFailed
+    ? (saveState === 'saving' ? 'saving' : 'error')
+    : saveState === 'error' ? (pendingRef.current.has(weekStart) ? 'pending' : 'idle') : saveState;
   const saveBadge = (() => {
     if (conflictWeeks.includes(weekStart)) return { icon: AlertTriangle, text: 'Конфликт версий', className: 'admin-state admin-state--danger', spin: false };
-    if (saveState === 'saving') return { icon: Loader2, text: 'Сохраняю…', className: 'admin-state', spin: true };
-    if (saveState === 'pending') return { icon: Loader2, text: 'Есть изменения', className: 'admin-state', spin: false };
-    if (saveState === 'error') return { icon: AlertTriangle, text: 'Не сохранено', className: 'admin-state admin-state--danger', spin: false };
+    if (shownState === 'saving') return { icon: Loader2, text: 'Сохраняю…', className: 'admin-state', spin: true };
+    if (shownState === 'pending') return { icon: Loader2, text: 'Есть изменения', className: 'admin-state', spin: false };
+    if (shownState === 'error') return { icon: AlertTriangle, text: 'Не сохранено', className: 'admin-state admin-state--danger', spin: false };
     if (savedAt) return { icon: CheckCircle2, text: `Сохранено ${formatSavedAt(savedAt)}`, className: 'admin-state admin-state--success', spin: false };
     return { icon: CheckCircle2, text: 'Всё сохранено', className: 'admin-state', spin: false };
   })();
@@ -1331,7 +1351,7 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
               <SaveIcon aria-hidden="true" className={saveBadge.spin ? 'animate-spin' : ''} />
               {saveBadge.text}
             </span>
-            {saveState === 'error' && (
+            {shownState === 'error' && (
               <button type="button" className="admin-button admin-button--compact" onClick={() => void flush()}>
                 <RefreshCw aria-hidden="true" /> Повторить
               </button>
