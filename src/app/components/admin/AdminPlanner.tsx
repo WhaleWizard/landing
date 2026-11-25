@@ -990,10 +990,20 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       const targetData = target.data;
 
       const capacity = Math.max(0, PLANNER_LIMITS.tasksPerDay - targetData.days[0].tasks.length);
-      const knownIds = new Set(targetData.days[0].tasks.map((task) => task.id));
-      const added = moving.filter((task) => !knownIds.has(task.id)).slice(0, capacity);
-      const carried = [...moving.filter((task) => knownIds.has(task.id)), ...added];
-      if (!carried.length) throw new Error(`В понедельнике следующей недели уже ${PLANNER_LIMITS.tasksPerDay} задач`);
+      const targetById = new Map(targetData.days[0].tasks.map((task) => [task.id, task]));
+      // Тот же ID в следующей неделе — подтверждение прошлого переноса, только
+      // если текст совпадает (DA-87). Задачу поправили после частичного
+      // переноса — это две разные версии: исходную нельзя удалять как
+      // «уже перенесённую», иначе исправленный текст пропадал.
+      const conflicting = moving.filter((task) => targetById.has(task.id) && targetById.get(task.id)!.text !== task.text);
+      const alreadyThere = moving.filter((task) => targetById.has(task.id) && targetById.get(task.id)!.text === task.text);
+      const added = moving.filter((task) => !targetById.has(task.id)).slice(0, capacity);
+      const carried = [...alreadyThere, ...added];
+      if (!carried.length) {
+        throw new Error(conflicting.length
+          ? 'В понедельнике следующей недели уже есть эта задача с другим текстом. Сверьте обе версии — ничего не удалено.'
+          : `В понедельнике следующей недели уже ${PLANNER_LIMITS.tasksPerDay} задач`);
+      }
 
       const merged: PlannerWeekData = {
         ...targetData,
@@ -1046,6 +1056,12 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
         void loadRef.current(nextWeek);
       }
       notify.success(`Перенесено задач: ${carried.length}`, 'Они ждут в понедельник следующей недели.');
+      if (conflicting.length) {
+        notify.error(
+          `Не перенесено: ${conflicting.length}`,
+          'В понедельнике следующей недели уже лежит такая задача с другим текстом. Исходная осталась на месте — сверьте обе версии.',
+        );
+      }
     } catch (error) {
       notify.error('Не удалось перенести', error instanceof Error ? error.message : undefined);
     } finally {
@@ -1053,7 +1069,16 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
     }
   }, [carryingDay, queueWeekDraft, rewriteWeek, update]);
 
+  // Неделя на экране совпадает с выбранной и уже загружена. Пока новая
+  // неделя грузится, на экране ещё прежняя, и команды шаблона писали бы в
+  // неё или сохраняли её цели как общий шаблон (DA-125).
+  const weekReady = !loading && loadedWeekRef.current === weekStart && dataWeekRef.current === weekStart;
+
   const saveWeekAsTemplate = useCallback(async () => {
+    if (loadedWeekRef.current !== weekStartRef.current || dataWeekRef.current !== weekStartRef.current) {
+      notify.info('Неделя ещё загружается', 'Повторите, когда она откроется.');
+      return;
+    }
     const next = templateFromWeek(dataRef.current);
     if (isEmptyTemplate(next)) {
       notify.error('Нечего сохранять', 'Сначала заполните задачи или цели недели.');
@@ -1067,6 +1092,10 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
 
   const applyTemplateNow = useCallback(() => {
     if (!template) return;
+    if (loadedWeekRef.current !== weekStartRef.current || dataWeekRef.current !== weekStartRef.current) {
+      notify.info('Неделя ещё загружается', 'Повторите, когда она откроется.');
+      return;
+    }
     update((current) => applyTemplate(current, template));
     appliedWeekRef.current = weekStart;
     setTemplateApplied(false);
@@ -1143,6 +1172,21 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
       if (!activeSave.current && !pendingRef.current.size) setSaveState('idle');
     } catch (error) {
       if (requestId !== loadSequenceRef.current) return;
+      // Без связи с сервером черновик недели из этого браузера всё равно
+      // открывается (DA-126): раньше он был виден только после ответа
+      // сервера. Версия черновика сохраняется — при записи сервер проверит,
+      // не изменилась ли неделя за это время.
+      const offline = readDraft() || draftAtRequest || findPlannerDraft(week, normalizeWeekData(null), '')?.data;
+      const offlineVersion = readDraft() || draftAtRequest ? undefined : findPlannerDraft(week, normalizeWeekData(null), '')?.version;
+      if (offline) {
+        if (offlineVersion !== undefined && !revisions.current.has(week)) revisions.current.set(week, offlineVersion);
+        dataRef.current = offline;
+        dataWeekRef.current = week;
+        loadedWeekRef.current = week;
+        setData(offline);
+        notify.error('Нет связи с сервером', 'Открыта копия недели из этого браузера. Правки сохранятся, когда связь вернётся.');
+        return;
+      }
       setLoadError(error instanceof Error ? error.message : 'Не удалось загрузить планер');
     } finally {
       if (requestId === loadSequenceRef.current) setLoading(false);
@@ -1335,14 +1379,14 @@ export default function AdminPlanner({ password, onWorkspaceNavigate }: { passwo
             <button
               type="button"
               className="admin-button admin-button--compact"
-              disabled={templateBusy || Boolean(templateMigration)}
+              disabled={templateBusy || Boolean(templateMigration) || !weekReady}
               onClick={() => void saveWeekAsTemplate()}
             >
               {template ? 'Обновить шаблон' : 'Сделать шаблоном'}
             </button>
             {template && (
               <>
-                <button type="button" className="admin-button admin-button--compact" disabled={templateBusy} onClick={applyTemplateNow}>
+                <button type="button" className="admin-button admin-button--compact" disabled={templateBusy || !weekReady} onClick={applyTemplateNow}>
                   Подставить
                 </button>
                 <button type="button" className="admin-button admin-button--quiet admin-button--compact" disabled={templateBusy} onClick={() => void forgetTemplate()}>

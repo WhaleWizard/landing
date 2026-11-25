@@ -118,6 +118,33 @@ test('planner rejects stale creation, update and clear against the current week'
   }
 });
 
+test('DA-127: повтор той же недели после потерянного ответа — не конфликт, другое содержимое — конфликт', async () => {
+  const { sqlite, db } = create();
+  try {
+    const week = '2026-11-16';
+    const env = { DB: db, ADMIN_PASSWORD: 'fixture-only' };
+    const url = `https://www.whalewzrd.com/api/admin/planner?week=${week}`;
+    const headers = { 'X-Admin-Password': env.ADMIN_PASSWORD, 'Content-Type': 'application/json' };
+    const write = async (expectedUpdatedAt, data) => (await planner.onRequestPost({
+      request: new Request(url, { method: 'POST', headers, body: JSON.stringify({ week, expectedUpdatedAt, data }) }), env,
+    }));
+    const goals = (text) => ({ goals: [{ id: 'goal', text, done: false }] });
+    const first = await (await write(null, goals('первая'))).json();
+    // Ответ на вторую запись потерян: браузер повторяет её с версией первой.
+    const second = await (await write(first.updatedAt, goals('вторая'))).json();
+    const replayResponse = await write(first.updatedAt, goals('вторая'));
+    assert.equal(replayResponse.status, 200, 'точный повтор — успех');
+    const replay = await replayResponse.json();
+    assert.equal(replay.updatedAt, second.updatedAt, 'возвращается записанная версия');
+    // Повтор самой первой записи тоже распознаётся.
+    assert.equal((await write(null, goals('вторая'))).status, 200);
+    // Другое содержимое со старой версией — по-прежнему конфликт.
+    assert.equal((await write(first.updatedAt, goals('третья из другой вкладки'))).status, 409);
+  } finally {
+    sqlite.close();
+  }
+});
+
 test('planner draft storage keeps independent edits and only removes the selected snapshot', async () => {
   const { findPlannerDraft, plannerDraftKey, removePlannerDraft, storePlannerDraft } =
     await load('src/app/components/admin/plannerDrafts.ts');

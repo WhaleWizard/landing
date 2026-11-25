@@ -288,10 +288,21 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     const dataJson = JSON.stringify(data);
+    // Ответ на прошлую запись мог потеряться: браузер повторяет те же данные
+    // со старой версией. Если в базе ровно они, это повтор, а не правка из
+    // другой вкладки (DA-127) — отвечаем сохранённой версией.
+    const replay = async (): Promise<Response | null> => {
+      const stored = await env.DB!.prepare('SELECT data_json, updated_at FROM planner_weeks WHERE week_start = ?')
+        .bind(weekStart).first<{ data_json: string; updated_at: string }>();
+      if (stored && stored.data_json === dataJson) {
+        return json({ success: true, week: weekStart, updatedAt: stored.updated_at, replay: true }, { headers: noStore });
+      }
+      return null;
+    };
     const result = expected === null
       ? await env.DB.prepare('INSERT INTO planner_weeks (week_start, data_json, updated_at) VALUES (?, ?, ?) ON CONFLICT(week_start) DO NOTHING').bind(weekStart, dataJson, updatedAt).run()
       : await env.DB.prepare('UPDATE planner_weeks SET data_json = ?, updated_at = ? WHERE week_start = ? AND updated_at = ?').bind(dataJson, updatedAt, weekStart, expected).run();
-    if (!result.meta?.changes) return conflict();
+    if (!result.meta?.changes) return (await replay()) || conflict();
 
     return json({ success: true, week: weekStart, updatedAt }, { headers: noStore });
   } catch (error) {

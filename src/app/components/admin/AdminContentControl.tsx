@@ -1885,8 +1885,13 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
       if (JSON.stringify(contentRef.current) !== JSON.stringify(savedContent)) {
         setNotice(`${savedNotice} Более новые изменения остались в редакторе.`);
       } else {
+        // Убираем резервную копию, только если в ней ровно сохранённое (DA-93):
+        // ключ общий для всех вкладок, и соседняя вкладка могла успеть
+        // записать туда свои несохранённые правки.
         try {
-          localStorage.removeItem(siteContentBackupKey(pageMeta.key));
+          const backupKey = siteContentBackupKey(pageMeta.key);
+          const stored = JSON.parse(localStorage.getItem(backupKey) || 'null') as { content?: unknown } | null;
+          if (!stored || JSON.stringify(stored.content) === JSON.stringify(savedContent)) localStorage.removeItem(backupKey);
         } catch {
           // ignore
         }
