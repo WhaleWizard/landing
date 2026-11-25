@@ -439,7 +439,12 @@ test('F-129: дата изменения не раньше даты выхода
 
   await patch(sampleArticle({ slug: 'scheduled', content: '<p>Опечатка исправлена.</p>' }));
   assert.equal(row('scheduled').published_at, future);
-  assert.equal(row('scheduled').updated_at, future, 'правка до выхода не даёт dateModified раньше datePublished');
+  // Не раньше даты выхода. Ровно равной она быть не обязана: правка обязана
+  // дать новую версию статьи (FX-03), поэтому дата сдвигается на миллисекунды.
+  const modified = Date.parse(row('scheduled').updated_at);
+  assert.ok(modified >= Date.parse(future), 'правка до выхода не даёт dateModified раньше datePublished');
+  assert.ok(modified - Date.parse(future) < 1000, 'и не уводит её от даты выхода');
+  assert.notEqual(row('scheduled').updated_at, future, 'версия статьи изменилась (FX-03)');
 
   // Вышедшая статья: правка двигает дату изменения вперёд, как и задумано.
   await patch(sampleArticle({ slug: 'old', publishedAt: '2026-01-01T00:00:00.000Z' }));

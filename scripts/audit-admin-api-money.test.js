@@ -1741,3 +1741,305 @@ test('UTM-кампании сопоставляют кириллицу и раз
   assert.equal(mixed.summary.cpl, null);
   assert.equal(mixed.summary.romi, null);
 });
+
+// ─── Пакет 3b: клиенты и финансы (DA-04, 48, 49, 50, 51, 59, 61, 99–102) ─────
+
+test('DA-49: правка карточки и заметки месяца не меняет валюту уже записанных сумм', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const { sqlite } = clients;
+  t.after(() => sqlite.close());
+  const id = Number(sqlite.prepare("INSERT INTO clients (name, retainer_amount, retainer_currency) VALUES ('Евро', 800, 'EUR')").run().lastInsertRowid);
+  sqlite.prepare("INSERT INTO client_months (client_id, month, spend, spend_currency, revenue) VALUES (?, '2026-08', 125, 'EUR', 450)").run(id);
+  const row = sqlite.prepare('SELECT * FROM clients WHERE id = ?').get(id);
+  const saved = await clients.post({ ...row, action: 'update', id, company: 'Новая компания', services: [] });
+  assert.equal(saved.status, 200, JSON.stringify(saved.payload));
+  assert.equal(sqlite.prepare('SELECT retainer_currency FROM clients WHERE id = ?').get(id).retainer_currency, 'EUR');
+  const month = sqlite.prepare("SELECT * FROM client_months WHERE client_id = ? AND month = '2026-08'").get(id);
+  const monthSaved = await clients.post({ ...month, action: 'set_month', id, mode: 'update', note: 'Заметка' });
+  assert.equal(monthSaved.status, 200, JSON.stringify(monthSaved.payload));
+  assert.equal(sqlite.prepare("SELECT spend_currency FROM client_months WHERE client_id = ?").get(id).spend_currency, 'EUR');
+});
+
+test('DA-50: старая вкладка не затирает свежие поля карточки, своя повторная правка проходит', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const { sqlite } = clients;
+  t.after(() => sqlite.close());
+  const id = Number(sqlite.prepare("INSERT INTO clients (name, updated_at) VALUES ('Клиент', '2026-11-01 10:00:00')").run().lastInsertRowid);
+  const opened = sqlite.prepare('SELECT * FROM clients WHERE id = ?').get(id);
+  const tabA = await clients.post({ ...opened, action: 'update', id, company: 'Компания A', services: [] });
+  assert.equal(tabA.status, 200);
+  assert.ok(tabA.payload.updated_at, 'ответ отдаёт новую версию');
+  const tabB = await clients.post({ ...opened, action: 'update', id, scope_included: 'Описание B', services: [] });
+  assert.equal(tabB.status, 409);
+  assert.equal(tabB.payload.code, 'CLIENT_CONFLICT');
+  assert.equal(sqlite.prepare('SELECT company FROM clients WHERE id = ?').get(id).company, 'Компания A');
+  const again = await clients.post({ ...opened, action: 'update', id, company: 'Компания A2', updated_at: tabA.payload.updated_at, services: [] });
+  assert.equal(again.status, 200, 'та же форма с новой версией сохраняет дальше');
+});
+
+test('DA-59: месяц не перезаписывается из старой вкладки и не воскресает после удаления', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const { sqlite } = clients;
+  t.after(() => sqlite.close());
+  const id = Number(sqlite.prepare("INSERT INTO clients (name) VALUES ('Клиент')").run().lastInsertRowid);
+  assert.equal((await clients.post({ action: 'set_month', id, mode: 'create', month: '2026-09', leads: 10 })).status, 200);
+  const duplicate = await clients.post({ action: 'set_month', id, mode: 'create', month: '2026-09', leads: 1 });
+  assert.equal(duplicate.status, 409);
+  assert.equal(duplicate.payload.code, 'MONTH_EXISTS');
+  sqlite.prepare("UPDATE client_months SET updated_at = '2026-10-01 00:00:00'").run();
+  const opened = sqlite.prepare("SELECT * FROM client_months WHERE client_id = ?").get(id);
+  const tabA = await clients.post({ ...opened, action: 'set_month', id, mode: 'update', leads: 11 });
+  assert.equal(tabA.status, 200);
+  const tabB = await clients.post({ ...opened, action: 'set_month', id, mode: 'update', note: 'Заметка B' });
+  assert.equal(tabB.status, 409);
+  assert.equal(tabB.payload.code, 'MONTH_CONFLICT');
+  assert.equal(sqlite.prepare('SELECT leads FROM client_months WHERE client_id = ?').get(id).leads, 11);
+  await clients.post({ action: 'delete_month', id, month: '2026-09' });
+  const afterDelete = await clients.post({ ...opened, action: 'set_month', id, mode: 'update', leads: 12 });
+  assert.equal(afterDelete.status, 409);
+  assert.equal(afterDelete.payload.code, 'MONTH_DELETED');
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM client_months').get().n, 0);
+});
+
+test('DA-61: после удаления клиента старая вкладка не создаёт памятку, доступ или месяц без карточки', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const { sqlite } = clients;
+  t.after(() => sqlite.close());
+  const id = Number(sqlite.prepare("INSERT INTO clients (name) VALUES ('Удаляемый')").run().lastInsertRowid);
+  assert.equal((await clients.post({ action: 'delete', id })).status, 200);
+  assert.equal((await clients.post({ action: 'add_note', id, body: 'Памятка' })).status, 404);
+  assert.equal((await clients.post({ action: 'set_access', id, name: 'Кабинет' })).status, 404);
+  assert.equal((await clients.post({ action: 'set_month', id, mode: 'create', month: '2026-09' })).status, 404);
+  for (const table of ['client_notes', 'client_access', 'client_months']) {
+    assert.equal(sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n, 0, table);
+  }
+});
+
+test('DA-04: карточку с часами удалить нельзя; счёт не создаётся клиенту, удалённому до записи', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const { sqlite } = clients;
+  t.after(() => sqlite.close());
+  const withHours = Number(sqlite.prepare("INSERT INTO clients (name) VALUES ('С часами')").run().lastInsertRowid);
+  sqlite.prepare("INSERT INTO time_entries (client_id, day, hours) VALUES (?, '2026-11-01', 2)").run(withHours);
+  assert.equal((await clients.post({ action: 'delete', id: withHours })).status, 409);
+  assert.ok(sqlite.prepare('SELECT id FROM clients WHERE id = ?').get(withHours));
+
+  const finance = await harness('functions/api/admin/finance.ts', { sqlite });
+  const doomed = Number(sqlite.prepare("INSERT INTO clients (name) VALUES ('Уйдёт')").run().lastInsertRowid);
+  // Клиента удаляют после проверки обработчика, но до вставки счёта.
+  const prepare = finance.env.DB.prepare.bind(finance.env.DB);
+  finance.env.DB.prepare = (sql) => {
+    if (/INSERT OR IGNORE INTO invoices/.test(sql)) sqlite.prepare('DELETE FROM clients WHERE id = ?').run(doomed);
+    return prepare(sql);
+  };
+  const result = await finance.post({ action: 'save_invoice', id: 0, client_id: doomed, amount: 100, status: 'issued', issued_at: '2026-11-01', request_key: randomUUID() });
+  finance.env.DB.prepare = prepare;
+  assert.equal(result.status, 404, JSON.stringify(result.payload));
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM invoices WHERE client_id = ?').get(doomed).n, 0);
+});
+
+test('DA-48: старая форма не возвращает долг по оплаченному счёту и не перезаписывает номер', async (t) => {
+  t.after(installMemoryCache());
+  const finance = await harness('functions/api/admin/finance.ts');
+  const { sqlite } = finance;
+  t.after(() => sqlite.close());
+  const clientId = Number(sqlite.prepare("INSERT INTO clients (name) VALUES ('Плательщик')").run().lastInsertRowid);
+  const invoiceId = Number(sqlite.prepare(
+    "INSERT INTO invoices (client_id, period, amount, currency, issued_at, status, number, updated_at) VALUES (?, '2026-11', 100, 'USD', '2026-11-01', 'issued', 'A-1', '2026-11-01 10:00:00')",
+  ).run(clientId).lastInsertRowid);
+  const opened = sqlite.prepare('SELECT * FROM invoices WHERE id = ?').get(invoiceId);
+  // Другая вкладка записала полную оплату.
+  const paid = await finance.post({ action: 'mark_paid', id: invoiceId, paid_at: '2026-11-02', request_key: randomUUID() });
+  assert.equal(paid.status, 200, JSON.stringify(paid.payload));
+  const stale = await finance.post({ ...opened, action: 'save_invoice', amount: 120, request_key: randomUUID() });
+  assert.ok([400, 409].includes(stale.status), JSON.stringify(stale.payload));
+  const row = sqlite.prepare('SELECT amount, status FROM invoices WHERE id = ?').get(invoiceId);
+  assert.deepEqual([row.amount, row.status], [100, 'paid']);
+
+  // Гонка: оплата записывается между проверкой обработчика и самой записью.
+  const raceId = Number(sqlite.prepare(
+    "INSERT INTO invoices (client_id, period, amount, currency, issued_at, status, updated_at) VALUES (?, '2026-11', 100, 'USD', '2026-11-01', 'issued', '2026-11-01 10:00:00')",
+  ).run(clientId).lastInsertRowid);
+  const raceOpened = sqlite.prepare('SELECT * FROM invoices WHERE id = ?').get(raceId);
+  const prepare = finance.env.DB.prepare.bind(finance.env.DB);
+  finance.env.DB.prepare = (sql) => {
+    if (/^\s*UPDATE invoices SET client_id/.test(sql)) {
+      sqlite.prepare("INSERT INTO invoice_payments (invoice_id, amount_cents, paid_on, request_key) VALUES (?, 10000, '2026-11-02', ?)").run(raceId, randomUUID());
+    }
+    return prepare(sql);
+  };
+  const raced = await finance.post({ ...raceOpened, action: 'save_invoice', amount: 120, request_key: randomUUID() });
+  finance.env.DB.prepare = prepare;
+  assert.equal(raced.status, 409, `race: ${JSON.stringify(raced.payload)}`);
+  assert.equal(sqlite.prepare('SELECT amount FROM invoices WHERE id = ?').get(raceId).amount, 100, 'сумма не изменилась поверх оплаты');
+  // Номер из старой формы тоже не перезаписывает свежую правку.
+  sqlite.prepare("UPDATE invoices SET number = 'B-2', updated_at = '2026-11-03 10:00:00' WHERE id = ?").run(invoiceId);
+  const staleNumber = await finance.post({ ...opened, action: 'save_invoice', status: 'paid', number: 'A-1', request_key: randomUUID() });
+  assert.ok([400, 409].includes(staleNumber.status), JSON.stringify(staleNumber.payload));
+  assert.equal(sqlite.prepare('SELECT number FROM invoices WHERE id = ?').get(invoiceId).number, 'B-2');
+});
+
+test('DA-51: повтор расхода с тем же ключом не удваивает сумму, тот же ключ с другой суммой — ошибка', async (t) => {
+  t.after(installMemoryCache());
+  const finance = await harness('functions/api/admin/finance.ts');
+  t.after(() => finance.sqlite.close());
+  const key = randomUUID();
+  const expense = { action: 'save_expense', day: '2026-11-01', amount: 140, category: 'Сервис', request_key: key };
+  assert.equal((await finance.post(expense)).status, 200);
+  assert.equal((await finance.post(expense)).status, 200, 'точный повтор — успех');
+  assert.equal(finance.sqlite.prepare('SELECT COUNT(*) AS n FROM finance_expenses').get().n, 1);
+  assert.equal((await finance.post({ ...expense, amount: 150 })).status, 409);
+  assert.equal((await finance.post({ ...expense, request_key: randomUUID() })).status, 200, 'другой ключ — отдельный расход');
+  assert.equal(finance.sqlite.prepare('SELECT COUNT(*) AS n FROM finance_expenses').get().n, 2);
+});
+
+test('DA-99, DA-100, DA-101: массовое выставление учитывает начало работы, статус проекта и прежнюю абонентку', async (t) => {
+  t.after(installMemoryCache());
+  const finance = await harness('functions/api/admin/finance.ts');
+  const { sqlite } = finance;
+  t.after(() => sqlite.close());
+  const issue = (period) => finance.post({ action: 'issue_month', period, request_key: randomUUID() });
+
+  // DA-99: работа началась 3 ноября — за октябрь счёта нет.
+  const late = Number(sqlite.prepare("INSERT INTO clients (name, status, started_at, retainer_amount, retainer_currency, billing_day) VALUES ('Новый', 'active', '2026-11-03', 150, 'USD', 3)").run().lastInsertRowid);
+  const october = await issue('2026-10');
+  assert.equal(october.payload.created, 0);
+  assert.equal(october.payload.before_start, 1);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM invoices WHERE client_id = ?').get(late).n, 0);
+
+  // DA-100: проект в статусе «предложение» не подавляет действующую абонентку.
+  const proposal = Number(sqlite.prepare("INSERT INTO clients (name, status, started_at, retainer_amount, retainer_currency, billing_day) VALUES ('С предложением', 'active', '2026-01-01', 150, 'USD', 5)").run().lastInsertRowid);
+  sqlite.prepare("INSERT INTO client_work (client_id, kind, title, status, billing, amount, currency) VALUES (?, 'project', 'Будущий проект', 'proposed', 'monthly', 200, 'USD')").run(proposal);
+  await issue('2026-11');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM invoices WHERE client_id = ? AND period = '2026-11' AND work_id IS NULL").get(proposal).n, 1);
+
+  // DA-101: ту же работу оформили проектом — ноябрь второй раз не выставляется.
+  sqlite.prepare("UPDATE client_work SET status = 'active', amount = 150 WHERE client_id = ?").run(proposal);
+  const again = await issue('2026-11');
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM invoices WHERE client_id = ? AND period = '2026-11' AND status != 'cancelled'").get(proposal).n, 1, `создано: ${again.payload.created}`);
+});
+
+test('DA-102: повтор ключа с другими данными счёта не выдаётся за успех', async (t) => {
+  t.after(installMemoryCache());
+  const finance = await harness('functions/api/admin/finance.ts');
+  const { sqlite } = finance;
+  t.after(() => sqlite.close());
+  const clientId = Number(sqlite.prepare("INSERT INTO clients (name) VALUES ('Клиент')").run().lastInsertRowid);
+  const key = randomUUID();
+  const invoice = { action: 'save_invoice', id: 0, client_id: clientId, amount: 100, status: 'issued', issued_at: '2026-11-01', kind: 'audit', request_key: key };
+  const first = await finance.post(invoice);
+  assert.equal(first.status, 200);
+  assert.equal((await finance.post(invoice)).payload.id, first.payload.id, 'точный повтор возвращает тот же счёт');
+  const changed = await finance.post({ ...invoice, amount: 200 });
+  assert.equal(changed.status, 409);
+  assert.equal(sqlite.prepare('SELECT COUNT(*) AS n FROM invoices').get().n, 1);
+});
+
+test('DA-01: цепочка C → B → A, удаление B и повторное слияние C не считают обращение дважды', async (t) => {
+  t.after(installMemoryCache());
+  const crm = await harness('functions/api/admin/lead-crm.ts');
+  const { sqlite } = crm;
+  t.after(() => sqlite.close());
+  const trash = await harness('functions/api/admin/lead-trash.ts', { sqlite });
+  const a = insertLead(sqlite, { name: 'A', email: 'chain@example.test', submissions_count: 1 });
+  const b = insertLead(sqlite, { name: 'B', email: 'chain@example.test', submissions_count: 1 });
+  const c = insertLead(sqlite, { name: 'C', email: 'chain@example.test', submissions_count: 1 });
+  const merge = (primary, duplicate) => {
+    const lead = sqlite.prepare('SELECT crm_revision FROM leads WHERE id = ?').get(primary);
+    const dup = sqlite.prepare('SELECT crm_revision FROM leads WHERE id = ?').get(duplicate);
+    return crm.post({ action: 'merge_lead', lead_id: primary, duplicate_id: duplicate, action_id: randomUUID(),
+      expected_revision: lead.crm_revision, duplicate_revision: dup.crm_revision });
+  };
+  assert.equal((await merge(b, c)).status, 200);
+  assert.equal((await merge(a, b)).status, 200);
+  assert.equal(sqlite.prepare('SELECT submissions_count FROM leads WHERE id = ?').get(a).submissions_count, 3);
+  assert.equal(sqlite.prepare("SELECT COUNT(*) AS n FROM lead_activity WHERE lead_id = ? AND type = 'lead_merged'").get(a).n, 2, 'у A видны оба слияния');
+
+  const purged = await trash.post({ action: 'purge', ids: [b] });
+  assert.equal(purged.status, 200, JSON.stringify(purged.payload));
+  assert.equal((await trash.post({ action: 'restore', ids: [c] })).payload.restored, 1);
+  const again = await merge(a, c);
+  assert.equal(again.status, 409, 'повторный перенос C заблокирован');
+  assert.equal(sqlite.prepare('SELECT submissions_count FROM leads WHERE id = ?').get(a).submissions_count, 3, 'итог — три исходных обращения');
+});
+
+// ─── Пакет 3d: импорт расходов (DA-64…DA-68) ────────────────────────────────
+
+test('DA-64: строка в другой валюте не превращается в доллары и не складывается с ними', async (t) => {
+  t.after(installMemoryCache());
+  const spend = await harness('functions/api/admin/ad-spend.ts');
+  t.after(() => spend.sqlite.close());
+  const csv = 'date,source,campaign,amount,currency\n2026-09-01,facebook,retarget,100,EUR\n2026-09-01,facebook,retarget,75,USD\n2026-09-01,facebook,retarget,5,\n';
+  const result = await spend.post({ action: 'import_csv', csv });
+  assert.equal(result.status, 200, JSON.stringify(result.payload));
+  assert.equal(result.payload.skipped, 1, 'строка в EUR отклонена');
+  assert.match(result.payload.errors[0], /EUR/);
+  const rows = spend.sqlite.prepare('SELECT amount, currency FROM ad_spend').all().map((row) => ({ ...row }));
+  assert.deepEqual(rows, [{ amount: 80, currency: 'USD' }], 'USD и пустая валюта сложились, EUR — нет');
+});
+
+test('DA-65: «|» в названии не склеивает разные кампании, настоящий дубль складывается', async (t) => {
+  t.after(installMemoryCache());
+  const spend = await harness('functions/api/admin/ad-spend.ts');
+  t.after(() => spend.sqlite.close());
+  const csv = 'date,source,campaign,amount\n2026-09-01,audience|east,reengagement,161\n2026-09-01,audience,east|reengagement,73\n2026-09-01,audience,east|reengagement,7\n';
+  const result = await spend.post({ action: 'import_csv', csv });
+  assert.equal(result.payload.saved, 2);
+  assert.equal(result.payload.merged, 1);
+  const rows = spend.sqlite.prepare('SELECT source, campaign, amount FROM ad_spend ORDER BY amount').all().map((row) => ({ ...row }));
+  assert.deepEqual(rows, [
+    { source: 'audience', campaign: 'east|reengagement', amount: 80 },
+    { source: 'audience|east', campaign: 'reengagement', amount: 161 },
+  ]);
+});
+
+test('DA-66: итог за период считается по всем строкам, а список честно говорит, что он неполный', async (t) => {
+  t.after(installMemoryCache());
+  const spend = await harness('functions/api/admin/ad-spend.ts');
+  t.after(() => spend.sqlite.close());
+  const today = sqlDate(new Date());
+  const insert = spend.sqlite.prepare("INSERT INTO ad_spend (day, source, campaign, amount, currency) VALUES (?, 'fb', ?, 1, 'USD')");
+  for (const count of [1999, 2000, 2001]) {
+    spend.sqlite.exec('DELETE FROM ad_spend');
+    for (let index = 0; index < count; index += 1) insert.run(today, `c${index}`);
+    const result = await spend.get({ days: 30 });
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.payload.totals, [{ currency: 'USD', amount: count }], `${count}: итог по всем строкам`);
+    assert.equal(result.payload.total_rows, count);
+    assert.equal(result.payload.truncated, count > 2000, `${count}: признак неполного списка`);
+  }
+});
+
+test('DA-67: сбой посреди импорта не оставляет в базе половину файла', async (t) => {
+  t.after(installMemoryCache());
+  const spend = await harness('functions/api/admin/ad-spend.ts');
+  t.after(() => spend.sqlite.close());
+  spend.sqlite.exec("CREATE TRIGGER audit_fail BEFORE INSERT ON ad_spend WHEN NEW.campaign = 'boom' BEGIN SELECT RAISE(ABORT, 'boom'); END;");
+  const lines = ['date,source,campaign,amount'];
+  for (let index = 0; index < 50; index += 1) lines.push(`2026-09-01,fb,c${index},10`);
+  lines.push('2026-09-01,fb,boom,10');
+  const result = await spend.post({ action: 'import_csv', csv: lines.join('\n') });
+  assert.equal(result.status, 500);
+  assert.equal(spend.sqlite.prepare('SELECT COUNT(*) AS n FROM ad_spend').get().n, 0, 'всё или ничего');
+});
+
+test('DA-68: файл в пределах формы принимается, слишком большой получает понятный отказ', async (t) => {
+  t.after(installMemoryCache());
+  const spend = await harness('functions/api/admin/ad-spend.ts');
+  t.after(() => spend.sqlite.close());
+  const row = (index) => `2026-09-01,facebook,"Кампания ""№${index}"", ретаргетинг",${index + 1},USD,"${'Заметка о расходе с кириллицей. '.repeat(20)}"`;
+  const csv = ['date,source,campaign,amount,currency,note', ...Array.from({ length: 400 }, (_, index) => row(index))].join('\n');
+  assert.ok(Buffer.byteLength(csv) > 256 * 1024 && Buffer.byteLength(csv) < 512 * 1024, `размер ${Buffer.byteLength(csv)}`);
+  const accepted = await spend.post({ action: 'import_csv', csv });
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.payload).slice(0, 200));
+  assert.equal(accepted.payload.saved, 400);
+
+  const huge = await spend.post({ action: 'import_csv', csv: csv.repeat(5) });
+  assert.equal(huge.status, 413);
+  assert.match(huge.payload.error, /слишком большой/);
+});

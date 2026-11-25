@@ -63,6 +63,8 @@ interface Client {
   healthReasons?: string[];
   relationship_type?: string;
   workspaceSummary?: {titles:string[];recurring:Array<{currency:string;amount:number}>}|null;
+  /** Версия карточки: сохранение пишется только поверх неё (DA-50). */
+  updated_at?: string;
 }
 
 interface ClientMonth {
@@ -76,6 +78,8 @@ interface ClientMonth {
   sales: number | null;
   revenue: number | null;
   note: string;
+  /** Версия строки месяца (DA-59). */
+  updated_at?: string;
 }
 
 interface AccessItem {
@@ -424,8 +428,15 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
     setSaving(true);
     try {
       if (draft.id) {
-        await request({ ...draft, action: 'update' });
-        if (requestId === clientRequest.current) setSavedDraft(draft);
+        const saved = await request({ ...draft, action: 'update' });
+        // Новая версия карточки: следующее сохранение из этой же формы не
+        // должно считаться «чужой правкой» (DA-50).
+        const updatedAt = typeof saved?.updated_at === 'string' ? saved.updated_at : draft.updated_at;
+        if (requestId === clientRequest.current) {
+          const next = { ...draft, updated_at: updatedAt };
+          setDraft((current) => (current && current.id === draft.id ? { ...current, updated_at: updatedAt } : current));
+          setSavedDraft(next);
+        }
         notify.success('Сохранено');
       } else {
         const created = await request({ ...draft, action: 'create' });
@@ -499,7 +510,12 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
         });
         if (!confirmed || requestId !== clientRequest.current || currentMonthDraft.current !== month) return;
       }
-      await request({ ...month, action: 'set_month', id: draft.id });
+      // Режим записи месяца (DA-59): новая строка не перезапишет месяц,
+      // сохранённый в другой вкладке; правка пишется поверх открытой версии;
+      // «Заменить» после вопроса — осознанная замена.
+      const exists = months.some((item) => item.month === month.month);
+      const mode = monthOrigin === null ? (exists ? 'replace' : 'create') : 'update';
+      await request({ ...month, action: 'set_month', id: draft.id, mode });
       if (requestId === clientRequest.current && currentMonthDraft.current === month) {
         setMonthDraft(null);
         setMonthOrigin(null);

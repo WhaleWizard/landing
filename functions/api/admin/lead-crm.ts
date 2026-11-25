@@ -1036,6 +1036,13 @@ async function mergeLead(db: D1Database, body: LeadCrmPayload, leadId: number): 
   if (hasIngestions) {
     statements.push(db.prepare(`UPDATE lead_ingestions SET lead_id = ? WHERE lead_id = ? AND ${marked}`).bind(leadId, duplicateId, ...marker));
   }
+  // Записи о прежних слияниях дубля переезжают вместе с его обращениями
+  // (DA-01). Иначе после цепочки C → B → A и окончательного удаления B
+  // исчезала запись «C уже перенесён», восстановленный C вливался в A ещё
+  // раз и его обращение считалось дважды. Заодно у A видна вся история.
+  statements.push(db.prepare(
+    `UPDATE lead_activity SET lead_id = ? WHERE lead_id = ? AND type = 'lead_merged' AND ${marked}`,
+  ).bind(leadId, duplicateId, ...marker));
   const revision = primaryRevision + 1;
   statements.push(db.prepare(
     `INSERT INTO lead_activity (lead_id, type, "from", "to", note, actor, entity_type, entity_id, action_id, metadata_json)

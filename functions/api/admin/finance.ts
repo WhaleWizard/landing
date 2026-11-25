@@ -94,6 +94,12 @@ const INVOICE_COLUMNS_TTL_MS = 60 * 1000;
 
 const invoiceColumnsCache = new WeakMap<D1Database, { columns: Set<string>; expiresAt: number }>();
 
+/** Колонка ключа операции у расходов (миграция 0047, DA-51). */
+async function hasExpenseRequestKey(db: D1Database): Promise<boolean> {
+  const result = await db.prepare('PRAGMA table_info(finance_expenses)').all<{ name: string }>();
+  return (result.results || []).some((column) => column.name === 'request_key');
+}
+
 async function getInvoiceColumns(db: D1Database): Promise<Set<string>> {
   const now = Date.now();
   const cached = invoiceColumnsCache.get(db);
@@ -295,10 +301,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       // Берём всех активных, а не только тех, у кого заполнен чек: клиента без
       // чека надо не молча пропустить, а назвать. Иначе кнопка отвечает «у всех
       // уже есть счёт» там, где счёт просто некому было выставить.
+      // Клиенты, с которыми работа началась позже этого месяца, счёт за него
+      // не получают (DA-99).
+      const startedBy = "(started_at IS NULL OR started_at = '' OR started_at <= date(? || '-01', '+1 month', '-1 day'))";
       const clients = await db.prepare(
         `SELECT id, retainer_amount, retainer_currency, billing_day FROM clients
-         WHERE status = 'active'`,
-      ).all<{ id: number; retainer_amount: number; retainer_currency: string; billing_day: number | null }>();
+         WHERE status = 'active' AND ${startedBy}`,
+      ).bind(period).all<{ id: number; retainer_amount: number; retainer_currency: string; billing_day: number | null }>();
+      const beforeStart = await db.prepare(`SELECT count(*) AS count FROM clients WHERE status = 'active' AND NOT ${startedBy}`)
+        .bind(period).first<{ count: number }>();
 
       // Массовое выставление касается только абонентки. Разовая продажа
       // повторяться из месяца в месяц не может, поэтому и «уже выставлено»
@@ -332,7 +343,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         created,
         skipped: statements.length - created,
         without_retainer: withoutRetainer,
-        active_clients: active.length,
+        before_start: Number(beforeStart?.count || 0),
+        active_clients: active.length + Number(beforeStart?.count || 0),
       }, { headers: noStore });
     }
 
@@ -350,8 +362,23 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
           .bind(...values, id).run();
         if (result.meta?.changes === 0) throw new WorkspaceError('Расход не найден', 404);
       } else {
-        await db.prepare("INSERT INTO finance_expenses (day, category, amount, note, currency) VALUES (?, ?, ?, ?, ?)")
-          .bind(...values, ACCOUNTING_CURRENCY).run();
+        const key = typeof body.request_key === 'string' && body.request_key.trim() ? body.request_key.trim().slice(0, 120) : '';
+        const keyed = key && await hasExpenseRequestKey(db);
+        if (!keyed) {
+          await db.prepare("INSERT INTO finance_expenses (day, category, amount, note, currency) VALUES (?, ?, ?, ?, ?)")
+            .bind(...values, ACCOUNTING_CURRENCY).run();
+        } else {
+          // Ключ операции пишется вместе с расходом (DA-51, миграция 0047):
+          // повтор после потерянного ответа не создаёт второй расход, а тот же
+          // ключ с другими данными — это ошибка, а не тихий успех.
+          await db.prepare("INSERT OR IGNORE INTO finance_expenses (day, category, amount, note, currency, request_key) VALUES (?, ?, ?, ?, ?, ?)")
+            .bind(...values, ACCOUNTING_CURRENCY, key).run();
+          const stored = await db.prepare('SELECT day, category, amount, note FROM finance_expenses WHERE request_key = ?')
+            .bind(key).first<{ day: string; category: string; amount: number; note: string }>();
+          if (!stored || stored.day !== values[0] || stored.category !== values[1] || Number(stored.amount) !== values[2] || stored.note !== values[3]) {
+            throw new WorkspaceError('Этот запрос уже сохранил другой расход. Обновите список и добавьте расход заново.', 409);
+          }
+        }
       }
       return json({ success: true }, { headers: noStore });
     }

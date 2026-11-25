@@ -562,33 +562,62 @@ export async function workspaceMutation(
       ),
       textValue(body.payer, 120),
     ];
-    if (id)
-      await db
+    if (id) {
+      // Счёт пишется только поверх той версии, что открыта в форме, и только
+      // если с тех пор не появилось оплат (DA-48): иначе старая форма
+      // возвращала оплаченный счёт в «выставлен» с остатком долга. Клиент
+      // проверяется в той же записи (DA-04).
+      const expected = typeof body.updated_at === "string" && body.updated_at ? body.updated_at : existing!.updated_at;
+      const payments = await db
+        .prepare("SELECT count(*) AS n FROM invoice_payments WHERE invoice_id=?")
+        .bind(id)
+        .first<{ n: number }>();
+      const result = await db
         .prepare(
-          "UPDATE invoices SET client_id=?,work_id=?,number=?,period=?,amount=?,currency=?,issued_at=?,due_at=?,paid_at=?,status=?,note=?,kind=?,payer=?,updated_at=datetime('now') WHERE id=?",
+          `UPDATE invoices SET client_id=?,work_id=?,number=?,period=?,amount=?,currency=?,issued_at=?,due_at=?,paid_at=?,status=?,note=?,kind=?,payer=?,updated_at=datetime('now')
+           WHERE id=? AND updated_at=?
+             AND (SELECT count(*) FROM invoice_payments WHERE invoice_id=?) = ?
+             AND (? IS NULL OR EXISTS (SELECT 1 FROM clients WHERE id=?))`,
         )
-        .bind(...values, id)
+        .bind(...values, id, expected, id, Number(payments?.n || 0), clientId, clientId)
         .run();
-    else {
-      const key = requestKey(body.request_key);
-      await db
-        .prepare(
-          "INSERT OR IGNORE INTO invoices(client_id,work_id,number,period,amount,currency,issued_at,due_at,paid_at,status,note,kind,payer,request_key) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-        )
-        .bind(...values, key)
-        .run();
-      const row = await db
-        .prepare("SELECT id FROM invoices WHERE request_key=?")
-        .bind(key)
-        .first<{ id: number }>();
-      if (!row)
+      if (!result.meta?.changes) {
+        if (clientId && !(await db.prepare("SELECT id FROM clients WHERE id=?").bind(clientId).first()))
+          throw new WorkspaceError("Клиент не найден", 404);
         throw new WorkspaceError(
-          "Счёт за этот проект и месяц уже существует",
+          "Счёт уже изменили: записали оплату или сохранили в другой вкладке. Обновите данные и повторите правку.",
           409,
         );
-      return { success: true, id: row.id };
+      }
+      return { success: true, id };
     }
-    return { success: true, id };
+    const key = requestKey(body.request_key);
+    // Счёт создаётся только для существующего клиента — в той же записи,
+    // а не отдельной проверкой до неё (DA-04).
+    await db
+      .prepare(
+        `INSERT OR IGNORE INTO invoices(client_id,work_id,number,period,amount,currency,issued_at,due_at,paid_at,status,note,kind,payer,request_key)
+         SELECT ?,?,?,?,?,?,?,?,?,?,?,?,?,? WHERE ? IS NULL OR EXISTS (SELECT 1 FROM clients WHERE id=?)`,
+      )
+      .bind(...values, key, clientId, clientId)
+      .run();
+    const row = await db
+      .prepare("SELECT id, client_id, work_id, amount, kind, status FROM invoices WHERE request_key=?")
+      .bind(key)
+      .first<{ id: number; client_id: number | null; work_id: number | null; amount: number; kind: string; status: string }>();
+    if (!row) {
+      if (clientId && !(await db.prepare("SELECT id FROM clients WHERE id=?").bind(clientId).first()))
+        throw new WorkspaceError("Клиент не найден", 404);
+      throw new WorkspaceError(
+        "Счёт за этот проект и месяц уже существует",
+        409,
+      );
+    }
+    // Тот же ключ операции — тот же счёт (DA-102): повтор с другими
+    // данными не выдаётся за успех со старым документом.
+    if (row.client_id !== clientId || row.work_id !== workId || Number(row.amount) !== amount || row.kind !== values[11])
+      throw new WorkspaceError("Этот запрос уже создал другой счёт. Обновите данные и создайте счёт заново.", 409);
+    return { success: true, id: row.id };
   }
   if (action === "delete_invoice") {
     const id = positiveId(body.id);
@@ -664,26 +693,43 @@ export async function workspaceMutation(
         key,
       )
       .run();
-    const row = await db
+    const byKey = await db
+      .prepare("SELECT id, work_id, amount, status FROM invoices WHERE request_key=?")
+      .bind(key)
+      .first<{ id: number; work_id: number | null; amount: number; status: string }>();
+    // Повтор ключа обязан относиться к той же работе и сумме (DA-102), а
+    // отменённый счёт не выдаётся за новый.
+    if (byKey && (byKey.work_id !== w.id || Number(byKey.amount) !== Number(w.amount)))
+      throw new WorkspaceError("Этот запрос уже подготовил счёт по другой услуге или сумме. Обновите данные.", 409);
+    if (byKey?.status === "cancelled")
+      throw new WorkspaceError("Счёт по этому запросу отменён. Подготовьте новый.", 409);
+    const row = byKey || await db
       .prepare(
-        "SELECT id FROM invoices WHERE request_key=? OR (work_id=? AND period=? AND kind='retainer' AND status!='cancelled') ORDER BY id DESC LIMIT 1",
+        "SELECT id FROM invoices WHERE work_id=? AND period=? AND kind='retainer' AND status!='cancelled' ORDER BY id DESC LIMIT 1",
       )
-      .bind(key, w.id, period)
+      .bind(w.id, period)
       .first<{ id: number }>();
     return { success: true, id: row?.id };
   }
   if (action === "issue_month") {
     const period = monthValue(body.period);
-    const [work, clients, active] = await Promise.all([
+    // Клиент, с которым работа началась после этого месяца, за него счёт
+    // не получает (DA-99). Абонентку заменяет только действующий или
+    // поставленный на паузу ежемесячный проект; предложение, завершённый и
+    // отменённый проект её не подавляют (DA-100).
+    const startedBy = "(c.started_at IS NULL OR c.started_at = '' OR c.started_at <= date(? || '-01', '+1 month', '-1 day'))";
+    const [work, clients, active, beforeStart] = await Promise.all([
       db
         .prepare(
-          "SELECT w.* FROM client_work w JOIN clients c ON c.id=w.client_id WHERE w.billing='monthly' AND w.status='active' AND c.status='active'",
+          `SELECT w.* FROM client_work w JOIN clients c ON c.id=w.client_id WHERE w.billing='monthly' AND w.status='active' AND c.status='active' AND ${startedBy}`,
         )
+        .bind(period)
         .all<ClientWork>(),
       db
         .prepare(
-          "SELECT id,retainer_amount,retainer_currency,billing_day FROM clients c WHERE status='active' AND NOT EXISTS(SELECT 1 FROM client_work w WHERE w.client_id=c.id AND w.billing='monthly')",
+          `SELECT id,retainer_amount,retainer_currency,billing_day FROM clients c WHERE status='active' AND ${startedBy} AND NOT EXISTS(SELECT 1 FROM client_work w WHERE w.client_id=c.id AND w.billing='monthly' AND w.status IN ('active','paused'))`,
         )
+        .bind(period)
         .all<{
           id: number;
           retainer_amount: number;
@@ -691,6 +737,10 @@ export async function workspaceMutation(
           billing_day: number;
         }>(),
       db.prepare("SELECT count(*) AS count FROM clients WHERE status='active'").first<{ count: number }>(),
+      db
+        .prepare(`SELECT count(*) AS count FROM clients c WHERE status='active' AND NOT ${startedBy}`)
+        .bind(period)
+        .first<{ count: number }>(),
     ]);
     const entries = [
       ...(work.results || []).map((w) => ({
@@ -719,10 +769,13 @@ export async function workspaceMutation(
         )
           .toISOString()
           .slice(0, 10);
+        // Счёт проекта не выставляется, если за этот месяц у клиента уже
+        // есть абонентский счёт без проекта: переход со старой абонентки на
+        // проект иначе выставлял один месяц дважды (DA-101).
         return db
           .prepare(
             `INSERT OR IGNORE INTO invoices(client_id,work_id,period,amount,currency,issued_at,due_at,status,note,kind,request_key)
-        SELECT ?,?,?,?,?,?,?,'issued',?,'retainer',? WHERE NOT EXISTS(SELECT 1 FROM invoices WHERE client_id=? AND work_id IS ? AND period=? AND kind='retainer' AND status!='cancelled')`,
+        SELECT ?,?,?,?,?,?,?,'issued',?,'retainer',? WHERE NOT EXISTS(SELECT 1 FROM invoices WHERE client_id=? AND (work_id IS ? OR work_id IS NULL) AND period=? AND kind='retainer' AND status!='cancelled')`,
           )
           .bind(
             e.client,
@@ -749,6 +802,7 @@ export async function workspaceMutation(
       created,
       skipped: statements.length - created,
       without_retainer: entries.filter((e) => e.amount <= 0).length,
+      before_start: Number(beforeStart?.count || 0),
       active_clients: Number(active?.count || 0),
     };
   }

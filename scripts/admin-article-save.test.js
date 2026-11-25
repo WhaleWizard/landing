@@ -763,3 +763,15 @@ test('DA-56: версия длинной статьи, которую прини
   const version = await versionCall(sqlite, 'POST', { slug: 'long-read', article: saved.payload.article });
   assert.equal(version.status, 200, JSON.stringify(version.payload));
 });
+
+test('FX-03: у запланированной статьи правка из старой вкладки тоже ловится — версия растёт', async () => {
+  const sqlite = freshDatabase();
+  const nextWeek = new Date(Date.now() + 7 * 864e5).toISOString();
+  const created = await patch(sqlite, { mode: 'create', article: article({ slug: 'planned-two-tabs', publishedAt: nextWeek }) });
+  const opened = created.payload.article;
+  const tabA = await patch(sqlite, { mode: 'update', expected_updated_at: opened.updatedAt, article: { ...opened, title: 'Правка A' } });
+  assert.equal(tabA.status, 200);
+  assert.notEqual(tabA.payload.article.updatedAt, opened.updatedAt, 'версия изменилась, хотя дата изменения прижата к дате выхода');
+  const tabB = await patch(sqlite, { mode: 'update', expected_updated_at: opened.updatedAt, article: { ...opened, description: 'Правка B' } });
+  assert.equal(tabB.status, 409);
+});

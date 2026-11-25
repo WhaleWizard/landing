@@ -918,11 +918,14 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
     next.setDate(next.getDate() + plan.nextInDays);
     next.setHours(12, 0, 0, 0);
 
+    // Этап двигается от сохранённого, а не от выбранного в форме: иначе
+    // «Позвонил» молча записывал несохранённое «Выиграна» без суммы (CL-10).
+    const saved = savedDraftRef.current ?? draft;
     await post({
       action: 'update_lead',
       action_id: crypto.randomUUID(),
-      expected_revision: draft.crm_revision,
-      pipeline_stage: advanceStage(draft.pipeline_stage, plan.stage),
+      expected_revision: saved.crm_revision,
+      pipeline_stage: advanceStage(saved.pipeline_stage, plan.stage),
       next_action_at: next.toISOString(),
       next_action_text: plan.nextText,
     }, plan.success);

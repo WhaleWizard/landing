@@ -24,6 +24,8 @@ export interface WorkInvoice {
   payer?: string;
   note: string;
   payments?: WorkPayment[];
+  /** Версия записи: правка из формы пишется только поверх неё (DA-48). */
+  updated_at?: string;
 }
 export interface ClientWork {
   id: number;

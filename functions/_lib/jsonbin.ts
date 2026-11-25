@@ -274,16 +274,30 @@ export function applyFreshnessMetadata(normalized: Article[], previousArticles: 
       || previous?.publishedAt
       || (isDraft ? undefined : ((previouslyPublished ? previous?.updatedAt : undefined) || nowIso));
 
-    const updatedAt = !previous
-      ? (article.updatedAt || nowIso)
-      : (didArticleChange(previous, article) ? nowIso : (previous.updatedAt || previous.publishedAt || nowIso));
-
+    if (!previous) {
+      return { ...article, publishedAt, updatedAt: notBeforePublication(article.updatedAt || nowIso, publishedAt) };
+    }
+    if (!didArticleChange(previous, article)) {
+      return { ...article, publishedAt, updatedAt: notBeforePublication(previous.updatedAt || previous.publishedAt || nowIso, publishedAt) };
+    }
+    // `updatedAt` — ещё и версия статьи для защиты от правки из старой
+    // вкладки (DA-02): настоящая правка обязана дать новое значение. Две
+    // правки в одну миллисекунду или правки запланированной статьи (её дата
+    // изменения подтягивается к дате выхода) раньше давали одно и то же.
     return {
       ...article,
       publishedAt,
-      updatedAt: notBeforePublication(updatedAt, publishedAt),
+      updatedAt: strictlyAfter(notBeforePublication(nowIso, publishedAt), previous.updatedAt),
     };
   });
+}
+
+/** Значение не раньше `candidate` и строго позже `previous`. */
+function strictlyAfter(candidate: string, previous: string | undefined): string {
+  const prev = Date.parse(previous || '');
+  const next = Date.parse(candidate);
+  if (!Number.isFinite(prev) || !Number.isFinite(next) || next > prev) return candidate;
+  return new Date(prev + 1).toISOString();
 }
 
 /**

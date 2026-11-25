@@ -560,7 +560,18 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     }
 
     if (action === 'update') {
-      const { columns, values, status, finishedAt } = clientFields(body, localTodayIso(request));
+      const fields = clientFields(body, localTodayIso(request));
+      // Валюта абонентки — свойство уже записанной суммы: правка описания или
+      // компании не превращает 800 EUR в 800 USD (DA-49). Новые карточки
+      // заводятся в валюте учёта, существующие свою валюту сохраняют.
+      const keep = fields.columns.map((column) => column !== 'retainer_currency');
+      const columns = fields.columns.filter((_, index) => keep[index]);
+      const values = fields.values.filter((_, index) => keep[index]);
+      const { status, finishedAt } = fields;
+      // Карточка пишется только поверх той версии, что открыта в форме
+      // (DA-50): старая вкладка иначе возвращала прежние значения полей,
+      // которых её владелец даже не трогал.
+      const expected = typeof body.updated_at === 'string' && body.updated_at ? body.updated_at : null;
       // Дата завершения ставится один раз: уже сохранённая не теряется из-за
       // пустого поля в теле запроса, первая отметка «Завершён» без даты
       // получает сегодняшний день, а возврат в работу или на паузу её очищает.
@@ -568,42 +579,78 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         `UPDATE clients SET ${columns.map((column) => `${column} = ?`).join(', ')},
            finished_at = CASE WHEN ? = 'finished' THEN COALESCE(?, finished_at, ?) ELSE NULL END,
            updated_at = datetime('now')
-         WHERE id = ?`,
-      ).bind(...values, status, finishedAt, todayIso, id).run();
+         WHERE id = ? AND (? IS NULL OR updated_at = ?)`,
+      ).bind(...values, status, finishedAt, todayIso, id, expected, expected).run();
       if (result.meta?.changes === 0) {
+        const current = await db.prepare('SELECT id FROM clients WHERE id = ?').bind(id).first<{ id: number }>();
+        if (current) return json({ success: false, code: 'CLIENT_CONFLICT', error: 'Карточку уже изменили в другой вкладке. Ваши правки остались в форме: обновите карточку и внесите их заново.' }, { status: 409, headers: noStore });
         return json({ success: false, error: 'Клиент не найден' }, { status: 404, headers: noStore });
       }
-      return json({ success: true }, { headers: noStore });
+      const saved = await db.prepare('SELECT updated_at FROM clients WHERE id = ?').bind(id).first<{ updated_at: string }>();
+      return json({ success: true, updated_at: saved?.updated_at }, { headers: noStore });
     }
 
     if (action === 'set_month') {
       const month = cleanMonth(body.month);
       if (!month) return json({ success: false, error: 'Нужен месяц в виде 2026-08' }, { status: 400, headers: noStore });
-      await db.prepare(
-        `INSERT INTO client_months (client_id, month, report_sent_at, report_url, spend, spend_currency, leads, sales, revenue, note, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
-         ON CONFLICT(client_id, month) DO UPDATE SET
-           report_sent_at = excluded.report_sent_at,
-           report_url = excluded.report_url,
-           spend = excluded.spend,
-           spend_currency = excluded.spend_currency,
-           leads = excluded.leads,
-           sales = excluded.sales,
-           revenue = excluded.revenue,
-           note = excluded.note,
-           updated_at = datetime('now')`,
-      ).bind(
-        id,
-        month,
+      // create — новый месяц, update — правка открытой строки той же версии,
+      // replace — осознанная замена после вопроса «Заменить?» (DA-59). Без
+      // режима — прежний upsert для старых вкладок.
+      const mode = ['create', 'update', 'replace'].includes(String(body.mode)) ? String(body.mode) : 'replace';
+      const expected = typeof body.updated_at === 'string' && body.updated_at ? body.updated_at : null;
+      const fields = [
         cleanDate(body.report_sent_at),
         cleanSafeUrl(body.report_url, LIMITS.url),
         cleanOptionalNumber(body.spend),
-        ACCOUNTING_CURRENCY,
         cleanOptionalNumber(body.leads),
         cleanOptionalNumber(body.sales),
         cleanOptionalNumber(body.revenue),
         cleanText(body.note, LIMITS.text),
-      ).run();
+      ];
+      let changes = 0;
+      if (mode === 'update') {
+        // Валюта строки не меняется при правке заметки или цифр (DA-49).
+        const result = await db.prepare(
+          `UPDATE client_months SET report_sent_at = ?, report_url = ?, spend = ?, leads = ?, sales = ?, revenue = ?, note = ?, updated_at = datetime('now')
+           WHERE client_id = ? AND month = ? AND (? IS NULL OR updated_at = ?)`,
+        ).bind(...fields, id, month, expected, expected).run();
+        changes = Number(result.meta?.changes || 0);
+        if (!changes) {
+          const exists = await db.prepare('SELECT 1 AS ok FROM client_months WHERE client_id = ? AND month = ?').bind(id, month).first();
+          return json(
+            exists
+              ? { success: false, code: 'MONTH_CONFLICT', error: 'Этот месяц уже изменили в другой вкладке. Обновите карточку и повторите правку.' }
+              : { success: false, code: 'MONTH_DELETED', error: 'Этот месяц уже удалён. Чтобы сохранить его снова, добавьте месяц заново.' },
+            { status: 409, headers: noStore },
+          );
+        }
+      } else {
+        // Месяц пишется только к существующей карточке (DA-61): старая
+        // вкладка после удаления клиента иначе создавала строку-сироту.
+        const onConflict = mode === 'create'
+          ? 'DO NOTHING'
+          : `DO UPDATE SET
+           report_sent_at = excluded.report_sent_at,
+           report_url = excluded.report_url,
+           spend = excluded.spend,
+           leads = excluded.leads,
+           sales = excluded.sales,
+           revenue = excluded.revenue,
+           note = excluded.note,
+           updated_at = datetime('now')`;
+        const result = await db.prepare(
+          `INSERT INTO client_months (client_id, month, report_sent_at, report_url, spend, spend_currency, leads, sales, revenue, note, updated_at)
+           SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now')
+           WHERE EXISTS (SELECT 1 FROM clients WHERE id = ?)
+           ON CONFLICT(client_id, month) ${onConflict}`,
+        ).bind(id, month, fields[0], fields[1], fields[2], ACCOUNTING_CURRENCY, fields[3], fields[4], fields[5], fields[6], id).run();
+        changes = Number(result.meta?.changes || 0);
+        if (!changes) {
+          const client = await db.prepare('SELECT id FROM clients WHERE id = ?').bind(id).first();
+          if (!client) return json({ success: false, error: 'Клиент уже удалён' }, { status: 404, headers: noStore });
+          return json({ success: false, code: 'MONTH_EXISTS', error: 'Этот месяц уже сохранён в другой вкладке. Обновите карточку: сохранённое не перезаписано.' }, { status: 409, headers: noStore });
+        }
+      }
       return json({ success: true, month }, { headers: noStore });
     }
 
@@ -624,8 +671,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!names.length) return json({ success: false, error: 'Нужен список доступов' }, { status: 400, headers: noStore });
       const results = await db.batch(names.map((name) => db.prepare(
         `INSERT INTO client_access (client_id, name, status)
-         SELECT ?, ?, 'waiting' WHERE NOT EXISTS (SELECT 1 FROM client_access WHERE client_id = ? AND name = ?)`,
-      ).bind(id, name, id, name)));
+         SELECT ?, ?, 'waiting' WHERE NOT EXISTS (SELECT 1 FROM client_access WHERE client_id = ? AND name = ?)
+           AND EXISTS (SELECT 1 FROM clients WHERE id = ?)`,
+      ).bind(id, name, id, name, id)));
       const added = results.reduce((sum, result) => sum + Number(result.meta?.changes || 0), 0);
       return json({ success: true, added, skipped: names.length - added }, { headers: noStore });
     }
@@ -641,8 +689,11 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
            WHERE id = ? AND client_id = ?`,
         ).bind(name, status, cleanLine(body.note, 240), accessId, id).run();
       } else {
-        await db.prepare('INSERT INTO client_access (client_id, name, status, note) VALUES (?, ?, ?, ?)')
-          .bind(id, name, status, cleanLine(body.note, 240)).run();
+        const inserted = await db.prepare(
+          `INSERT INTO client_access (client_id, name, status, note)
+           SELECT ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM clients WHERE id = ?)`,
+        ).bind(id, name, status, cleanLine(body.note, 240), id).run();
+        if (!inserted.meta?.changes) return json({ success: false, error: 'Клиент уже удалён' }, { status: 404, headers: noStore });
       }
       return json({ success: true }, { headers: noStore });
     }
@@ -657,8 +708,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'add_note') {
       const noteBody = cleanText(body.body, LIMITS.note);
       if (!noteBody) return json({ success: false, error: 'Пустую памятку сохранять незачем' }, { status: 400, headers: noStore });
-      await db.prepare('INSERT INTO client_notes (client_id, body, pinned) VALUES (?, ?, ?)')
-        .bind(id, noteBody, body.pinned ? 1 : 0).run();
+      // Памятка пишется только к существующей карточке (DA-61).
+      const inserted = await db.prepare(
+        `INSERT INTO client_notes (client_id, body, pinned)
+         SELECT ?, ?, ? WHERE EXISTS (SELECT 1 FROM clients WHERE id = ?)`,
+      ).bind(id, noteBody, body.pinned ? 1 : 0, id).run();
+      if (!inserted.meta?.changes) return json({ success: false, error: 'Клиент уже удалён' }, { status: 404, headers: noStore });
       return json({ success: true }, { headers: noStore });
     }
 
@@ -671,10 +726,15 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'delete') {
       const workspace = await hasWorkspace(db);
-      const guard = workspace ? ` AND NOT EXISTS (SELECT 1 FROM client_work WHERE client_id = ?)
-        AND NOT EXISTS (SELECT 1 FROM client_tasks WHERE client_id = ?)
-        AND NOT EXISTS (SELECT 1 FROM invoices WHERE client_id = ?)` : '';
-      const bindings = workspace ? [id, id, id, id] : [id];
+      // Счета и часы ссылаются на клиента без внешнего ключа: карточку с ними
+      // удалять нельзя, иначе остаются записи с номером несуществующего
+      // клиента (DA-04). Счета и часы есть с миграции 0033.
+      const finance = workspace || Boolean(await db.prepare("SELECT 1 AS ok FROM sqlite_master WHERE type = 'table' AND name = 'time_entries'").first());
+      const guards: string[] = [];
+      if (workspace) guards.push('NOT EXISTS (SELECT 1 FROM client_work WHERE client_id = ?)', 'NOT EXISTS (SELECT 1 FROM client_tasks WHERE client_id = ?)');
+      if (finance) guards.push('NOT EXISTS (SELECT 1 FROM invoices WHERE client_id = ?)', 'NOT EXISTS (SELECT 1 FROM time_entries WHERE client_id = ?)');
+      const guard = guards.length ? ` AND ${guards.join(' AND ')}` : '';
+      const bindings = [id, ...guards.map(() => id)];
       // Карточка клиента — это история отношений; удаление уносит и её,
       // поэтому оно всегда осознанное действие из интерфейса с подтверждением.
       const [deleted] = await db.batch([
@@ -685,7 +745,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       ]);
       if (!deleted.meta?.changes) {
         const current = await db.prepare('SELECT id FROM clients WHERE id = ?').bind(id).first<{ id: number }>();
-        if (current) return json({ success: false, error: 'У клиента есть связанные проекты, задачи или счета. Переведите карточку в «Завершён», чтобы сохранить историю.' }, { status: 409, headers: noStore });
+        if (current) return json({ success: false, error: 'У клиента есть связанные проекты, задачи, счета или часы. Переведите карточку в «Завершён», чтобы сохранить историю.' }, { status: 409, headers: noStore });
         return json({ success: false, error: 'Клиент уже удалён' }, { status: 404, headers: noStore });
       }
       return json({ success: true }, { headers: noStore });

@@ -581,8 +581,10 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                   const active = Number(result.active_clients || 0);
                   const billed = Number(result.skipped || 0);
                   const noRetainer = Number(result.without_retainer || 0);
+                  const beforeStart = Number(result.before_start || 0);
                   const reasons: string[] = [];
                   if (billed) reasons.push(`счетов за этот месяц уже есть: ${billed}`);
+                  if (beforeStart) reasons.push(`работа ещё не началась в этом месяце: ${beforeStart}`);
                   if (noRetainer) reasons.push(`позиций без суммы: ${noRetainer}`);
                   if (!active) reasons.push('активных клиентов нет');
                   const detail = reasons.join('. ');
