@@ -15,6 +15,8 @@ interface Goal {
   spend_cap: number;
   currency: string;
   note: string;
+  /** Версия цели с сервера: по ней запись не перекрывает правку другой вкладки (DA-12). */
+  updated_at?: string;
 }
 
 interface PeriodFact {
@@ -258,7 +260,10 @@ export default function AdminGoals({ password }: { password: string }) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-Admin-Password': password },
         credentials: 'same-origin',
-        body: JSON.stringify({ ...draft, period }),
+        // Версия, с которой начата правка (она едет в самой форме): пустая
+        // строка — цели на месяц не было. Фоновое обновление формы не меняет
+        // эту версию, поэтому чужая правка не перекрывается молча (DA-12).
+        body: JSON.stringify({ ...draft, period, expected_updated_at: draft.updated_at ?? '' }),
       });
       const payload = await response.json().catch(() => null) as { success?: boolean; error?: string; migration?: string } | null;
       if (!response.ok || !payload?.success) {

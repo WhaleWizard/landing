@@ -598,12 +598,28 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       // режима — прежний upsert для старых вкладок.
       const mode = ['create', 'update', 'replace'].includes(String(body.mode)) ? String(body.mode) : 'replace';
       const expected = typeof body.updated_at === 'string' && body.updated_at ? body.updated_at : null;
+      // Заявки и продажи — целые числа, а отчёт, отмеченный отправленным,
+      // не может быть отправлен в будущем (DA-60): раньше записывались
+      // 2,5 заявки, 1,5 продажи и дата отправки через неделю.
+      const countOf = (value: unknown): number | null | false => {
+        if (value === null || value === undefined || String(value).trim() === '') return null;
+        const parsed = cleanOptionalNumber(value);
+        return parsed !== null && Number.isSafeInteger(parsed) ? parsed : false;
+      };
+      const leadsCount = countOf(body.leads), salesCount = countOf(body.sales);
+      if (leadsCount === false || salesCount === false) {
+        return json({ success: false, error: 'Заявки и продажи — целые числа без дробной части' }, { status: 400, headers: noStore });
+      }
+      const sentAt = cleanDate(body.report_sent_at);
+      if (sentAt && sentAt > todayIso) {
+        return json({ success: false, error: 'Отправленный отчёт не может быть датирован будущим' }, { status: 400, headers: noStore });
+      }
       const fields = [
-        cleanDate(body.report_sent_at),
+        sentAt,
         cleanSafeUrl(body.report_url, LIMITS.url),
         cleanOptionalNumber(body.spend),
-        cleanOptionalNumber(body.leads),
-        cleanOptionalNumber(body.sales),
+        leadsCount,
+        salesCount,
         cleanOptionalNumber(body.revenue),
         cleanText(body.note, LIMITS.text),
       ];
@@ -684,10 +700,14 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const status = ['granted', 'revoked', 'waiting'].includes(String(body.status)) ? String(body.status) as AccessStatus : 'waiting';
       const accessId = Number(body.access_id || 0);
       if (accessId) {
-        await db.prepare(
+        const updated = await db.prepare(
           `UPDATE client_access SET name = ?, status = ?, note = ?, changed_at = datetime('now')
            WHERE id = ? AND client_id = ?`,
         ).bind(name, status, cleanLine(body.note, 240), accessId, id).run();
+        // Запись удалили в другой вкладке (DA-62): ноль строк — не «сохранено».
+        if (!updated.meta?.changes) {
+          return json({ success: false, code: 'ACCESS_DELETED', error: 'Этот доступ уже удалён. Список обновлён.' }, { status: 404, headers: noStore });
+        }
       } else {
         const inserted = await db.prepare(
           `INSERT INTO client_access (client_id, name, status, note)
@@ -701,8 +721,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     if (action === 'delete_access') {
       const accessId = Number(body.access_id || 0);
       if (!accessId) return json({ success: false, error: 'Нужен id доступа' }, { status: 400, headers: noStore });
-      await db.prepare('DELETE FROM client_access WHERE id = ? AND client_id = ?').bind(accessId, id).run();
-      return json({ success: true }, { headers: noStore });
+      const removed = await db.prepare('DELETE FROM client_access WHERE id = ? AND client_id = ?').bind(accessId, id).run();
+      // Повтор удаления безопасен и различим: deleted: 0 — записи уже не было.
+      return json({ success: true, deleted: Number(removed.meta?.changes || 0) }, { headers: noStore });
     }
 
     if (action === 'add_note') {

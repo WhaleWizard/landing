@@ -181,7 +181,10 @@ export function profitByCurrency(received: Money, spent: Money, taxRate: number)
  * текущий. Для любого другого статуса дата оплаты снимается — иначе
  * «оплачен → выставлен → оплачен» принёс бы старую дату, а не настоящую.
  */
-export function withInvoiceStatus(invoice: Invoice, status: InvoiceStatus, today: string): Invoice {
+/** Форма счёта: у нового счёта сумма пустая, а не 0 (CL-40). */
+type InvoiceDraft = Omit<Invoice, 'amount'> & { amount: number | null };
+
+export function withInvoiceStatus<T extends Pick<Invoice, 'status' | 'paid_at'>>(invoice: T, status: InvoiceStatus, today: string): T {
   if (status !== 'paid') return { ...invoice, status, paid_at: null };
   return { ...invoice, status, paid_at: invoice.paid_at || today };
 }
@@ -214,7 +217,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
   const [migration, setMigration] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const [invoiceDraft, setInvoiceDraft] = useState<Invoice | null>(null);
+  const [invoiceDraft, setInvoiceDraft] = useState<InvoiceDraft | null>(null);
   const [expenseDraft, setExpenseDraft] = useState<Expense | null>(null);
   const [timeDraft, setTimeDraft] = useState<TimeEntry | null>(null);
   const [issueMonth, setIssueMonth] = useState(currentMonth());
@@ -580,10 +583,13 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                   const created = Number(result.created || 0);
                   const active = Number(result.active_clients || 0);
                   const billed = Number(result.skipped || 0);
+                  const drafts = Number(result.skipped_drafts || 0);
                   const noRetainer = Number(result.without_retainer || 0);
                   const beforeStart = Number(result.before_start || 0);
                   const reasons: string[] = [];
                   if (billed) reasons.push(`счетов за этот месяц уже есть: ${billed}`);
+                  // Черновик клиент не получил — его надо выставить вручную (DA-52).
+                  if (drafts) reasons.push(`черновиков ждут выставления: ${drafts} — откройте их в списке счетов и выставьте`);
                   if (beforeStart) reasons.push(`работа ещё не началась в этом месяце: ${beforeStart}`);
                   if (noRetainer) reasons.push(`позиций без суммы: ${noRetainer}`);
                   if (!active) reasons.push('активных клиентов нет');
@@ -595,7 +601,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                 Выставить за месяц
               </button>
               <button type="button" className="admin-button admin-button--primary admin-button--compact" onClick={() => setInvoiceDraft({
-                id: 0, client_id: null, number: '', period: currentMonth(), amount: 0,
+                id: 0, client_id: null, number: '', period: currentMonth(), amount: null,
                 currency: settings.main_currency, issued_at: today, due_at: null, paid_at: null, status: 'issued', note: '',
               })}>
                 <Plus aria-hidden="true" /> Счёт
@@ -713,7 +719,7 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                   <input className="admin-input" type="month" value={invoiceDraft.period} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, period: e.target.value })} />
                 </label>
                 <label className="admin-field"><span className="admin-label">Сумма, {invoiceDraft.currency || 'USD'}</span>
-                  <AdminDecimalInput className="admin-input" disabled={Boolean(invoiceDraft.payments?.length)} value={invoiceDraft.amount} onValueChange={(amount) => setInvoiceDraft({ ...invoiceDraft, amount: amount ?? 0 })} />
+                  <AdminDecimalInput className="admin-input" disabled={Boolean(invoiceDraft.payments?.length)} value={invoiceDraft.amount} onValueChange={(amount) => setInvoiceDraft({ ...invoiceDraft, amount })} />
                 </label>
                 <label className="admin-field"><span className="admin-label">Выставлен</span>
                   <input className="admin-input" type="date" value={invoiceDraft.issued_at || ''} onChange={(e) => setInvoiceDraft({ ...invoiceDraft, issued_at: e.target.value || null })} />
@@ -734,6 +740,11 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
               </fieldset>
               <div className="finance__form-actions">
                 <button type="button" className="admin-button admin-button--primary" disabled={busy} onClick={async () => {
+                  // Выставленный счёт на 0 попал бы в «Ждём оплаты» и отчёты (CL-40).
+                  if ((invoiceDraft.status === 'issued' || invoiceDraft.status === 'paid') && !((invoiceDraft.amount ?? 0) > 0)) {
+                    notify.error('Укажите сумму счёта', 'Выставленный или оплаченный счёт должен быть больше нуля. Без суммы сохраните его черновиком.');
+                    return;
+                  }
                   const saved = await request({ ...invoiceDraft, action: 'save_invoice' }, 'Счёт сохранён');
                   if (saved) setInvoiceDraft((current) => current === invoiceDraft ? null : current);
                 }}>
@@ -785,7 +796,13 @@ export default function AdminFinance({ password, target, onNavigate, onRegisterL
                             </button>
                             <button type="button" className="admin-icon-button" aria-label="Удалить счёт" disabled={connectedWorkspace && Boolean(invoice.payments?.length)} title={invoice.payments?.length ? 'Счёт с историей оплат сохраняется в учёте' : 'Удалить счёт'} onClick={async () => {
                               const confirmed = await confirmAsk({ title: 'Удалить счёт?', description: 'Восстановить его будет нельзя.', confirmLabel: 'Удалить', tone: 'danger' });
-                              if (confirmed) void request({ action: 'delete_invoice', id: invoice.id }, 'Счёт удалён');
+                              if (!confirmed) return;
+                              // deleted: 0 — счёта уже не было, например его удалили в другой вкладке (DA-11).
+                              const result = await request({ action: 'delete_invoice', id: invoice.id });
+                              if (result) {
+                                if (Number(result.deleted ?? 1) === 0) notify.info('Счёт уже был удалён', 'Например, в другой вкладке. Список обновлён.');
+                                else notify.success('Счёт удалён');
+                              }
                             }}>
                               <Trash2 aria-hidden="true" />
                             </button>

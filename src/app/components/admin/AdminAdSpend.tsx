@@ -27,6 +27,8 @@ interface SpendResponse {
   knownSources?: string[];
   saved?: number;
   skipped?: number;
+  /** Сколько строк действительно удалено: 0 — её уже не было (DA-98). */
+  deleted?: number;
   /** Сколько строк CSV с одинаковым ключом сложено в одну (import_csv). */
   merged?: number;
 }
@@ -359,7 +361,7 @@ export default function AdminAdSpend({
                           confirmLabel: 'Удалить',
                           tone: 'danger',
                         }).then((ok) => {
-                          if (ok) void post({ action: 'delete', id: row.id }, () => 'Строка удалена');
+                          if (ok) void post({ action: 'delete', id: row.id }, (payload) => (payload.deleted === 0 ? 'Строка уже была удалена' : 'Строка удалена'));
                         });
                       }}
                     >

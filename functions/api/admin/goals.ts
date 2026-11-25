@@ -262,32 +262,77 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // Разбор общий с расходами, финансами и клиентами. Прежний вариант менял
   // первую запятую на точку и вырезал остальное, поэтому «1,234.56» давал
   // «1.234.56» и превращался в ноль — цель по выручке молча обнулялась.
-  const bounded = (value: unknown, max: number): number => parseMoney(value, max) ?? 0;
+  // Пустое поле — 0, а значение вне диапазона — ошибка, а не тихий ноль
+  // (DA-12): бюджет 1 000 000 001 раньше записывался как 0.
+  const fieldLabels: Record<string, string> = {
+    leads_target: 'План по заявкам', qualified_target: 'План по целевым', revenue_target: 'План по выручке', spend_cap: 'Потолок расхода',
+  };
+  const outOfRange: string[] = [];
+  const bounded = (field: string, max: number): number => {
+    const value = body[field];
+    if (value === null || value === undefined || String(value).trim() === '') return 0;
+    const parsed = parseMoney(value, max);
+    if (parsed === null) outOfRange.push(fieldLabels[field]);
+    return parsed ?? 0;
+  };
+  const targets = [
+    Math.round(bounded('leads_target', 1_000_000)),
+    Math.round(bounded('qualified_target', 1_000_000)),
+    bounded('revenue_target', 1_000_000_000),
+    bounded('spend_cap', 1_000_000_000),
+  ];
+  if (outOfRange.length) {
+    return json({ success: false, error: `Проверьте значения: ${outOfRange.join(', ')}. Число не может быть отрицательным или больше допустимого.` }, { status: 400, headers: noStore });
+  }
+  const note = String(body.note || '').replace(/\s+/g, ' ').trim().slice(0, 200);
   // Новые цели используют учётную валюту. Валюта существующей цели сохраняется при правке.
   const currency = ACCOUNTING_CURRENCY;
+  // Время правки — с долями секунды и строго позже прежнего: две записи в
+  // одну миллисекунду иначе получили бы одну версию, и вкладка со старым
+  // снимком прошла бы проверку (та же ловушка, что FX-03 у статей).
+  const now = "strftime('%Y-%m-%d %H:%M:%f', 'now')";
+  const stamp = `CASE WHEN ${now} > COALESCE(updated_at, '') THEN ${now} ELSE strftime('%Y-%m-%d %H:%M:%f', updated_at, '+0.001 seconds') END`;
 
   try {
-    await env.DB.prepare(`
-      INSERT INTO admin_goals (period, leads_target, qualified_target, revenue_target, spend_cap, currency, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-      ON CONFLICT(period) DO UPDATE SET
-        leads_target = excluded.leads_target,
-        qualified_target = excluded.qualified_target,
-        revenue_target = excluded.revenue_target,
-        spend_cap = excluded.spend_cap,
-        note = excluded.note,
-        updated_at = datetime('now')
-    `).bind(
-      period,
-      Math.round(bounded(body.leads_target, 1_000_000)),
-      Math.round(bounded(body.qualified_target, 1_000_000)),
-      bounded(body.revenue_target, 1_000_000_000),
-      bounded(body.spend_cap, 1_000_000_000),
-      currency,
-      String(body.note || '').replace(/\s+/g, ' ').trim().slice(0, 200),
-    ).run();
+    // Форма присылает версию, которую видела (DA-12): пустая строка — цели
+    // ещё не было, иначе — её updated_at. Вкладка со старым снимком больше
+    // не возвращает чужую правку к прежнему значению. Без поля — прежняя
+    // запись поверх, для уже открытых старых вкладок.
+    if (typeof body.expected_updated_at === 'string') {
+      const expected = body.expected_updated_at;
+      const result = expected
+        ? await env.DB.prepare(`
+            UPDATE admin_goals SET leads_target = ?, qualified_target = ?, revenue_target = ?, spend_cap = ?, note = ?, updated_at = ${stamp}
+            WHERE period = ? AND updated_at = ?
+          `).bind(...targets, note, period, expected).run()
+        : await env.DB.prepare(`
+            INSERT INTO admin_goals (period, leads_target, qualified_target, revenue_target, spend_cap, currency, note, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ${now})
+            ON CONFLICT(period) DO NOTHING
+          `).bind(period, ...targets, currency, note).run();
+      if (!result.meta?.changes) {
+        return json({
+          success: false,
+          code: 'GOAL_CONFLICT',
+          error: 'Цель на этот месяц уже изменили в другой вкладке. Ваши значения остались в форме: обновите данные и сохраните заново.',
+        }, { status: 409, headers: noStore });
+      }
+    } else {
+      await env.DB.prepare(`
+        INSERT INTO admin_goals (period, leads_target, qualified_target, revenue_target, spend_cap, currency, note)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(period) DO UPDATE SET
+          leads_target = excluded.leads_target,
+          qualified_target = excluded.qualified_target,
+          revenue_target = excluded.revenue_target,
+          spend_cap = excluded.spend_cap,
+          note = excluded.note,
+          updated_at = ${stamp}
+      `).bind(period, ...targets, currency, note).run();
+    }
 
-    return json({ success: true, period }, { headers: noStore });
+    const saved = await env.DB.prepare('SELECT updated_at FROM admin_goals WHERE period = ?').bind(period).first<{ updated_at: string }>();
+    return json({ success: true, period, updated_at: saved?.updated_at }, { headers: noStore });
   } catch (error) {
     if (isMissingTableError(error)) {
       return json({

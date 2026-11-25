@@ -280,15 +280,71 @@ function readChecklistRecord(key: string): Record<string, unknown> {
   return {};
 }
 
-export function readLaunchpadState(checkedKey: string, customKey: string) {
-  const storedChecks = readChecklistRecord(checkedKey);
-  const storedItems = readChecklistRecord(customKey);
-  const checkedMap: Record<string, Record<string, boolean>> = {};
-  const customItems: Record<string, LaunchpadItem[]> = {};
+type CheckedMap = Record<string, Record<string, boolean>>;
+
+/** Отметки по шаблонам: только известные шаблоны и только true/false. */
+function sanitizeCheckedMap(storedChecks: Record<string, unknown>): CheckedMap {
+  const checkedMap: CheckedMap = {};
   for (const { id } of TEMPLATES) {
     const checks = storedChecks[id];
     const entries = checks && typeof checks === 'object' && !Array.isArray(checks) ? Object.entries(checks) : [];
     checkedMap[id] = Object.fromEntries(entries.filter(([, value]) => typeof value === 'boolean'));
+  }
+  return checkedMap;
+}
+
+function hasAnyCheck(map: CheckedMap): boolean {
+  return Object.values(map).some((checks) => Object.values(checks).some(Boolean));
+}
+
+/**
+ * Ключ проекта в общем разделе. Отметки хранятся отдельно для каждого
+ * названия (CL-05): раньше они были одни на всех, и смена «Клиент А» на
+ * «Клиент Б» выдавала клиенту Б чужую готовность и «Запуск разрешен!».
+ * Пустое название — общий черновик.
+ */
+export function launchpadProjectKey(name: string): string {
+  return name.trim().replace(/\s+/g, ' ').toLowerCase();
+}
+
+const PROJECT_CHECKS_KEY = 'ww_launchpad_checked_by_project';
+
+/**
+ * Отметки всех проектов. Прежние общие отметки при первом чтении отдаются
+ * тому проекту, чьё название было в поле, — под ним их и ставили.
+ */
+export function readProjectChecks(legacyProjectName: string): Record<string, CheckedMap> {
+  const stored = readChecklistRecord(PROJECT_CHECKS_KEY);
+  const projects: Record<string, CheckedMap> = {};
+  for (const [key, value] of Object.entries(stored)) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) projects[key] = sanitizeCheckedMap(value as Record<string, unknown>);
+  }
+  let hasStored = false;
+  try {
+    hasStored = localStorage.getItem(PROJECT_CHECKS_KEY) !== null;
+  } catch {
+    // Хранилище недоступно — работаем с пустым набором.
+  }
+  if (!hasStored) {
+    const legacy = sanitizeCheckedMap(readChecklistRecord('ww_launchpad_checked'));
+    if (hasAnyCheck(legacy)) projects[launchpadProjectKey(legacyProjectName)] = legacy;
+  }
+  return projects;
+}
+
+function writeProjectChecks(projects: Record<string, CheckedMap>) {
+  try {
+    localStorage.setItem(PROJECT_CHECKS_KEY, JSON.stringify(projects));
+  } catch {
+    // ignore
+  }
+}
+
+export function readLaunchpadState(checkedKey: string, customKey: string) {
+  const checkedMap = sanitizeCheckedMap(readChecklistRecord(checkedKey));
+  const storedItems = readChecklistRecord(customKey);
+  const customItems: Record<string, LaunchpadItem[]> = {};
+  for (const { id } of TEMPLATES) {
     const items = storedItems[id];
     customItems[id] = Array.isArray(items) ? items
       .filter((item) => item && typeof item.id === 'string' && typeof item.title === 'string'
@@ -315,8 +371,10 @@ export default function AdminLaunchpad() {
   // Custom items added by user
   const [customItems, setCustomItems] = useState<Record<string, LaunchpadItem[]>>({});
   
-  // Checked state: { [templateId]: { [itemId]: boolean } }
-  const [checkedMap, setCheckedMap] = useState<Record<string, Record<string, boolean>>>({});
+  // Отметки по проектам: { [проект]: { [шаблон]: { [пункт]: boolean } } } (CL-05)
+  const [projectChecks, setProjectChecks] = useState<Record<string, CheckedMap>>({});
+  const projectKey = launchpadProjectKey(clientName);
+  const checkedMap = useMemo<CheckedMap>(() => projectChecks[projectKey] || {}, [projectChecks, projectKey]);
 
   // New item modal / form state
   const [isAddingItem, setIsAddingItem] = useState(false);
@@ -328,35 +386,36 @@ export default function AdminLaunchpad() {
   // Load state from localStorage on initial render
   useEffect(() => {
     const saved = readLaunchpadState('ww_launchpad_checked', 'ww_launchpad_custom');
-    setCheckedMap(saved.checkedMap);
     setCustomItems(saved.customItems);
+    let savedClient = '';
     try {
-      const savedClient = localStorage.getItem('ww_launchpad_client');
+      savedClient = localStorage.getItem('ww_launchpad_client') || '';
       if (savedClient) setClientName(savedClient);
     } catch {
       // ignore
     }
+    setProjectChecks(readProjectChecks(savedClient));
   }, []);
 
   // Save checked state
   const toggleItem = useCallback((itemId: string) => {
-    setCheckedMap((prev) => {
-      const currentTemplateMap = prev[activeTemplateId] || {};
+    setProjectChecks((prev) => {
+      const project = prev[projectKey] || {};
+      const currentTemplateMap = project[activeTemplateId] || {};
       const updated = {
         ...prev,
-        [activeTemplateId]: {
-          ...currentTemplateMap,
-          [itemId]: !currentTemplateMap[itemId],
+        [projectKey]: {
+          ...project,
+          [activeTemplateId]: {
+            ...currentTemplateMap,
+            [itemId]: !currentTemplateMap[itemId],
+          },
         },
       };
-      try {
-        localStorage.setItem('ww_launchpad_checked', JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
+      writeProjectChecks(updated);
       return updated;
     });
-  }, [activeTemplateId]);
+  }, [activeTemplateId, projectKey]);
 
   // Handle client name change
   const handleClientNameChange = (val: string) => {
@@ -463,16 +522,12 @@ export default function AdminLaunchpad() {
   // Reset checklist
   const handleResetChecklist = () => {
     if (!window.confirm('Сбросить все отметки выполнения в этом чек-листе?')) return;
-    setCheckedMap((prev) => {
+    setProjectChecks((prev) => {
       const updated = {
         ...prev,
-        [activeTemplateId]: {},
+        [projectKey]: { ...(prev[projectKey] || {}), [activeTemplateId]: {} },
       };
-      try {
-        localStorage.setItem('ww_launchpad_checked', JSON.stringify(updated));
-      } catch {
-        // ignore
-      }
+      writeProjectChecks(updated);
       return updated;
     });
     notify.info('Отметки сброшены');
@@ -638,14 +693,19 @@ export default function AdminLaunchpad() {
 
         {/* Client Name Input */}
         <div className="admin-launchpad-client-input-wrap">
-          <label className="admin-launchpad-client-label">Проект / Кампания:</label>
+          <label className="admin-launchpad-client-label" htmlFor="admin-launchpad-project">Проект / Кампания:</label>
           <input
+            id="admin-launchpad-project"
             type="text"
             className="admin-input admin-launchpad-client-input"
             placeholder="Например: Клиент Smile Dent / Лидген Meta"
             value={clientName}
+            aria-describedby="admin-launchpad-project-hint"
             onChange={(e) => handleClientNameChange(e.target.value)}
           />
+          <span id="admin-launchpad-project-hint" className="admin-hint">
+            {clientName.trim() ? 'Отметки хранятся отдельно для этого проекта.' : 'Без названия — общий черновик. У каждого проекта свои отметки.'}
+          </span>
         </div>
       </div>
 

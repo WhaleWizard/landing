@@ -231,6 +231,8 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       const status = cleanInvoiceStatus(body.status);
       const amount = parseMoney(body.amount);
       if (amount === null) throw new WorkspaceError('Укажите корректную сумму счёта');
+      // Выставленный или оплаченный счёт на 0 не сохраняется (CL-40).
+      if (amount <= 0 && (status === 'issued' || status === 'paid')) throw new WorkspaceError('Укажите сумму счёта больше нуля');
       const period = cleanMonth(body.period);
       if (body.period && !period) throw new WorkspaceError('Укажите существующий месяц');
       // Дата оплаты есть только у оплаченного счёта: без неё «оплачен» не
@@ -285,8 +287,9 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     if (action === 'delete_invoice') {
       if (!id) return json({ success: false, error: 'Нужен id счёта' }, { status: 400, headers: noStore });
-      await db.prepare('DELETE FROM invoices WHERE id = ?').bind(id).run();
-      return json({ success: true }, { headers: noStore });
+      const removed = await db.prepare('DELETE FROM invoices WHERE id = ?').bind(id).run();
+      // Повтор удаления безопасен, но различим (DA-11).
+      return json({ success: true, deleted: Number(removed.meta?.changes || 0) }, { headers: noStore });
     }
 
     /**

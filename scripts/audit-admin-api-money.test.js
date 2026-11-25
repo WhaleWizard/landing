@@ -2243,3 +2243,72 @@ test('DA-113: без полей качества и этапов сделки «
   assert.equal(complete.fact.won, 0);
   full.sqlite.close();
 });
+
+// ─── Пакет 4c: клиенты, расходы и цели (DA-12, DA-60, DA-62, DA-98) ─────────
+
+test('DA-60: месяц клиента не принимает дробные заявки и продажи и отчёт, отправленный в будущем', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const id = (await clients.post({ action: 'create', name: 'Месячный' }, { timezone_offset: 0 })).payload.id;
+  const month = (body) => clients.post({ action: 'set_month', id, month: CURRENT_MONTH, mode: 'replace', ...body }, { timezone_offset: 0 });
+  assert.equal((await month({ leads: 2.5 })).status, 400, 'дробные заявки');
+  assert.equal((await month({ sales: '1,5' })).status, 400, 'дробные продажи');
+  const nextWeek = sqlDate(new Date(Date.now() + 7 * 86_400_000));
+  assert.equal((await month({ report_sent_at: nextWeek })).status, 400, 'отправка в будущем');
+  assert.equal(clients.sqlite.prepare('SELECT count(*) AS n FROM client_months').get().n, 0, 'ничего не записано');
+  const ok = await month({ leads: 3, sales: '', report_sent_at: sqlDate(new Date()) });
+  assert.equal(ok.status, 200, JSON.stringify(ok.payload));
+  const row = clients.sqlite.prepare('SELECT leads, sales FROM client_months').get();
+  assert.equal(row.leads, 3);
+  assert.equal(row.sales, null, 'пустое поле — не заполнено, а не 0');
+  clients.sqlite.close();
+});
+
+test('DA-62: правка удалённого доступа — 404, а повтор удаления сообщает, что записи уже нет', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const id = (await clients.post({ action: 'create', name: 'С доступами' }, { timezone_offset: 0 })).payload.id;
+  assert.equal((await clients.post({ action: 'set_access', id, name: 'Кабинет Meta', status: 'waiting' })).status, 200);
+  const accessId = clients.sqlite.prepare('SELECT id FROM client_access').get().id;
+  assert.equal((await clients.post({ action: 'delete_access', id, access_id: accessId })).payload.deleted, 1);
+  const stale = await clients.post({ action: 'set_access', id, access_id: accessId, name: 'Кабинет Meta', status: 'granted' });
+  assert.equal(stale.status, 404);
+  assert.equal(stale.payload.code, 'ACCESS_DELETED');
+  assert.equal(clients.sqlite.prepare('SELECT count(*) AS n FROM client_access').get().n, 0, 'запись не воскресла');
+  assert.equal((await clients.post({ action: 'delete_access', id, access_id: accessId })).payload.deleted, 0);
+  clients.sqlite.close();
+});
+
+test('DA-98: удаление строки расхода сообщает фактическое число удалённых строк', async (t) => {
+  t.after(installMemoryCache());
+  const spend = await harness('functions/api/admin/ad-spend.ts');
+  spend.sqlite.prepare("INSERT INTO ad_spend (day, source, amount, currency) VALUES (?, 'meta', 10, 'USD')").run(sqlDate(new Date()));
+  const rowId = spend.sqlite.prepare('SELECT id FROM ad_spend').get().id;
+  assert.equal((await spend.post({ action: 'delete', id: rowId })).payload.deleted, 1);
+  assert.equal((await spend.post({ action: 'delete', id: rowId })).payload.deleted, 0, 'повтор из другой вкладки — уже нечего удалять');
+  assert.equal((await spend.post({ action: 'delete', id: 99999 })).payload.deleted, 0, 'неизвестный id');
+  spend.sqlite.close();
+});
+
+test('DA-12: цель из устаревшей вкладки не перекрывает свежую, а сумма вне диапазона — ошибка, а не ноль', async (t) => {
+  t.after(installMemoryCache());
+  const goals = await harness('functions/api/admin/goals.ts');
+  const save = (body) => goals.post({ period: CURRENT_MONTH, leads_target: 10, revenue_target: 800, ...body }, { timezone_offset: 0 });
+  const created = await save({ expected_updated_at: '' });
+  assert.equal(created.status, 200, JSON.stringify(created.payload));
+  const base = created.payload.updated_at;
+  assert.ok(base);
+  assert.equal((await save({ expected_updated_at: '' })).status, 409, 'вторая вкладка не создаёт цель поверх существующей');
+
+  const tabA = await save({ revenue_target: 850, expected_updated_at: base });
+  assert.equal(tabA.status, 200, JSON.stringify(tabA.payload));
+  const tabB = await save({ revenue_target: 800, leads_target: 12, expected_updated_at: base });
+  assert.equal(tabB.status, 409, 'вкладка со старым снимком получает конфликт');
+  assert.equal(goals.sqlite.prepare('SELECT revenue_target FROM admin_goals').get().revenue_target, 850, 'правка вкладки A сохранилась');
+
+  const tooBig = await save({ spend_cap: 1_000_000_001, expected_updated_at: tabA.payload.updated_at });
+  assert.equal(tooBig.status, 400);
+  assert.match(tooBig.payload.error, /Потолок расхода/);
+  assert.equal(goals.sqlite.prepare('SELECT spend_cap FROM admin_goals').get().spend_cap, 0, 'ничего не записано');
+  goals.sqlite.close();
+});

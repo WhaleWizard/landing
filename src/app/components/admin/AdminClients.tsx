@@ -196,6 +196,12 @@ function emptyClient(): Client {
   };
 }
 
+/** Сегодня по календарю браузера: отправленный отчёт не датируется будущим (DA-60). */
+function localIsoDay(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 export default function AdminClients({ password, onOpenLead, onCreateCase, target, onNavigate, onRegisterLeaveGuard }: {
   password: string;
   target?: import('../../../../shared/admin-workspace').WorkspaceTarget;
@@ -817,7 +823,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                       />
                     </label>
                     <label className="admin-field"><span className="admin-label">Отчёт отправлен</span>
-                      <input className="admin-input" type="date" value={monthDraft.report_sent_at || ''} onChange={(e) => setMonthDraft({ ...monthDraft, report_sent_at: e.target.value || null })} />
+                      <input className="admin-input" type="date" max={localIsoDay()} value={monthDraft.report_sent_at || ''} onChange={(e) => setMonthDraft({ ...monthDraft, report_sent_at: e.target.value || null })} />
                     </label>
                     <label className="admin-field"><span className="admin-label">Ссылка на отчёт</span>
                       <input className="admin-input" maxLength={600} value={monthDraft.report_url} onChange={(e) => setMonthDraft({ ...monthDraft, report_url: e.target.value })} />
@@ -826,10 +832,10 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                       <AdminDecimalInput className="admin-input" value={monthDraft.spend} onValueChange={(spend) => setMonthDraft({ ...monthDraft, spend })} />
                     </label>
                     <label className="admin-field"><span className="admin-label">Заявок</span>
-                      <input className="admin-input" type="number" min={0} value={monthDraft.leads ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, leads: e.target.value === '' ? null : Number(e.target.value) })} />
+                      <input className="admin-input" type="number" min={0} step={1} inputMode="numeric" value={monthDraft.leads ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, leads: e.target.value === '' ? null : Number(e.target.value) })} />
                     </label>
                     <label className="admin-field"><span className="admin-label">Продаж</span>
-                      <input className="admin-input" type="number" min={0} value={monthDraft.sales ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, sales: e.target.value === '' ? null : Number(e.target.value) })} />
+                      <input className="admin-input" type="number" min={0} step={1} inputMode="numeric" value={monthDraft.sales ?? ''} onChange={(e) => setMonthDraft({ ...monthDraft, sales: e.target.value === '' ? null : Number(e.target.value) })} />
                     </label>
                     <label className="admin-field"><span className="admin-label">Выручка клиента, $</span>
                       <AdminDecimalInput className="admin-input" value={monthDraft.revenue} onValueChange={(revenue) => setMonthDraft({ ...monthDraft, revenue })} />
@@ -928,7 +934,11 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                       onValueChange={(value) => {
                         void request({ action: 'set_access', id: draft.id, access_id: item.id, name: item.name, status: value, note: item.note })
                           .then(() => refreshDetails(draft.id))
-                          .catch((accessError) => notify.error('Не сохранилось', accessError instanceof Error ? accessError.message : undefined));
+                          .catch((accessError) => {
+                            notify.error('Не сохранилось', accessError instanceof Error ? accessError.message : undefined);
+                            // Доступ могли удалить в другой вкладке (DA-62) — список показывает, что есть на самом деле.
+                            void refreshDetails(draft.id);
+                          });
                       }}
                     />
                     <button type="button" className="admin-icon-button" aria-label={`Убрать ${item.name}`} onClick={() => {

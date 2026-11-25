@@ -185,7 +185,7 @@ export async function workspaceMutation(
   if (action === "save_profile") {
     const id = positiveId(body.client_id);
     await clientExists(db, id);
-    await db
+    const result = await db
       .prepare(
         "UPDATE clients SET needs=?,interests=?,relationship_type=?,updated_at=datetime('now') WHERE id=?",
       )
@@ -196,6 +196,9 @@ export async function workspaceMutation(
         id,
       )
       .run();
+    // Клиента могли удалить между проверкой и записью (DA-11): ноль
+    // обновлённых строк — не успех.
+    if (!result.meta?.changes) throw new WorkspaceError("Клиент не найден", 404);
     return { success: true };
   }
   if (action === "create_client") {
@@ -271,11 +274,16 @@ export async function workspaceMutation(
         .run();
       const row = await db
         .prepare(
-          "SELECT id,client_id,title FROM client_work WHERE request_key=?",
+          "SELECT id,client_id,kind,title,service,status,billing,amount,currency,billing_day,due_at,scope,media_folder FROM client_work WHERE request_key=?",
         )
         .bind(key)
-        .first<{ id: number; client_id: number; title: string }>();
-      if (row?.client_id !== clientId || row.title !== values[0])
+        .first<Record<string, unknown> & { id: number }>();
+      // Повтор ключа — это та же работа с теми же полями (DA-10): раньше
+      // сверялись только клиент и название, и повтор с суммой 200 вместо
+      // 100 подтверждал запись со старой суммой.
+      const stored = row && [row.title, row.service, row.status, row.billing, Number(row.amount), row.currency,
+        Number(row.billing_day), row.due_at ?? null, row.scope, row.media_folder];
+      if (!row || row.client_id !== clientId || row.kind !== kind || stored!.some((value, index) => value !== values[index]))
         throw new WorkspaceError("Повтор операции содержит другие данные", 409);
       return { success: true, id: row.id };
     }
@@ -312,21 +320,25 @@ export async function workspaceMutation(
           )
           .run(),
       );
-    } else
+    } else {
+      const key = requestKey(body.request_key);
+      const note = textValue(body.note);
       await db
         .prepare(
           "INSERT OR IGNORE INTO client_tasks(client_id,work_id,title,due_at,note,done,request_key) VALUES(?,?,?,?,?,?,?)",
         )
-        .bind(
-          clientId,
-          workId,
-          title,
-          due,
-          textValue(body.note),
-          done,
-          requestKey(body.request_key),
-        )
+        .bind(clientId, workId, title, due, note, done, key)
         .run();
+      // Повтор ключа с другим названием или сроком — не подтверждение (DA-10).
+      const row = await db
+        .prepare("SELECT id,client_id,work_id,title,due_at,note FROM client_tasks WHERE request_key=?")
+        .bind(key)
+        .first<{ id: number; client_id: number; work_id: number | null; title: string; due_at: string | null; note: string }>();
+      if (!row || row.client_id !== clientId || row.work_id !== workId || row.title !== title
+        || (row.due_at ?? null) !== due || row.note !== note)
+        throw new WorkspaceError("Повтор операции содержит другие данные", 409);
+      return { success: true, id: row.id };
+    }
     return { success: true };
   }
   if (action === "remind_invoice") {
@@ -407,13 +419,30 @@ export async function workspaceMutation(
       .bind(id)
       .first();
     if (!row) throw new WorkspaceError("Поступление не найдено", 404);
-    await db
+    const voided = await db
       .prepare(
         "UPDATE invoice_payments SET voided_at=datetime('now'),void_reason=? WHERE id=? AND voided_at IS NULL",
       )
       .bind(reason, id)
       .run();
-    return { success: true };
+    // Долг вернулся — возвращается и напоминание, но только то, что закрыла
+    // сама оплата (DA-53). Триггер оплаты закрывает задачу в той же записи,
+    // поэтому её updated_at совпадает с created_at поступления; задача,
+    // которую владелец закрыл или правил сам, этому признаку не отвечает.
+    let reopened = 0;
+    if (voided.meta?.changes) {
+      const result = await db
+        .prepare(
+          `UPDATE client_tasks SET done=0,revision=revision+1,updated_at=datetime('now')
+           WHERE invoice_id=(SELECT invoice_id FROM invoice_payments WHERE id=?) AND done=1
+             AND EXISTS(SELECT 1 FROM invoice_payments p WHERE p.invoice_id=client_tasks.invoice_id AND p.created_at=client_tasks.updated_at)
+             AND EXISTS(SELECT 1 FROM invoices i WHERE i.id=client_tasks.invoice_id AND i.status='issued')`,
+        )
+        .bind(id)
+        .run();
+      reopened = Number(result.meta?.changes || 0);
+    }
+    return { success: true, reopened };
   }
   if (action === "save_resource") {
     const id = positiveId(body.id, true),
@@ -436,13 +465,23 @@ export async function workspaceMutation(
           .bind(...values, id, workId, body.revision)
           .run(),
       );
-    } else
+    } else {
+      const key = requestKey(body.request_key);
       await db
         .prepare(
           "INSERT OR IGNORE INTO client_work_resources(kind,title,url,body,state,work_id,request_key) VALUES(?,?,?,?,?,?,?)",
         )
-        .bind(...values, workId, requestKey(body.request_key))
+        .bind(...values, workId, key)
         .run();
+      // Тот же ключ — тот же ресурс (FX-04, как DA-10 у работ и задач).
+      const row = await db
+        .prepare("SELECT id,kind,title,url,body,state,work_id FROM client_work_resources WHERE request_key=?")
+        .bind(key)
+        .first<{ id: number; kind: string; title: string; url: string | null; body: string; state: string; work_id: number }>();
+      if (!row || row.work_id !== workId || [row.kind, row.title, row.url ?? null, row.body, row.state].some((value, index) => value !== (values[index] ?? null)))
+        throw new WorkspaceError("Повтор операции содержит другие данные", 409);
+      return { success: true, id: row.id };
+    }
     return { success: true };
   }
   if (action === "save_month") {
@@ -520,6 +559,10 @@ export async function workspaceMutation(
       ),
       amount = amountValue(body.amount)!,
       currency = existing?.currency || ACCOUNTING_CURRENCY;
+    // Выставленный или оплаченный счёт на 0 попадал в «Ждём оплаты»,
+    // напоминания и отчёты (CL-40). Черновик и отменённый — можно.
+    if (amount <= 0 && (status === "issued" || status === "paid"))
+      throw new WorkspaceError("Укажите сумму счёта больше нуля");
     if (existing) {
       const receipts = await db
         .prepare(
@@ -629,11 +672,13 @@ export async function workspaceMutation(
       throw new WorkspaceError(
         "Счёт с историей поступлений сохраняется. Ошибочную оплату можно отменить с указанием причины.",
       );
-    await db.batch([
+    const [, removed] = await db.batch([
       db.prepare("DELETE FROM client_tasks WHERE invoice_id=?").bind(id),
       db.prepare("DELETE FROM invoices WHERE id=?").bind(id),
     ]);
-    return { success: true };
+    // Повтор удаления безопасен, но различим (DA-11): deleted: 0 — счёта
+    // уже не было, например его удалили в другой вкладке.
+    return { success: true, deleted: Number(removed?.meta?.changes || 0) };
   }
   if (action === 'save_time') {
     const id = positiveId(body.id, true), clientId = positiveId(body.client_id, true);
@@ -760,8 +805,8 @@ export async function workspaceMutation(
         title: "",
       })),
     ];
-    const statements = entries
-      .filter((e) => e.amount > 0)
+    const billable = entries.filter((e) => e.amount > 0);
+    const statements = billable
       .map((e) => {
         const issued = `${period}-${String(e.day).padStart(2, "0")}`;
         const due = new Date(
@@ -797,10 +842,27 @@ export async function workspaceMutation(
       (n, r) => n + Number(r.meta?.changes || 0),
       0,
     );
+    // Пропуск из-за неготового черновика — не то же самое, что «счёт уже
+    // выставлен» (DA-52): черновик никто не получил, и владелец должен это
+    // увидеть, а не прочитать, что всё уже сделано. Выставлять черновик
+    // автоматически сервер не берётся — это решение владельца.
+    let skippedDrafts = 0;
+    if (results.some((r) => !r.meta?.changes)) {
+      const existing = await db
+        .prepare("SELECT client_id,work_id,status FROM invoices WHERE period=? AND kind='retainer' AND status!='cancelled'")
+        .bind(period)
+        .all<{ client_id: number | null; work_id: number | null; status: string }>();
+      billable.forEach((e, index) => {
+        if (results[index]?.meta?.changes) return;
+        const blocking = (existing.results || []).filter((row) => row.client_id === e.client && (row.work_id === e.work || row.work_id === null));
+        if (blocking.length && blocking.every((row) => row.status === "draft")) skippedDrafts += 1;
+      });
+    }
     return {
       success: true,
       created,
-      skipped: statements.length - created,
+      skipped: statements.length - created - skippedDrafts,
+      skipped_drafts: skippedDrafts,
       without_retainer: entries.filter((e) => e.amount <= 0).length,
       before_start: Number(beforeStart?.count || 0),
       active_clients: Number(active?.count || 0),

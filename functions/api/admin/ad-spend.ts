@@ -323,8 +323,10 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       if (!Number.isInteger(id) || id <= 0) {
         return json({ success: false, error: 'Некорректный идентификатор строки' }, { status: 400, headers: noStore });
       }
-      await db.prepare('DELETE FROM ad_spend WHERE id = ?').bind(id).run();
-      return json({ success: true, deleted: 1, entries: await readSpendRows(db, days, localTodayIso(request)) }, { headers: noStore });
+      const removed = await db.prepare('DELETE FROM ad_spend WHERE id = ?').bind(id).run();
+      // Фактическое число удалённых строк (DA-98): повтор из другой вкладки
+      // безопасен, но не выдаёт себя за удаление.
+      return json({ success: true, deleted: Number(removed.meta?.changes || 0), entries: await readSpendRows(db, days, localTodayIso(request)) }, { headers: noStore });
     }
 
     if (body.action !== 'upsert' && body.action !== 'import_csv') {

@@ -616,3 +616,114 @@ test('client summary uses projects, excludes one-off retainers and explains link
   const list=await api.onRequestGet({env,request:new Request('https://example.test/api/admin/clients',{headers})});const p=await list.json();assert.deepEqual(p.summary.recurring,[{currency:'USD',amount:2100}]);assert.equal(p.summary.withoutRetainer,0);
   const removed=await api.onRequestPost({env,request:new Request('https://example.test/api/admin/clients',{method:'POST',headers,body:JSON.stringify({action:'delete',id:cid})})});assert.equal(removed.status,409);assert.equal(sqlite.prepare('SELECT count(*) AS n FROM clients').get().n,2);sqlite.close();
 });
+
+// ─── Пакет 4c: повторы, удаления и счета рабочего места ─────────────────────
+
+test('DA-10, FX-04: повтор создания работы, задачи и ресурса с другими данными — конфликт, точный повтор — та же запись', async () => {
+  const { sqlite, db } = create();
+  const cid = client(sqlite);
+  const work = { action: 'save_work', client_id: cid, kind: 'project', billing: 'monthly', status: 'active', title: 'Ведение', service: 'meta', amount: 100, request_key: randomUUID() };
+  const first = await logic.workspaceMutation(db, work, today);
+  assert.equal((await logic.workspaceMutation(db, work, today)).id, first.id, 'точный повтор возвращает ту же работу');
+  await assert.rejects(logic.workspaceMutation(db, { ...work, amount: 200 }, today), /другие данные/);
+  assert.equal(sqlite.prepare('SELECT amount FROM client_work WHERE id=?').get(first.id).amount, 100);
+
+  const task = { action: 'save_task', client_id: cid, work_id: first.id, title: 'Отчёт', due_at: today, request_key: randomUUID() };
+  const taskId = (await logic.workspaceMutation(db, task, today)).id;
+  assert.ok(taskId);
+  assert.equal((await logic.workspaceMutation(db, task, today)).id, taskId);
+  await assert.rejects(logic.workspaceMutation(db, { ...task, title: 'Другая задача' }, today), /другие данные/);
+  assert.equal(sqlite.prepare('SELECT count(*) AS n FROM client_tasks').get().n, 1);
+
+  const resource = { action: 'save_resource', work_id: first.id, kind: 'link', title: 'Кабинет', url: 'https://example.com/ads', request_key: randomUUID() };
+  const resourceId = (await logic.workspaceMutation(db, resource, today)).id;
+  assert.equal((await logic.workspaceMutation(db, resource, today)).id, resourceId);
+  await assert.rejects(logic.workspaceMutation(db, { ...resource, title: 'Другой' }, today), /другие данные/);
+  sqlite.close();
+});
+
+test('DA-11: профиль удалённого клиента не сохраняется молча, повтор удаления счёта различим', async () => {
+  const { sqlite, db } = create();
+  const cid = client(sqlite);
+  // Клиента удаляют между проверкой существования и записью профиля.
+  const racing = {
+    prepare(sql) {
+      if (sql.startsWith('UPDATE clients SET needs')) sqlite.prepare('DELETE FROM clients WHERE id=?').run(cid);
+      return db.prepare(sql);
+    },
+    batch: (statements) => db.batch(statements),
+  };
+  await assert.rejects(
+    logic.workspaceMutation(racing, { action: 'save_profile', client_id: cid, relationship_type: 'ongoing' }, today),
+    /Клиент не найден/,
+  );
+  const other = client(sqlite, 'Борис');
+  const { id } = await invoice(db, other);
+  assert.equal((await logic.workspaceMutation(db, { action: 'delete_invoice', id }, today)).deleted, 1);
+  assert.equal((await logic.workspaceMutation(db, { action: 'delete_invoice', id }, today)).deleted, 0, 'второй раз — счёта уже нет');
+  sqlite.close();
+});
+
+test('DA-52: массовое выставление называет неготовый черновик отдельно от выставленного счёта', async () => {
+  const { sqlite, db } = create();
+  const withDraft = client(sqlite, 'С черновиком');
+  const withIssued = client(sqlite, 'С выставленным');
+  // Оба работают с начала года: счёт за месяц до начала работы не выставляется (DA-99).
+  sqlite.prepare("UPDATE clients SET started_at='2026-01-01'").run();
+  const period = '2026-10';
+  const project = async (cid) => (await logic.workspaceMutation(db, {
+    action: 'save_work', client_id: cid, kind: 'project', billing: 'monthly', status: 'active', title: 'Ведение', service: 'meta', amount: 500, request_key: randomUUID(),
+  }, today)).id;
+  const draftWork = await project(withDraft);
+  await project(withIssued);
+  await logic.workspaceMutation(db, { action: 'issue_work', work_id: draftWork, period, request_key: randomUUID() }, today);
+  assert.equal(sqlite.prepare("SELECT status FROM invoices WHERE work_id=?").get(draftWork).status, 'draft');
+  const first = await logic.workspaceMutation(db, { action: 'issue_month', period, request_key: randomUUID() }, today);
+  assert.equal(first.created, 1, 'выставлен счёт клиенту без черновика');
+  assert.equal(first.skipped_drafts, 1, 'черновик назван отдельно');
+  assert.equal(first.skipped, 0, 'черновик не выдаётся за выставленный счёт');
+  const again = await logic.workspaceMutation(db, { action: 'issue_month', period, request_key: randomUUID() }, today);
+  assert.equal(again.created, 0);
+  assert.equal(again.skipped, 1, 'выставленный счёт — «уже есть»');
+  assert.equal(again.skipped_drafts, 1);
+  sqlite.close();
+});
+
+test('DA-53: отмена оплаты возвращает напоминание, которое закрыла оплата, и не трогает закрытое владельцем', async () => {
+  const { sqlite, db } = create();
+  const cid = client(sqlite);
+  const pay = async (invoiceId) => logic.workspaceMutation(db, { action: 'record_payment', invoice_id: invoiceId, amount: 1200, paid_on: today, request_key: randomUUID() }, today);
+  const paymentOf = (invoiceId) => sqlite.prepare('SELECT id FROM invoice_payments WHERE invoice_id=?').get(invoiceId).id;
+  const taskOf = (invoiceId) => sqlite.prepare('SELECT * FROM client_tasks WHERE invoice_id=?').get(invoiceId);
+
+  const auto = (await invoice(db, cid)).id;
+  await logic.workspaceMutation(db, { action: 'remind_invoice', invoice_id: auto, due_at: today }, today);
+  await pay(auto);
+  assert.equal(taskOf(auto).done, 1, 'оплата закрыла напоминание');
+  const voided = await logic.workspaceMutation(db, { action: 'void_payment', id: paymentOf(auto), reason: 'Ошибка' }, today);
+  assert.equal(voided.reopened, 1);
+  assert.equal(taskOf(auto).done, 0, 'долг вернулся — напоминание снова открыто');
+
+  const manual = (await invoice(db, cid)).id;
+  await logic.workspaceMutation(db, { action: 'remind_invoice', invoice_id: manual, due_at: today }, today);
+  const reminder = taskOf(manual);
+  await logic.workspaceMutation(db, { ...reminder, action: 'save_task', done: true }, today);
+  // Владелец закрыл напоминание раньше, чем пришла оплата.
+  sqlite.prepare("UPDATE client_tasks SET updated_at='2026-10-01 09:00:00' WHERE invoice_id=?").run(manual);
+  await pay(manual);
+  const kept = await logic.workspaceMutation(db, { action: 'void_payment', id: paymentOf(manual), reason: 'Ошибка' }, today);
+  assert.equal(kept.reopened, 0);
+  assert.equal(taskOf(manual).done, 1, 'закрытое владельцем остаётся закрытым');
+  sqlite.close();
+});
+
+test('CL-40: выставленный счёт на 0 не сохраняется, черновик — можно', async () => {
+  const { sqlite, db } = create();
+  const cid = client(sqlite);
+  await assert.rejects(invoice(db, cid, { amount: 0 }), /больше нуля/);
+  await assert.rejects(invoice(db, cid, { amount: 0, status: 'paid', paid_at: today }), /больше нуля/);
+  const draft = await invoice(db, cid, { amount: 0, status: 'draft' });
+  assert.ok(draft.id);
+  assert.equal(sqlite.prepare("SELECT count(*) AS n FROM invoices WHERE status!='draft'").get().n, 0);
+  sqlite.close();
+});

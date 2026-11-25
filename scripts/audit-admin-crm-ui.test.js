@@ -1216,3 +1216,38 @@ test('monthly report compares only closed months in the UI and clipboard text', 
     else delete navigator.clipboard;
   }
 });
+
+test('CL-05: в общих чек-листах у каждого проекта свои отметки, прежние общие достаются проекту из поля', async () => {
+  const keys = ['ww_launchpad_checked', 'ww_launchpad_checked_by_project', 'ww_launchpad_client', 'ww_launchpad_custom'];
+  keys.forEach((key) => localStorage.removeItem(key));
+  // Прежний формат: отметки одни на всех, в поле было название «Клиент А».
+  localStorage.setItem('ww_launchpad_client', 'Клиент А');
+  localStorage.setItem('ww_launchpad_checked', JSON.stringify({ meta_leads: { ml_meta_pixel: true } }));
+  try {
+    const view = await mount(launchpad.AdminLaunchpad, {});
+    try {
+      const progress = () => view.container.querySelector('.admin-launchpad-progress-num').textContent;
+      const input = view.container.querySelector('#admin-launchpad-project');
+      assert.notEqual(progress(), '0%', 'отметки «Клиента А» на месте после обновления');
+      const withA = progress();
+
+      await type(input, 'Клиент Б');
+      assert.equal(progress(), '0%', 'у клиента Б чужих отметок нет');
+      await click(view.container.querySelector('.admin-launchpad-item'));
+      const withB = progress();
+      assert.notEqual(withB, '0%');
+
+      await type(input, '  клиент   а ');
+      assert.equal(progress(), withA, 'то же название с другими пробелами и регистром — тот же проект');
+      await type(input, 'Клиент Б');
+      assert.equal(progress(), withB);
+
+      const stored = JSON.parse(localStorage.getItem('ww_launchpad_checked_by_project'));
+      assert.deepEqual(Object.keys(stored).sort(), ['клиент а', 'клиент б']);
+    } finally {
+      await view.unmount();
+    }
+  } finally {
+    keys.forEach((key) => localStorage.removeItem(key));
+  }
+});
