@@ -1519,9 +1519,13 @@ function BlogPageComponent() {
                             ? articleImageAttributes(featuredArticle.image, ARTICLE_IMAGE_SIZES.featured)
                             : { src: '/images/brand/whale-wizard.webp' })}
                           alt=""
-                          loading="lazy"
+                          // Обложка ведущей статьи — самый крупный элемент первого
+                          // экрана блога (DA-35). С ленивой загрузкой её адрес
+                          // появлялся только после запуска React; теперь он есть
+                          // в HTML сборки, и браузер качает её сразу.
+                          loading="eager"
+                          fetchPriority="high"
                           decoding="async"
-                          rootMargin="120px 0px"
                           className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
                           onError={showBrandCoverOnce}
                         />

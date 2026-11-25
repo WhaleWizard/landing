@@ -1018,8 +1018,16 @@ const HERO_PRELOADS = {
       imageSizes: '(max-width: 900px) 430px, 1195px',
       priority: true,
     },
-    { href: '/images/cosmic/sky-compact.webp', priority: true, media: '(max-width: 900px)' },
-    { href: '/images/cosmic/sky.webp', priority: true, media: '(min-width: 901px)' },
+    // Небо: тот же набор вариантов и те же размеры, что у <img> (DA-16).
+    // Раньше предзагрузка по медиа-условию брала компактный файл, а srcset на
+    // телефоне с плотным экраном выбирал полный — качались оба. Ширины —
+    // настоящие (800 и 2048), а не 900 и 1920.
+    {
+      href: '/images/cosmic/sky.webp',
+      imageSrcSet: '/images/cosmic/sky-compact.webp 800w, /images/cosmic/sky.webp 2048w',
+      imageSizes: '(max-width: 900px) 100vw, 100vw',
+      priority: true,
+    },
   ],
   '/meta-ads': [
     {
@@ -1429,7 +1437,13 @@ function htmlTemplate({
     html = insertBeforeHeadClose(html, deferredHeadBlock);
   }
 
-  const bootstrapScript = isDeferred && mainScriptMatch ? `\n  <script type="module">setTimeout(function(){(window.requestIdleCallback || function(cb){setTimeout(cb, 1);})(function(){ import('${mainScriptMatch[1]}'); });}, ${deferDelay});</script>` : '';
+  // Отложенный старт приложения. Две страховки:
+  // — ранний тап по кнопке меню (DA-26) запускает приложение сразу и
+  //   запоминается: Navbar откроет меню после запуска, а не потеряет тап;
+  // — сорванная загрузка стартового модуля (DA-149) повторяется дважды с
+  //   паузой, потом страница перезагружается один раз за сессию. Раньше
+  //   import() без обработки отказа оставлял текст без работающего меню.
+  const bootstrapScript = isDeferred && mainScriptMatch ? `\n  <script type="module">(function(){var u='${mainScriptMatch[1]}',s=false;function l(n){import(n?u+'?ww-retry='+n:u).catch(function(){if(n<2){setTimeout(function(){l(n+1);},n?4000:1500);return;}try{if(!sessionStorage.getItem('ww-boot-reload')){sessionStorage.setItem('ww-boot-reload','1');location.reload();}}catch(e){}});}function go(){if(s)return;s=true;l(0);}document.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.target.closest('[data-ww-early-menu]');if(t&&!window.__wwMenuReady){window.__wwEarlyMenu=true;go();}},true);setTimeout(function(){(window.requestIdleCallback||function(cb){setTimeout(cb,1);})(go);},${deferDelay});})();</script>` : '';
   const rootHtml = hydratable
     ? `<div id="root">${bodyHtml}</div>${afterRootHtml ? `\n${afterRootHtml}` : ''}${bootstrapScript}`
     : `  <div id="root">\n${bodyHtml}\n  </div>${afterRootHtml ? `\n${afterRootHtml}` : ''}${bootstrapScript}`;

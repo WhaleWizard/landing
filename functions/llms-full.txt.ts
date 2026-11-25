@@ -1,4 +1,4 @@
-import { CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
+import { articleCollectionCacheControl, CACHE_CONTROL, matchCache, putCache } from './_lib/cache';
 import { fetchArticlesWithFallback, filterVisibleArticles } from './_lib/articles';
 import { getArticlePath, renderLlmsFullTxt } from './_lib/seo';
 import { findPageLock, readPageLockSnapshot } from './_lib/page-locks';
@@ -24,18 +24,23 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const staticContent = await staticRes.text();
 
     const { locks } = await readPageLockSnapshot(env, waitUntil);
-    const articles = filterVisibleArticles(await fetchArticlesWithFallback(env, request, waitUntil))
+    // Срок кэша — не дольше ближайшей запланированной публикации (DA-17), как
+    // у карты сайта: иначе статья, вышедшая по расписанию, появлялась в своде
+    // на пять минут позже.
+    const allArticles = await fetchArticlesWithFallback(env, request, waitUntil);
+    const cacheControl = articleCollectionCacheControl(CACHE_CONTROL.sitemap, allArticles, Date.now());
+    const articles = filterVisibleArticles(allArticles)
       .filter((article) => !findPageLock(locks, getArticlePath(article)));
 
     const content = renderLlmsFullTxt(staticContent, articles, siteUrl);
 
     const response = text(content, {
       headers: {
-        'Cache-Control': CACHE_CONTROL.sitemap,
+        'Cache-Control': cacheControl,
       },
     });
 
-    waitUntil(putCache(cacheKey, response));
+    if (cacheControl !== CACHE_CONTROL.noStore) waitUntil(putCache(cacheKey, response));
     return response;
   } catch {
     return next();

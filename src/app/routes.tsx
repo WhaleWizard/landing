@@ -180,6 +180,22 @@ function LazyWrapper({ children, fallback }: { children: React.ReactNode; fallba
 function InstantScrollRestoration() {
   const location = useLocation();
 
+  // Прокрутка, сделанная в уже показанной странице до запуска React (DA-37).
+  // Восстановление позиции React Router при первом запуске сбрасывало её на
+  // 0: человек начинал листать готовую страницу, и его возвращало наверх.
+  // Позиция читается при первом рендере — раньше любых эффектов.
+  const scrollBeforeStart = useRef(typeof window === 'undefined' ? 0 : window.scrollY);
+  const firstMount = useRef(true);
+  useIsomorphicLayoutEffect(() => {
+    if (!firstMount.current) return;
+    firstMount.current = false;
+    // Только первый заход в документ и без якоря: переход по ссылке с #
+    // и возврат по истории управляют прокруткой сами.
+    if (location.key !== 'default' || location.hash) return;
+    const before = scrollBeforeStart.current;
+    if (before > 0 && window.scrollY < before) window.scrollTo(0, before);
+  }, [location.hash, location.key]);
+
   // React Router restores the position in a layout effect. Install the
   // instant-scroll guard earlier so global smooth anchor scrolling cannot make
   // a new route visibly travel from the previous page's position.

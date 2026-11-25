@@ -127,23 +127,28 @@ function ConsultStudioHero({ content, settledEntrance: _settledEntrance = false 
           </div>
 
           {(visible.contact || visible.cases) && <div className="consult-studio-hero__actions">
+            {/* Ссылки, а не кнопки (DA-36): до запуска React у кнопки нет
+                обработчика, и первый тап ничего не делал. Ссылка ведёт к форме
+                сама, а после запуска — с той же плавной прокруткой, что раньше. */}
             {visible.contact && <Button
-              type="button"
               size="lg"
-              onClick={() => scrollTo('contact')}
+              asChild
               className="consult-studio-hero__primary"
             >
-              <span>{content.primaryButton}</span>
-              <ArrowRight aria-hidden="true" />
+              <a href="#contact" onClick={(event) => { event.preventDefault(); scrollTo('contact'); }}>
+                <span>{content.primaryButton}</span>
+                <ArrowRight aria-hidden="true" />
+              </a>
             </Button>}
             {visible.cases && <Button
-              type="button"
               size="lg"
               variant="outline"
-              onClick={() => scrollTo('cases')}
+              asChild
               className="consult-studio-hero__secondary"
             >
-              {content.secondaryButton}
+              <a href="#cases" onClick={(event) => { event.preventDefault(); scrollTo('cases'); }}>
+                {content.secondaryButton}
+              </a>
             </Button>}
           </div>}
 

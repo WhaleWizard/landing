@@ -12,6 +12,10 @@ export function buildSeoCacheTargets(siteUrl: string, articleSlugs: string[]): s
     `${siteUrl}/api/articles?view=summary`,
     `${siteUrl}/sitemap.xml`,
     `${siteUrl}/feed.xml`,
+    // Своды для ИИ перечисляют те же статьи (DA-17): без очистки они
+    // показывали прежнюю версию до пяти минут после правки.
+    `${siteUrl}/llms.txt`,
+    `${siteUrl}/llms-full.txt`,
     ...articleSlugs.flatMap((slug) => [
       `${siteUrl}/api/articles?slug=${encodeURIComponent(slug)}`,
       `${siteUrl}/blog/${slug}`,

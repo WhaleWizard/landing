@@ -1,5 +1,5 @@
 import { typographContent } from '../utils/typography';
-import { useEffect, useMemo, useState } from 'react';
+import { startTransition, useEffect, useMemo, useState } from 'react';
 import { readInlineSiteContentSeed } from '../utils/siteContentSeed';
 
 export const SITE_CONTENT_CACHE_TTL_MS = 15_000;
@@ -200,13 +200,18 @@ export function useSiteContent<T>(cacheKey: string | null, fallback: T): T {
         const nextContent = loaded
           ? mergeContent(fallback, loaded)
           : fallback;
-        setContent((prev) => {
-          try {
-            if (JSON.stringify(prev) === JSON.stringify(nextContent)) return prev;
-          } catch {
-            // При циклической структуре или ошибке сериализации применяем новое состояние
-          }
-          return nextContent;
+        // Свежий текст CMS — несрочное обновление (DA-162): пришедшее до конца
+        // гидратации обычное обновление заставляло React бросать серверную
+        // разметку ленивой секции (ошибка #421) и рисовать её заново.
+        startTransition(() => {
+          setContent((prev) => {
+            try {
+              if (JSON.stringify(prev) === JSON.stringify(nextContent)) return prev;
+            } catch {
+              // При циклической структуре или ошибке сериализации применяем новое состояние
+            }
+            return nextContent;
+          });
         });
       } catch {
         // Keep the published snapshot on screen while the connection recovers.

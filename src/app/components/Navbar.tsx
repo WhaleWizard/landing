@@ -60,6 +60,18 @@ function serviceFromKey(pathname: string): string {
 function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Тап по кнопке меню, сделанный до запуска приложения, запомнил стартовый
+  // скрипт страницы (DA-26): меню открывается после гидратации, а не теряет
+  // первое нажатие. Начальное состояние остаётся закрытым — как в HTML сборки.
+  useEffect(() => {
+    const early = window as Window & { __wwEarlyMenu?: boolean; __wwMenuReady?: boolean };
+    // С этого момента меню обслуживает React: стартовый скрипт больше не
+    // перехватывает нажатия.
+    early.__wwMenuReady = true;
+    if (!early.__wwEarlyMenu) return;
+    delete early.__wwEarlyMenu;
+    setIsMobileMenuOpen(true);
+  }, []);
   const mobileMenuRef = useDialogFocus<HTMLDivElement>(isMobileMenuOpen, () => setIsMobileMenuOpen(false));
   const navigate = useNavigate();
   const location = useLocation();
@@ -391,6 +403,7 @@ function Navbar({ variant = 'home', sectionsPath = '/' }: NavbarProps) {
             {/* Мобильное меню */}
             <button
               type="button"
+              data-ww-early-menu=""
               className="lg:hidden inline-flex h-11 w-11 items-center justify-center rounded-lg bg-card/50 backdrop-blur-sm border border-border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               onClick={() => setIsMobileMenuOpen((open) => !open)}
               aria-label={isMobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}

@@ -440,7 +440,7 @@ function CosmicHeroScene({ active = true, hydrating = false }: {
         <img
           className="cosmic-sky"
           src="/images/cosmic/sky.webp"
-          srcSet="/images/cosmic/sky-compact.webp 900w, /images/cosmic/sky.webp 1920w"
+          srcSet="/images/cosmic/sky-compact.webp 800w, /images/cosmic/sky.webp 2048w"
           sizes="(max-width: 900px) 100vw, 100vw"
           alt=""
           aria-hidden="true"
