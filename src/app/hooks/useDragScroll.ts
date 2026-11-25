@@ -1,4 +1,4 @@
-import { useEffect, type RefObject } from 'react';
+import { useEffect, useState, type RefObject } from 'react';
 
 const DRAG_THRESHOLD_PX = 4;
 
@@ -13,8 +13,15 @@ const DRAG_THRESHOLD_PX = 4;
  * Тач не подключается: там нативная инерция уже лучше любого ручного расчёта.
  */
 export function useDragScroll(ref: RefObject<HTMLElement | null>) {
+  // Лента может появиться позже первого рендера — например, после «Загружаю
+  // материалы…» или повторной загрузки (DA-160). Ссылка сверяется после
+  // каждого рендера, и обработчики подключаются к элементу, когда он есть.
+  const [node, setNode] = useState<HTMLElement | null>(null);
   useEffect(() => {
-    const node = ref.current;
+    if (ref.current !== node) setNode(ref.current);
+  });
+
+  useEffect(() => {
     if (!node) return;
     if (!window.matchMedia('(pointer: fine)').matches) return;
 
@@ -42,6 +49,13 @@ export function useDragScroll(ref: RefObject<HTMLElement | null>) {
 
     const handlePointerMove = (event: PointerEvent) => {
       if (event.pointerId !== pointerId) return;
+      // Кнопку уже отпустили — например, за краем ленты, где её отпускание
+      // лента не слышит (DA-159). Без этой проверки возврат курсора в ленту
+      // без нажатия начинал прокрутку.
+      if (event.buttons === 0) {
+        releasePointer();
+        return;
+      }
       const delta = event.clientX - startX;
       // Порог оставляет обычному клику по карточке право сработать: захват
       // указателя включается только когда движение стало осознанным.
@@ -82,6 +96,9 @@ export function useDragScroll(ref: RefObject<HTMLElement | null>) {
     node.addEventListener('pointermove', handlePointerMove);
     node.addEventListener('pointerup', handlePointerUp);
     node.addEventListener('pointercancel', handlePointerUp);
+    // Отпускание за пределами ленты (до захвата указателя) слышно только окну.
+    window.addEventListener('pointerup', handlePointerUp);
+    window.addEventListener('pointercancel', handlePointerUp);
     node.addEventListener('click', handleClickCapture, true);
     node.addEventListener('dragstart', handleDragStart);
 
@@ -91,8 +108,10 @@ export function useDragScroll(ref: RefObject<HTMLElement | null>) {
       node.removeEventListener('pointermove', handlePointerMove);
       node.removeEventListener('pointerup', handlePointerUp);
       node.removeEventListener('pointercancel', handlePointerUp);
+      window.removeEventListener('pointerup', handlePointerUp);
+      window.removeEventListener('pointercancel', handlePointerUp);
       node.removeEventListener('click', handleClickCapture, true);
       node.removeEventListener('dragstart', handleDragStart);
     };
-  }, [ref]);
+  }, [node]);
 }

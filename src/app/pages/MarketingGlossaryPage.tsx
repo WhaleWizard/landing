@@ -128,6 +128,8 @@ export default function MarketingGlossaryPage() {
   const [selectedSection, setSelectedSection] = useState<SectionFilter>('all');
   const [selectedCollection, setSelectedCollection] = useState<CollectionFilter>('all');
   const [openTermId, setOpenTermId] = useState('');
+  // Переход по ссылке на термин: все группы показываются после гидратации (DA-15).
+  const [termLinkOpened, setTermLinkOpened] = useState(false);
   const relatedScrollTimerRef = useRef<number | undefined>(undefined);
 
   useEffect(() => () => window.clearTimeout(relatedScrollTimerRef.current), []);
@@ -211,13 +213,16 @@ export default function MarketingGlossaryPage() {
         .filter((group) => group.terms.length > 0);
     }
 
-    const hasTargetHash = typeof window !== 'undefined' && window.location.hash.includes('term-');
-    if (!idleReady && !query && !hasTargetHash && groups.length > 2) {
+    // Ссылка на термин раскрывает все группы — но только после гидратации
+    // (DA-15): первый рендер в браузере обязан совпасть с серверным, где
+    // адреса с фрагментом нет. Раньше браузер сразу читал hash, рисовал все
+    // группы вместо двух, и React перестраивал разметку с ошибкой #418.
+    if (!idleReady && !query && !termLinkOpened && groups.length > 2) {
       return groups.slice(0, 2);
     }
 
     return groups;
-  }, [filteredTerms, selectedCollectionData, idleReady, query]);
+  }, [filteredTerms, selectedCollectionData, idleReady, query, termLinkOpened]);
 
   const metaAppsTermCount = useMemo(() => (
     new Set(glossaryCollections.find((collection) => collection.id === 'meta-apps')?.groups.flatMap((group) => group.termIds) || []).size
@@ -233,6 +238,7 @@ export default function MarketingGlossaryPage() {
     setSelectedSection('all');
     setQuery('');
     setOpenTermId(termId);
+    setTermLinkOpened(true);
     const shouldAlignHash = navigationType !== 'POP' || location.key === 'default';
     const timer = window.setTimeout(() => {
       if (shouldAlignHash) {

@@ -91,3 +91,20 @@ test('F-130: article date formatting uses Asia/Tashkent timezone', () => {
   const calCode = readFileSync('src/app/components/admin/ArticleCalendar.tsx', 'utf8');
   assert.match(calCode, /ownerToday\(Date\.parse/);
 });
+
+test('DA-150: ссылки между статьями ведут на опубликованный материал или на известный переезд', async () => {
+  const bundle = await build({ entryPoints: ['shared/article-redirects.ts'], bundle: true, format: 'esm', platform: 'node', write: false });
+  const { RENAMED_ARTICLE_SLUGS } = await import(`data:text/javascript;base64,${Buffer.from(bundle.outputFiles[0].text).toString('base64')}`);
+  const raw = JSON.parse(readFileSync('data/articles.build.json', 'utf8'));
+  const articles = Array.isArray(raw) ? raw : raw.articles;
+  const slugs = new Set(articles.map((article) => article.slug));
+  const broken = [];
+  for (const article of articles) {
+    for (const [, href] of String(article.content || '').matchAll(/href="\/(?:blog|cases)\/([^"#?/]+)/g)) {
+      const target = RENAMED_ARTICLE_SLUGS[href] || href;
+      if (!slugs.has(target)) broken.push(`${article.slug} → ${href}`);
+    }
+  }
+  assert.deepEqual(broken, [], 'битые ссылки: добавьте переезд в shared/article-redirects.ts или исправьте статью');
+  for (const target of Object.values(RENAMED_ARTICLE_SLUGS)) assert.ok(slugs.has(target), `переезд ведёт на существующий материал: ${target}`);
+});

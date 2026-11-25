@@ -1,3 +1,4 @@
+import { renamedArticleSlug } from '../../shared/article-redirects';
 import { CACHE_CONTROL, matchCache, putCache } from './cache';
 import { fetchArticleCandidatesWithFallback, filterVisibleArticles } from './articles';
 import {
@@ -338,6 +339,18 @@ export function createArticlePageHandler(sectionPath: SectionPath): PagesFunctio
         // A later category change can reverse this redirect. Let crawlers
         // consolidate the URL without persisting a potentially circular hop.
         return articleRedirect(requestUrl, siteUrl, getArticlePath(moved), CACHE_CONTROL.noStore);
+      }
+
+      // Переименованный материал (DA-150): ссылки в старых статьях ведут на
+      // прежний слаг — постоянный переход на новый адрес вместо 404.
+      // Кандидаты выше выбраны по старому слагу, поэтому новый материал
+      // дочитывается отдельно; переход — только если он опубликован.
+      const renamed = renamedArticleSlug(slug);
+      if (renamed) {
+        const renamedArticle = filterVisibleArticles(
+          await fetchArticleCandidatesWithFallback(env, request, renamed).catch(() => [] as Article[]),
+        ).find((item) => item.slug === renamed);
+        if (renamedArticle) return articleRedirect(requestUrl, siteUrl, getArticlePath(renamedArticle));
       }
 
       const redirectArticle = findArticleBySlugPrefix(articles, slug, sectionPath);

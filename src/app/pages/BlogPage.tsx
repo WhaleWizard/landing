@@ -1,4 +1,5 @@
 // src/app/pages/BlogPage.tsx
+import { renamedArticleSlug } from '../../../shared/article-redirects';
 import { AnimatePresence, m, useReducedMotion, useScroll, useSpring } from 'motion/react';
 import { getArticleServiceLink } from '../data/articleServiceLink';
 import {
@@ -20,7 +21,7 @@ import {
   X,
 } from 'lucide-react';
 import { useParams, useNavigate, useLocation, useNavigationType, Link} from 'react-router';
-import { useEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense, type Ref } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo, memo, lazy, Suspense, type Ref, type SyntheticEvent } from 'react';
 import SEO from '../components/SEO';
 import Navbar from '../components/Navbar';
 import PageNav from '../components/PageNav';
@@ -454,6 +455,26 @@ function CaseZipWarning({ download, onClose, onConfirm, dialogRef }: {
   );
 }
 
+/**
+ * Обложка не загрузилась — один раз показываем фирменную картинку (DA-148).
+ * Если не загрузилась и она, останавливаемся: раньше обработчик назначал её
+ * снова на каждую ошибку, и Chromium делал сотни запросов к заглушке.
+ */
+function showBrandCoverOnce(event: SyntheticEvent<HTMLImageElement>) {
+  const image = event.currentTarget;
+  if (image.dataset.wwCoverFallback) {
+    // Не загрузилась и заглушка: прячем картинку, карточка остаётся с фоном.
+    image.dataset.wwCoverFallback = 'failed';
+    image.style.visibility = 'hidden';
+    return;
+  }
+  image.dataset.wwCoverFallback = 'brand';
+  // Набор вариантов сильнее `src`: без его снятия заглушка так и не показалась бы.
+  image.removeAttribute('srcset');
+  image.removeAttribute('sizes');
+  image.src = '/images/brand/whale-wizard.webp';
+}
+
 const articleHtmlCache = new Map<string, { source: string; articleHtml: string; toc: { id: string; text: string }[] }>();
 
 // Обложка в блоке «Похожие статьи»: копии нужной ширины, а без своей обложки
@@ -468,11 +489,7 @@ function RelatedCover({ image, sizes }: { image?: string | null; sizes: string }
         alt=""
         loading="lazy"
         decoding="async"
-        onError={(event) => {
-          event.currentTarget.removeAttribute('srcset');
-          event.currentTarget.removeAttribute('sizes');
-          event.currentTarget.src = '/images/brand/whale-wizard.webp';
-        }}
+        onError={showBrandCoverOnce}
       />
     </span>
   );
@@ -498,6 +515,7 @@ function BlogPageComponent() {
     error: articlesError,
     refreshArticles,
     loadArticle,
+    listStale,
   } = useArticles();
   const selectedArticle = useMemo(() => {
     if (!slug || loading) return null;
@@ -628,9 +646,13 @@ function BlogPageComponent() {
     };
   }, [slug]);
 
+  // Материал не найден. Переименованный уводит на новый адрес (DA-150), а
+  // снятый с публикации больше не возвращает молча в список (DA-145): адрес
+  // остаётся, страница говорит, что материал недоступен, и даёт ссылку к списку.
+  const renamedTo = slug && !selectedArticle ? renamedArticleSlug(slug) : null;
   useEffect(() => {
-    if (slug && !loading && !articlesError && !selectedArticle) navigate(listUrl, { replace: true });
-  }, [articlesError, listUrl, loading, navigate, selectedArticle, slug]);
+    if (renamedTo && !loading) navigate(`${routeBase}/${renamedTo}${location.search}`, { replace: true });
+  }, [location.search, loading, navigate, renamedTo, routeBase]);
 
   useEffect(() => {
     if (!slug || !selectedArticle?._summary) return;
@@ -875,6 +897,24 @@ function BlogPageComponent() {
       return <ArticlesLoadError onRetry={() => loadArticle(slug).then(() => undefined)} />;
     }
     return <RouteSkeleton />;
+  }
+
+  if (slug && !selectedArticle && !renamedTo) {
+    if (articlesError) {
+      return <ArticlesLoadError onRetry={() => loadArticle(slug).then(() => undefined)} />;
+    }
+    return (
+      <>
+        <SEO title={`${isCasesRoute ? 'Кейс' : 'Статья'} недоступна`} url={`${routeBase}/${slug}`} noIndex />
+        <section className="mx-auto max-w-2xl px-4 py-24 text-center" role="status">
+          <h1 className="text-2xl font-bold text-foreground">{isCasesRoute ? 'Этот кейс недоступен' : 'Эта статья недоступна'}</h1>
+          <p className="mt-3 text-muted-foreground">Возможно, материал сняли с публикации или переименовали.</p>
+          <Link to={listUrl} className="mt-6 inline-flex rounded-xl border border-primary/40 bg-primary/10 px-5 py-2.5 text-sm font-semibold text-primary transition-colors hover:bg-primary/20">
+            {isCasesRoute ? 'Все кейсы' : 'Все статьи блога'}
+          </Link>
+        </section>
+      </>
+    );
   }
 
   if (selectedArticle) {
@@ -1447,6 +1487,16 @@ function BlogPageComponent() {
                 <div className="rounded-2xl border border-border bg-card/70 p-8 text-center">
                   <h2 className="text-xl font-semibold">По этой теме пока ничего нет</h2>
                   <p className="mt-2 text-muted-foreground">Снимите фильтр или попробуйте другое ключевое слово.</p>
+                  {listStale && (
+                    // Актуальный список не загрузился (DA-144): поиск шёл по
+                    // сохранённой копии, и «ничего нет» может быть неправдой.
+                    <p className="mt-3 text-sm text-amber-300">
+                      Поиск шёл по сохранённой копии: актуальный список статей не загрузился.{' '}
+                      <button type="button" onClick={() => { void refreshArticles().catch(() => undefined); }} className="font-semibold underline underline-offset-4">
+                        Повторить загрузку
+                      </button>
+                    </p>
+                  )}
                   <button
                     type="button"
                     onClick={() => { setSearchQuery(''); setActiveTopic(''); }}
@@ -1473,13 +1523,7 @@ function BlogPageComponent() {
                           decoding="async"
                           rootMargin="120px 0px"
                           className="absolute inset-0 h-full w-full object-cover transition duration-500 group-hover:scale-[1.025]"
-                          onError={(event) => {
-                            // Набор вариантов сильнее `src`: без его снятия
-                            // запасная картинка так и не показалась бы.
-                            event.currentTarget.removeAttribute('srcset');
-                            event.currentTarget.removeAttribute('sizes');
-                            event.currentTarget.src = '/images/brand/whale-wizard.webp';
-                          }}
+                          onError={showBrandCoverOnce}
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-transparent md:bg-gradient-to-r md:from-transparent md:to-card/60" aria-hidden="true" />
                         <span className="absolute bottom-4 left-4 rounded-lg border border-white/15 bg-black/60 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.05em] text-white backdrop-blur-sm">
@@ -1538,11 +1582,7 @@ function BlogPageComponent() {
                                   loading="lazy"
                                   decoding="async"
                                   className="h-full w-full object-cover transition duration-500 group-hover:scale-[1.035]"
-                                  onError={(event) => {
-                                    event.currentTarget.removeAttribute('srcset');
-                                    event.currentTarget.removeAttribute('sizes');
-                                    event.currentTarget.src = '/images/brand/whale-wizard.webp';
-                                  }}
+                                  onError={showBrandCoverOnce}
                                 />
                               </div>
                               <div className="min-w-0">

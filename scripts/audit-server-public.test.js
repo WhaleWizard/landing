@@ -863,3 +863,27 @@ test('технический Pages-адрес закрыт от индексац
   assert.equal((await headers('preview.example.pages.dev')).get('X-Robots-Tag'), 'noindex, nofollow');
   assert.equal((await headers('www.whalewzrd.com')).get('X-Robots-Tag'), null);
 });
+
+// ===========================================================================
+// DA-150 — старый слаг кейса из ссылок в статьях ведёт на новый адрес
+// ===========================================================================
+
+test('DA-150: прежний адрес переименованного кейса отвечает 301 на актуальный, query сохраняется', async () => {
+  const cases = await loadModule('functions/cases/[slug].ts');
+  const { RENAMED_ARTICLE_SLUGS } = await loadModule('shared/article-redirects.ts');
+  const [oldSlug, newSlug] = Object.entries(RENAMED_ARTICLE_SLUGS)[0];
+  cacheStore.clear();
+  const db = new FakeArticlesD1([d1Row(newSlug, { category: 'Кейсы' })]);
+  for (const ua of [GOOGLEBOT_UA, 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/130.0']) {
+    const response = await cases.onRequestGet({
+      request: new Request(`${SITE}/cases/${oldSlug}?utm_source=article`, { headers: { 'user-agent': ua } }),
+      params: { slug: oldSlug },
+      env: articlesEnv(db),
+      next: async () => new Response('shell', { status: 200, headers: { 'content-type': 'text/html' } }),
+      waitUntil: () => {},
+      data: {},
+    });
+    assert.equal(response.status, 301, ua);
+    assert.equal(response.headers.get('location'), `${SITE}/cases/${newSlug}?utm_source=article`);
+  }
+});

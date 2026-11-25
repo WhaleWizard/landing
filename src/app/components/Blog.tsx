@@ -3,8 +3,8 @@ import { typographText } from '../utils/typography';
 import { m } from 'motion/react';
 import { ArrowRight, Clock, BookOpen, MoveHorizontal } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { useRef, memo, useCallback } from 'react';
-import { useLocation, useNavigate } from 'react-router';
+import { useRef, memo, useCallback, useEffect } from 'react';
+import { useLocation, useNavigate, useNavigationType } from 'react-router';
 import { useArticles } from '../context/ArticlesContext';
 import { hasCustomCover } from '../utils/articleCover';
 import { ARTICLE_IMAGE_SIZES, articleImageAttributes } from '../utils/articleImages';
@@ -18,19 +18,64 @@ import ArticlesLoadError from './ArticlesLoadError';
 import { withReturnTo } from '../utils/siteNavigation';
 import { categoryDisplayLabel } from '../data/blogSections';
 
+/** Какую карточку ленты открыли — чтобы «Назад» вернул к ней (DA-161). */
+const CAROUSEL_RETURN_KEY = 'ww-home-blog-carousel';
+
+type CarouselReturn = { key: string; slug: string; offset: number };
+
+function readCarouselReturn(): CarouselReturn | null {
+  try {
+    const value = JSON.parse(sessionStorage.getItem(CAROUSEL_RETURN_KEY) || 'null') as CarouselReturn | null;
+    return value && typeof value.key === 'string' && typeof value.slug === 'string' && Number.isFinite(value.offset) ? value : null;
+  } catch {
+    // Хранилище недоступно — лента просто откроется с начала.
+    return null;
+  }
+}
+
 function Blog() {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   useDragScroll(scrollContainerRef);
   const navigate = useNavigate();
   const location = useLocation();
+  const navigationType = useNavigationType();
   const { articles, loading, error: articlesError, refreshArticles } = useArticles();
   const blogArticles = selectHomeArticles(articles);
 
   const openArticle = useCallback((slug: string) => {
+    // Запоминаем карточку и её место на экране: при возврате по истории
+    // вертикаль восстанавливает браузер, а горизонтальная лента сбрасывалась
+    // на начало (DA-161).
+    const container = scrollContainerRef.current;
+    const card = container?.querySelector<HTMLElement>(`a[href="/blog/${slug}"]`);
+    try {
+      sessionStorage.setItem(CAROUSEL_RETURN_KEY, JSON.stringify({
+        key: location.key,
+        slug,
+        offset: card && container ? card.offsetLeft - container.scrollLeft : 0,
+      }));
+    } catch {
+      // Без хранилища возврат к карточке просто не восстановится.
+    }
     navigate(`/blog/${slug}`, {
       state: withReturnTo(location),
     });
   }, [location, navigate]);
+
+  const restoredReturn = useRef(false);
+  useEffect(() => {
+    if (restoredReturn.current || navigationType !== 'POP' || !blogArticles.length) return;
+    const container = scrollContainerRef.current;
+    const saved = readCarouselReturn();
+    if (!container || !saved || saved.key !== location.key) return;
+    restoredReturn.current = true;
+    const card = container.querySelector<HTMLElement>(`a[href="/blog/${saved.slug}"]`);
+    if (!card) return;
+    container.style.scrollBehavior = 'auto';
+    container.scrollLeft = card.offsetLeft - saved.offset;
+    container.style.scrollBehavior = '';
+    card.focus({ preventScroll: true });
+  }, [blogArticles.length, location.key, navigationType]);
 
   if (loading) return <div className="py-16 text-center text-muted-foreground">Загружаю материалы...</div>;
   if (articlesError && articles.length === 0) {

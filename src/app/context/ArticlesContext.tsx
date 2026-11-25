@@ -18,6 +18,10 @@ interface ArticlesContextType {
   articles: Article[];
   loading: boolean;
   error: string | null;
+  /** Список пришёл с сервера в этом заходе, а не из снимка сборки. */
+  listFresh: boolean;
+  /** Обновить список не удалось: на экране сохранённая копия (DA-144). */
+  listStale: boolean;
   refreshArticles: () => Promise<void>;
   loadArticle: (slug: string) => Promise<Article | null>;
   forceRefreshArticles: () => Promise<void>;
@@ -295,6 +299,8 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate', publicPa
   const hasPublicList = useRef(initialSeed.present);
   const [loading, setLoading] = useState(!initialSeed.present);
   const [error, setError] = useState<string | null>(null);
+  const [listFresh, setListFresh] = useState(false);
+  const [listStale, setListStale] = useState(false);
   const requestSequence = useRef(0);
   const detailRequests = useRef(new Map<string, PendingArticleDetailRequest>());
   const activeDetailSlug = publicPath?.match(/^\/(?:blog|cases)\/([^/]+)$/)?.[1];
@@ -341,7 +347,16 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate', publicPa
   }, [activeDetailSlug]);
 
   const loadArticles = useCallback(async () => {
-    await runArticlesRequest(() => fetchArticles({ publicPath }), hasPublicList.current, true);
+    try {
+      await runArticlesRequest(() => fetchArticles({ publicPath }), hasPublicList.current, true);
+      setListFresh(true);
+      setListStale(false);
+    } catch (loadError) {
+      // Молчаливая догрузка поверх снимка не показывает экран ошибки, но
+      // разделы должны знать, что видят сохранённую копию (DA-143, DA-144).
+      setListStale(true);
+      throw loadError;
+    }
   }, [publicPath, runArticlesRequest]);
 
   const refreshArticles = useCallback(async () => {
@@ -525,7 +540,7 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate', publicPa
   }, [publicPath]);
 
   return (
-    <ArticlesContext.Provider value={{ articles, loading, error, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles, scheduleArticles }}>
+    <ArticlesContext.Provider value={{ articles, loading, error, listFresh, listStale, refreshArticles, loadArticle, forceRefreshArticles, forceRefreshAdminArticles, updateArticles, updateArticle, loadAdminArticle, removeArticle, setFeaturedArticles, scheduleArticles }}>
       {children}
     </ArticlesContext.Provider>
   );

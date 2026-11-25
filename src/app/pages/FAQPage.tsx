@@ -1,5 +1,5 @@
 import { typographText } from '../utils/typography';
-import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import { m } from 'motion/react';
 import { Link, useLocation, useNavigate, useNavigationType } from 'react-router';
 import { ArrowRight, ChevronDown, Search, Sparkles } from 'lucide-react';
@@ -588,11 +588,17 @@ export default function FAQPage() {
     return () => script?.remove();
   }, [faqSchema]);
 
+  // Ссылка на вопрос применяется один раз на переход (DA-142): поздний ответ
+  // CMS с обновлёнными вопросами раньше заново очищал поиск, который
+  // посетитель уже начал, и снова открывал исходный вопрос.
+  const appliedHashRef = useRef('');
   useEffect(() => {
     const rawHash = location.hash.slice(1);
     if (!rawHash.startsWith('faq-')) return;
     const faqId = rawHash.slice('faq-'.length);
     if (!liveFaqs.some((item) => item.id === faqId)) return;
+    const navigationMark = `${location.key}:${rawHash}`;
+    if (appliedHashRef.current === navigationMark) return;
 
     setSelectedCategory('all');
     setQuery('');
@@ -600,6 +606,9 @@ export default function FAQPage() {
     const timer = window.setTimeout(() => {
       const disclosure = document.getElementById(`faq-${faqId}`) as HTMLDetailsElement | null;
       if (!disclosure) return;
+      // Отметка ставится, когда вопрос действительно открыт: обновление
+      // данных до этого момента не должно отменить переход по ссылке.
+      appliedHashRef.current = navigationMark;
       disclosure.open = true;
       if (shouldAlignHash) {
         disclosure.scrollIntoView({ block: 'start', behavior: preferredScrollBehavior() });

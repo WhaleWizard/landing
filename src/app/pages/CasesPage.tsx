@@ -463,7 +463,7 @@ function StatCard({ icon: Icon, value, label }: { icon: ComponentType<{ classNam
 }
 
 export default function CasesPage() {
-  const { articles, loading, error: articlesError, refreshArticles } = useArticles();
+  const { articles, loading, error: articlesError, refreshArticles, listFresh } = useArticles();
   const navigate = useNavigate();
   const location = useLocation();
   // Страница пришла готовой из HTML (сборка + гидратация): появления через
@@ -552,6 +552,22 @@ export default function CasesPage() {
       Array.from(niches).sort().forEach((value) => params.append('niche', filterUrlToken('niche', value)));
       Array.from(sources).sort().forEach((value) => params.append('src', filterUrlToken('source', value)));
       Array.from(goals).sort().forEach((value) => params.append('result', filterUrlToken('result', value)));
+      // Пока на экране снимок сборки, незнакомый фильтр из ссылки может
+      // оказаться кейсом, опубликованным после сборки (DA-143): его не
+      // стираем, а ждём свежий список. После него незнакомое значение уже
+      // действительно недействительно и уходит из адреса.
+      if (!listFresh) {
+        const known = {
+          niche: new Set(allNiches.map((value) => filterUrlToken('niche', value))),
+          src: new Set(allSources.map((value) => filterUrlToken('source', value))),
+          result: new Set(allGoals.map((value) => filterUrlToken('result', value))),
+        } as const;
+        (['niche', 'src', 'result'] as const).forEach((key) => {
+          currentParams.getAll(key)
+            .filter((value) => !known[key].has(value) && !params.getAll(key).includes(value))
+            .forEach((value) => params.append(key, value));
+        });
+      }
     }
     if (sort !== 'fresh') params.set('sort', sort);
     if (query.trim()) params.set('q', query.trim());
@@ -571,7 +587,7 @@ export default function CasesPage() {
       internalSearchRef.current = nextSearch;
       navigate(nextUrl, { replace: true, preventScrollReset: true, state: location.state });
     }
-  }, [entry, goals, loading, location.pathname, location.search, location.state, navigate, niches, origin, query, sort, sources, urlSyncRevision]);
+  }, [allGoals, allNiches, allSources, entry, goals, listFresh, loading, location.pathname, location.search, location.state, navigate, niches, origin, query, sort, sources, urlSyncRevision]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLocaleLowerCase('ru').replace(/ё/g, 'е');
