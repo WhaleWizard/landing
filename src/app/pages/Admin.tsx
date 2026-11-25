@@ -223,6 +223,9 @@ async function checkAdminSession(): Promise<boolean> {
   return (await fetchAdminSessionStatus()) === 'alive';
 }
 
+/** Сервер хранит не больше 12 тегов статьи (`extractTags` в `_lib/jsonbin.ts`) — DA-58. */
+const ARTICLE_MAX_TAGS = 12;
+
 /**
  * Ответ сервера админки, за которым стоит потерянная сессия, а не ошибка
  * действия. `SESSION_EXPIRED` ставит `api/admin/_middleware.ts` при включённой
@@ -1745,7 +1748,7 @@ export default function Admin() {
       description: editingArticle.description?.trim() || '',
       seoTitle: editingArticle.seoTitle?.trim() || undefined,
       seoDescription: editingArticle.seoDescription?.trim() || undefined,
-      tags: (editingArticle.tags || []).map((item) => item.trim()).filter(Boolean).slice(0, 20),
+      tags: (editingArticle.tags || []).map((item) => item.trim()).filter(Boolean).slice(0, ARTICLE_MAX_TAGS),
       summary: editingArticle.summary?.trim() || editingArticle.description?.trim() || '',
       keyTakeaways: (editingArticle.keyTakeaways || []).map((item) => item.trim()).filter(Boolean),
       faq: (editingArticle.faq || [])
@@ -1775,7 +1778,13 @@ export default function Admin() {
     setIsSavingArticle(true);
     try {
       // Уходит одна статья, а не весь список: id новой статье выдаёт сервер.
-      const saved = await updateArticle(normalizedArticle, password);
+      // Новая статья (id 0) — создание: занятый адрес не перезапишется.
+      // Открытая — правка той версии, что была загружена в редактор.
+      // Поле даты пустое, а у открытой статьи дата была — значит, её очистили.
+      const loadedPublishedAt = articles.find((article) => article.id === normalizedArticle.id)?.publishedAt;
+      const saved = await updateArticle(normalizedArticle, password, normalizedArticle.id
+        ? { mode: 'update', expectedUpdatedAt: editingArticle.updatedAt, clearPublishedAt: Boolean(loadedPublishedAt && !normalizedArticle.publishedAt) }
+        : { mode: 'create' });
       if (!saved) {
         notify.error('Не удалось сохранить', 'Попробуйте ещё раз. Правки остались в редакторе.');
         return;
@@ -1803,7 +1812,10 @@ export default function Admin() {
         }
       }
       notify.success(status === 'draft' ? 'Черновик сохранён' : 'Опубликовано');
-      await fetch('/api/admin/article-versions', {
+      // Статья уже сохранена; версия для истории — отдельная запись. Если она
+      // не легла, владелец узнаёт об этом, а не обнаруживает пропуск в
+      // истории потом (DA-56).
+      const versionSaved = await fetch('/api/admin/article-versions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1811,7 +1823,10 @@ export default function Admin() {
         },
         credentials: 'same-origin',
         body: JSON.stringify({ password, slug: saved.slug, article: saved }),
-      }).catch(() => {});
+      }).then((response) => response.ok).catch(() => false);
+      if (!versionSaved) {
+        notify.info('Статья сохранена, но версия не попала в историю', 'Текст на сайте и в базе актуальный. Пропущена только запись в «Историю версий».');
+      }
       void forceRefreshAdminArticles(password).catch((error: unknown) => {
         notify.error('Не удалось обновить список публикаций', error instanceof Error ? error.message : undefined);
       });
@@ -3032,7 +3047,7 @@ export default function Admin() {
                       <p className="mt-1 text-xs text-[var(--adm-fg)]/50">Лучше держать в районе 140-170 знаков. API пропустит до 220.</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Теги (по одному на строку)</label>
+                      <label className="block text-sm font-medium mb-1.5 text-[var(--adm-fg)]/80">Теги (по одному на строку, до {ARTICLE_MAX_TAGS})</label>
                       <textarea
                         aria-label="Теги публикации"
                         value={tagsText}
@@ -3043,6 +3058,11 @@ export default function Admin() {
                         rows={3}
                         className="w-full px-4 py-2.5 rounded-xl border border-[var(--adm-border)] bg-[var(--adm-textarea-bg)] text-[var(--adm-fg)] resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-[var(--adm-primary)]/50 transition-all"
                       />
+                      {(editingArticle.tags || []).length > ARTICLE_MAX_TAGS ? (
+                        <p className="mt-1 text-xs text-[var(--adm-warning)]" role="status">
+                          Тегов {(editingArticle.tags || []).length}, сохранятся первые {ARTICLE_MAX_TAGS}. Уберите лишние, чтобы выбрать самим.
+                        </p>
+                      ) : null}
                     </div>
                   </section>
 

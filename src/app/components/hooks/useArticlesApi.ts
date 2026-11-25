@@ -342,7 +342,19 @@ export interface AdminSaveArticleResponse {
  * Сохранение одной статьи (PATCH). Весь список больше не отправляется:
  * тринадцать статей уже весили 168 КБ при лимите тела 256 КБ.
  */
-export const saveArticle = async (article: Article, password: string): Promise<AdminSaveArticleResponse> => {
+/**
+ * `mode` и `expectedUpdatedAt` защищают от записи поверх чужих правок (DA-02)
+ * и от воскрешения удалённой статьи (DA-03): сервер отвечает 409 с понятным
+ * текстом, а редактор остаётся открытым вместе с текстом.
+ */
+export interface SaveArticleOptions {
+  mode?: 'create' | 'update';
+  expectedUpdatedAt?: string;
+  /** Дату выхода в форме очистили (DA-45): пустое поле само по себе значит «не трогали». */
+  clearPublishedAt?: boolean;
+}
+
+export const saveArticle = async (article: Article, password: string, options: SaveArticleOptions = {}): Promise<AdminSaveArticleResponse> => {
   const res = await fetch(API_ROUTES.adminArticles, {
     method: 'PATCH',
     headers: {
@@ -352,7 +364,13 @@ export const saveArticle = async (article: Article, password: string): Promise<A
       ...(password ? { 'X-Admin-Password': password } : {}),
     },
     credentials: 'same-origin',
-    body: JSON.stringify({ password, article }),
+    body: JSON.stringify({
+      password,
+      article,
+      ...(options.mode ? { mode: options.mode } : {}),
+      ...(options.mode === 'update' && options.expectedUpdatedAt ? { expected_updated_at: options.expectedUpdatedAt } : {}),
+      ...(options.clearPublishedAt ? { clear_published_at: true } : {}),
+    }),
   });
 
   const payload = (await res.json().catch(() => null)) as AdminSaveArticleResponse | null;

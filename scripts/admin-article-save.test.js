@@ -577,3 +577,189 @@ test('cover replacement reaches the public card, detail and social preview', asy
   const page = await publicRequest(sqlite, blogPage, '/blog/' + slug, slug);
   assert.match(await page.text(), /property="og:image" content="https:\/\/example\.test\/new-cover\.webp"/);
 });
+
+// ─── Две вкладки, удалённая статья, номер новой статьи (DA-02, DA-03, DA-05) ──
+
+test('DA-02: сохранение из старой вкладки не затирает свежие правки — 409 и текст в базе не меняется', async () => {
+  const sqlite = freshDatabase();
+  const created = await patch(sqlite, { mode: 'create', article: article({ slug: 'two-tabs' }) });
+  assert.equal(created.status, 200);
+  const opened = created.payload.article;
+
+  // Вкладка A меняет заголовок.
+  const tabA = await patch(sqlite, { mode: 'update', expected_updated_at: opened.updatedAt, article: { ...opened, title: 'Новый заголовок A' } });
+  assert.equal(tabA.status, 200, JSON.stringify(tabA.payload));
+  // Вкладка B сохраняет снимок, открытый до правки A.
+  const tabB = await patch(sqlite, { mode: 'update', expected_updated_at: opened.updatedAt, article: { ...opened, description: 'Описание B' } });
+  assert.equal(tabB.status, 409);
+  assert.equal(tabB.payload.code, 'ARTICLE_CONFLICT');
+  assert.match(tabB.payload.error, /другой вкладке/);
+  const stored = sqlite.prepare("SELECT title, description FROM articles WHERE slug = 'two-tabs'").get();
+  assert.equal(stored.title, 'Новый заголовок A', 'правка A на месте');
+  assert.notEqual(stored.description, 'Описание B');
+
+  // После повторного открытия (новая версия) вкладка B сохраняет нормально.
+  const reopened = await patch(sqlite, { mode: 'update', expected_updated_at: tabA.payload.article.updatedAt, article: { ...tabA.payload.article, description: 'Описание B' } });
+  assert.equal(reopened.status, 200);
+});
+
+test('DA-03: старая вкладка не воскрешает удалённую статью, явное создание адреса работает', async () => {
+  const sqlite = freshDatabase();
+  const created = await patch(sqlite, { mode: 'create', article: article({ slug: 'removed-one' }) });
+  const opened = created.payload.article;
+  assert.equal((await adminDelete(sqlite, 'removed-one')).status, 200);
+
+  const stale = await patch(sqlite, { mode: 'update', expected_updated_at: opened.updatedAt, article: opened });
+  assert.equal(stale.status, 409);
+  assert.equal(stale.payload.code, 'ARTICLE_DELETED');
+  assert.equal(rows(sqlite).length, 0, 'статья не вернулась');
+
+  const fresh = await patch(sqlite, { mode: 'create', article: article({ slug: 'removed-one', title: 'Новая на старом адресе' }) });
+  assert.equal(fresh.status, 200);
+  assert.equal(fresh.payload.created, true);
+});
+
+test('DA-03: новая статья на занятом адресе не перезаписывает существующую', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { mode: 'create', article: article({ slug: 'taken', title: 'Первая' }) });
+  const second = await patch(sqlite, { mode: 'create', article: article({ slug: 'taken', title: 'Вторая' }) });
+  assert.equal(second.status, 409);
+  assert.equal(second.payload.code, 'SLUG_TAKEN');
+  assert.equal(sqlite.prepare("SELECT title FROM articles WHERE slug = 'taken'").get().title, 'Первая');
+});
+
+test('DA-05: одновременные новые статьи получают разные id', async () => {
+  const sqlite = freshDatabase();
+  const results = await Promise.all([
+    patch(sqlite, { mode: 'create', article: article({ slug: 'parallel-a' }) }),
+    patch(sqlite, { mode: 'create', article: article({ slug: 'parallel-b' }) }),
+    patch(sqlite, { mode: 'create', article: article({ slug: 'parallel-c' }) }),
+  ]);
+  assert.ok(results.every((result) => result.status === 200));
+  const ids = rows(sqlite).map((row) => row.id);
+  assert.equal(new Set(ids).size, 3, `id: ${ids.join(', ')}`);
+});
+
+test('DA-45: очистка будущей даты при публикации выпускает статью сейчас; дату вышедшей не сдвигает', async () => {
+  const sqlite = freshDatabase();
+  const tomorrow = new Date(Date.now() + 864e5).toISOString();
+  const created = await patch(sqlite, { mode: 'create', article: article({ slug: 'planned', publishedAt: tomorrow }) });
+  const opened = created.payload.article;
+  assert.equal(opened.publishedAt, tomorrow);
+
+  const untouched = await patch(sqlite, { mode: 'update', expected_updated_at: opened.updatedAt, article: { ...opened, publishedAt: undefined, title: 'Правка без даты' } });
+  assert.equal(untouched.payload.article.publishedAt, tomorrow, 'пустое поле без флага — дату не трогали');
+
+  const cleared = await patch(sqlite, { mode: 'update', clear_published_at: true, expected_updated_at: untouched.payload.article.updatedAt, article: { ...untouched.payload.article, publishedAt: undefined } });
+  assert.equal(cleared.status, 200);
+  assert.ok(Date.parse(cleared.payload.article.publishedAt) <= Date.now(), 'статья вышла сейчас');
+
+  const pastDate = cleared.payload.article.publishedAt;
+  const again = await patch(sqlite, { mode: 'update', clear_published_at: true, expected_updated_at: cleared.payload.article.updatedAt, article: { ...cleared.payload.article, publishedAt: undefined } });
+  assert.equal(again.payload.article.publishedAt, pastDate, 'дата уже вышедшей статьи не сдвигается');
+});
+
+test('DA-57: правка краткого ответа сдвигает дату изменения', async () => {
+  const sqlite = freshDatabase();
+  const created = await patch(sqlite, { mode: 'create', article: article({ slug: 'summary-edit', publishedAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-01T00:00:00.000Z' }) });
+  const opened = created.payload.article;
+  const edited = await patch(sqlite, { mode: 'update', expected_updated_at: opened.updatedAt, article: { ...opened, summary: 'Новый краткий ответ' } });
+  assert.equal(edited.status, 200);
+  assert.ok(Date.parse(edited.payload.article.updatedAt) > Date.parse(opened.updatedAt), `${opened.updatedAt} → ${edited.payload.article.updatedAt}`);
+});
+
+test('DA-44: расписание не снимает статью, опубликованную между чтением и записью, и не назначает удалённую', async () => {
+  for (const race of ['published', 'deleted']) {
+    const sqlite = freshDatabase();
+    await patch(sqlite, { mode: 'create', article: article({ slug: 'race-draft', status: 'draft' }) });
+    const db = new D1Database(sqlite);
+    const realBatch = db.batch.bind(db);
+    db.batch = async (statements) => {
+      if (race === 'published') {
+        sqlite.prepare("UPDATE articles SET status = 'published', published_at = ? WHERE slug = 'race-draft'").run(new Date(Date.now() - 1000).toISOString());
+      } else {
+        sqlite.prepare("DELETE FROM articles WHERE slug = 'race-draft'").run();
+      }
+      return realBatch(statements);
+    };
+    const background = [];
+    const tomorrow = new Date(Date.now() + 864e5).toISOString();
+    const response = await scheduleEndpoint.onRequestPut({
+      request: new Request('https://example.test/api/admin/articles-schedule', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'X-Admin-Password': PASSWORD },
+        body: JSON.stringify({ items: [{ slug: 'race-draft', publishedAt: tomorrow }] }),
+      }),
+      env: { ...makeEnv(sqlite), DB: db },
+      waitUntil: (promise) => background.push(promise),
+    });
+    await Promise.allSettled(background);
+    const payload = await response.json();
+    assert.equal(response.status, 200, race);
+    assert.deepEqual(payload.scheduled, [], `${race}: в ответе нет того, что не записано`);
+    assert.ok(payload.skipped.includes('race-draft'), race);
+    if (race === 'published') {
+      const row = sqlite.prepare("SELECT published_at FROM articles WHERE slug = 'race-draft'").get();
+      assert.ok(Date.parse(row.published_at) <= Date.now(), 'опубликованная статья осталась на сайте');
+    } else {
+      assert.equal(rows(sqlite).length, 0);
+    }
+  }
+});
+
+// ─── История версий: длинные адреса, повторный адрес, длинная статья (DA-46, DA-47, DA-56) ──
+
+const versionsEndpoint = await loadEndpoint('functions/api/admin/article-versions.ts');
+
+async function versionCall(sqlite, method, { slug, article: body } = {}) {
+  const url = new URL('https://example.test/api/admin/article-versions');
+  if (method === 'GET') url.searchParams.set('slug', slug);
+  const handler = method === 'GET' ? versionsEndpoint.onRequestGet : versionsEndpoint.onRequestPost;
+  const response = await handler({
+    request: new Request(url, {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Password': PASSWORD },
+      body: method === 'GET' ? undefined : JSON.stringify({ slug, article: body }),
+    }),
+    env: makeEnv(sqlite),
+    waitUntil: () => {},
+  });
+  return { status: response.status, payload: await response.json() };
+}
+
+test('DA-46: истории двух длинных адресов с общим началом не смешиваются', async () => {
+  const sqlite = freshDatabase();
+  const base = 'a'.repeat(70) + '-' + 'b'.repeat(69);
+  const slugA = `${base}-cccccc`;
+  const slugB = `${base}-cccccd`;
+  assert.equal(slugA.slice(0, 140), slugB.slice(0, 140), 'первые 140 знаков совпадают');
+  assert.equal((await versionCall(sqlite, 'POST', { slug: slugA, article: article({ slug: slugA, title: 'A' }) })).status, 200);
+  assert.equal((await versionCall(sqlite, 'POST', { slug: slugB, article: article({ slug: slugB, title: 'B' }) })).status, 200);
+  const historyA = await versionCall(sqlite, 'GET', { slug: slugA });
+  assert.equal(historyA.status, 200);
+  const titles = (historyA.payload.versions || []).map((version) => JSON.parse(version.version_data).title);
+  assert.deepEqual(titles, ['A']);
+});
+
+test('DA-47: новая статья на освобождённом адресе начинает историю с нуля, старая уходит в архив', async () => {
+  const sqlite = freshDatabase();
+  await patch(sqlite, { mode: 'create', article: article({ slug: 'reused', title: 'Старая' }) });
+  await versionCall(sqlite, 'POST', { slug: 'reused', article: article({ slug: 'reused', title: 'Старая' }) });
+  assert.equal((await adminDelete(sqlite, 'reused')).status, 200);
+  await patch(sqlite, { mode: 'create', article: article({ slug: 'reused', title: 'Новая' }) });
+  const history = await versionCall(sqlite, 'GET', { slug: 'reused' });
+  assert.deepEqual(history.payload.versions || [], [], 'чужих версий нет');
+  const archived = sqlite.prepare("SELECT COUNT(*) AS n FROM article_versions WHERE slug LIKE 'reused~deleted-%'").get().n;
+  assert.equal(archived, 1, 'старая история сохранена в архиве');
+});
+
+test('DA-56: версия длинной статьи, которую принимает сохранение, принимается и историей', async () => {
+  const sqlite = freshDatabase();
+  const longContent = `<p>${'Длинный абзац «с кавычками» и разметкой. '.repeat(2600)}</p>`.slice(0, 114_000);
+  const faq = Array.from({ length: 20 }, (_, index) => ({ question: `Вопрос ${index}`, answer: 'Ответ '.repeat(60) }));
+  const big = article({ slug: 'long-read', content: longContent, faq, keyTakeaways: Array.from({ length: 20 }, () => 'Тезис '.repeat(20)) });
+  const saved = await patch(sqlite, { mode: 'create', article: big });
+  assert.equal(saved.status, 200, JSON.stringify(saved.payload).slice(0, 200));
+  const version = await versionCall(sqlite, 'POST', { slug: 'long-read', article: saved.payload.article });
+  assert.equal(version.status, 200, JSON.stringify(version.payload));
+});

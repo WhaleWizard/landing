@@ -12,6 +12,7 @@ import {
   nextArticleIdFromD1,
   writeArticleToD1,
   writeArticlesToD1,
+  type ArticleWriteGuard,
 } from '../../_lib/d1';
 import {
   fetchArticlesWithFallback,
@@ -36,6 +37,12 @@ interface UpdatePayload {
 interface SingleUpdatePayload {
   password?: string;
   article?: Article;
+  /** `create` — новая статья, `update` — правка открытой (DA-02, DA-03). */
+  mode?: 'create' | 'update';
+  /** `updatedAt` статьи на момент открытия в редакторе. */
+  expected_updated_at?: string;
+  /** Дату выхода очистили в форме (DA-45). */
+  clear_published_at?: boolean;
 }
 
 const MAX_ARTICLES = 500;
@@ -418,6 +425,40 @@ function incomingArticleId(article: Article): number {
  * Остальные статьи не трогаются: id не перенумеровываются, отсутствующие
  * слаги не удаляются. Защита опорной статьи действует так же, как в PUT.
  */
+function articleConflictError(current: Article): Response {
+  return json(
+    {
+      success: false,
+      code: 'ARTICLE_CONFLICT',
+      error: 'Статью уже сохранили в другой вкладке или окне. Ваш текст остался в редакторе: скопируйте нужное, откройте статью заново и перенесите правки.',
+      current: { slug: current.slug, title: current.title, updatedAt: current.updatedAt },
+    },
+    { status: 409, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+  );
+}
+
+function articleGoneError(): Response {
+  return json(
+    {
+      success: false,
+      code: 'ARTICLE_DELETED',
+      error: 'Эту статью удалили, пока она была открыта. Сохранение её не вернёт; текст остался в редакторе — создайте новую статью, если она нужна.',
+    },
+    { status: 409, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+  );
+}
+
+function slugTakenError(current: Article): Response {
+  return json(
+    {
+      success: false,
+      code: 'SLUG_TAKEN',
+      error: `Адрес «${current.slug}» уже занят статьёй «${current.title}». Выберите другой адрес.`,
+    },
+    { status: 409, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
+  );
+}
+
 export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUntil }) => {
   const rateLimited = await enforceRateLimit(request, 'admin');
   if (rateLimited) return rateLimited;
@@ -453,8 +494,16 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
     // Копия из редактора и импорт из файлов id не передают.
     const incomingId = incomingArticleId(incoming);
 
+    // Режим записи из админки (DA-02, DA-03, DA-05). Старые клиенты и импорт
+    // режима не передают и пишут прежним upsert.
+    const mode = payload?.mode === 'create' || payload?.mode === 'update' ? payload.mode : undefined;
+    const expectedUpdatedAt = typeof payload?.expected_updated_at === 'string' ? payload.expected_updated_at : null;
+
     if (useD1) {
       existing = await fetchArticleFromD1(env, slug);
+      if (mode === 'update' && !existing) return articleGoneError();
+      if (mode === 'create' && existing) return slugTakenError(existing);
+      if (mode === 'update' && existing && (existing.updatedAt || null) !== expectedUpdatedAt) return articleConflictError(existing);
       if (incomingId && Number(existing?.id) !== incomingId) {
         const currentSlug = await fetchOtherSlugForArticleIdFromD1(env, incomingId, slug);
         if (currentSlug) return slugChangeError(currentSlug);
@@ -469,7 +518,29 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
         // значение из тела не принимается, остаётся сохранённое.
         featuredOrder: existing?.featuredOrder ?? undefined,
       };
-      saved = await writeArticleToD1(env, article, existing);
+      // Будущую дату очистили и публикуют (DA-45): статья выходит сейчас.
+      // Пустое поле без этого флага по-прежнему значит «дату не трогали», а
+      // дату уже вышедшей статьи очистка не сдвигает.
+      if (
+        payload?.clear_published_at === true
+        && !incoming.publishedAt
+        && article.status !== 'draft'
+        && existing?.publishedAt
+        && Date.parse(existing.publishedAt) > Date.now()
+      ) {
+        article.publishedAt = new Date().toISOString();
+      }
+      const guard: ArticleWriteGuard | undefined = mode === 'create'
+        ? { mode: 'create' }
+        : mode === 'update' ? { mode: 'update', expectedUpdatedAt } : undefined;
+      saved = await writeArticleToD1(env, article, existing, guard);
+      if (!saved && guard) {
+        // Условие не выполнилось между чтением и записью: другая вкладка
+        // успела сохранить, удалить статью или занять адрес.
+        const current = await fetchArticleFromD1(env, slug);
+        if (guard.mode === 'create') return current ? slugTakenError(current) : articleGoneError();
+        return current ? articleConflictError(current) : articleGoneError();
+      }
       waitUntil(persistD1ArticlesSnapshot(env));
     } else {
       const all = await fetchArticlesFromJsonBin(env);

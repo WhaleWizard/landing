@@ -145,6 +145,9 @@ function didArticleChange(previous: Article | undefined, next: Article): boolean
 
   const fieldsToCompare: Array<keyof Article> = [
     'title',
+    // Краткий ответ виден в выдаче и в разметке: его правка — тоже изменение
+    // статьи, и дата изменения должна сдвинуться (DA-57).
+    'summary',
     'description',
     'content',
     'category',

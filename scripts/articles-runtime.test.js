@@ -79,10 +79,24 @@ class FakeD1 {
 class FakeBucket {
   constructor() {
     this.objects = new Map();
+    this.etag = 0;
+    /** Задержка записи по содержимому: так тест упорядочивает «запоздавшую» запись. */
+    this.delayPut = null;
   }
 
   async put(key, value, options) {
-    this.objects.set(key, { value: String(value), options });
+    if (this.delayPut) await this.delayPut(String(value));
+    const current = this.objects.get(key);
+    const condition = options?.onlyIf;
+    if (condition?.etagMatches !== undefined && current?.etag !== condition.etagMatches) return null;
+    const etag = `e${++this.etag}`;
+    this.objects.set(key, { value: String(value), options, etag });
+    return { key, etag };
+  }
+
+  async head(key) {
+    const stored = this.objects.get(key);
+    return stored ? { key, etag: stored.etag, customMetadata: stored.options?.customMetadata || {} } : null;
   }
 
   async get(key) {
@@ -244,6 +258,7 @@ const {
   fetchArticleCandidatesWithFallback,
   fetchArticleSummariesWithFallback,
   fetchArticlesWithFallback,
+  scheduleD1ArticlesSnapshot,
   shouldUseD1Articles,
 } = await bundleTypeScript('functions/_lib/articles.ts');
 const { createArticlePageHandler } = await bundleTypeScript('functions/_lib/article-page.ts');
@@ -897,4 +912,48 @@ test('SQL сохранения статей не блокирует новую �
     /COALESCE\(articles\.published_at, excluded\.published_at\)/,
     'прежний порядок COALESCE отменял правку даты публикации',
   );
+});
+
+/** Полноценная статья в форме, как её пишет снимок. */
+function snapshotArticle(slug, id) {
+  return {
+    id, slug, title: `Title ${slug}`, category: 'Blog', readTime: '5 min', date: '2026-08-09',
+    description: `Description ${slug}`, content: `<p>${slug}</p>`, image: '/og-image-v2.jpg',
+    publishedAt: '2026-08-09T10:00:00.000Z', updatedAt: '2026-08-09T10:00:00.000Z', status: 'published',
+  };
+}
+
+test('DA-43: a delayed older snapshot never overwrites a newer one, so a deleted article stays deleted', { concurrency: false }, async (t) => {
+  blockNetwork(t);
+  const bucket = new FakeBucket();
+  const env = makeEnv({ db: new FakeD1([d1Row('kept', 1)]), bucket });
+  let releaseOld;
+  const oldHeld = new Promise((resolve) => { releaseOld = resolve; });
+  // Старый снимок (ещё со статьёй, которую потом удалили) задерживается на записи.
+  bucket.delayPut = async (value) => { if (value.includes('"removed"')) await oldHeld; };
+  const pending = [];
+  const waitUntil = (promise) => pending.push(promise);
+  // На сайте снимок уже существует: гонка идёт за перезапись прежнего.
+  const initial = [];
+  scheduleD1ArticlesSnapshot(env, [snapshotArticle('kept', 1), snapshotArticle('removed', 2), snapshotArticle('older', 3)], (promise) => initial.push(promise));
+  bucket.delayPut = null;
+  await Promise.all(initial);
+  bucket.delayPut = async (value) => { if (value.includes('"removed"')) await oldHeld; };
+  await new Promise((resolve) => setTimeout(resolve, 2));
+
+  scheduleD1ArticlesSnapshot(env, [snapshotArticle('kept', 1), snapshotArticle('removed', 2)], waitUntil);
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  scheduleD1ArticlesSnapshot(env, [snapshotArticle('kept', 1)], waitUntil);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  releaseOld();
+  await Promise.allSettled(pending);
+
+  const [stored] = [...bucket.objects.values()];
+  const snapshot = JSON.parse(stored.value);
+  assert.deepEqual(snapshot.articles.map((article) => article.slug), ['kept'], 'the newer snapshot without the deleted article wins');
+
+  // База недоступна — сайт читает снимок, и удалённой статьи там нет.
+  const failingDb = { prepare: () => ({ bind() { return this; }, all: async () => { throw new Error('D1 down'); }, first: async () => { throw new Error('D1 down'); } }) };
+  const fallback = await fetchArticlesWithFallback({ ...env, DB: failingDb }, request);
+  assert.deepEqual(fallback.map((article) => article.slug), ['kept']);
 });

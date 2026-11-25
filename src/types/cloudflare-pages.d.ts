@@ -56,8 +56,16 @@ declare interface D1Database {
   batch<T = unknown>(statements: D1PreparedStatement[]): Promise<Array<D1Result<T>>>;
 }
 
+/** Условие записи R2: например, «только если etag не изменился». */
+declare interface R2Conditional {
+  etagMatches?: string;
+  etagDoesNotMatch?: string;
+  uploadedBefore?: Date;
+  uploadedAfter?: Date;
+}
+
 declare interface R2PutOptions {
-  onlyIf?: Headers;
+  onlyIf?: Headers | R2Conditional;
   httpMetadata?: {
     contentType?: string;
     cacheControl?: string;
@@ -70,6 +78,7 @@ declare interface R2Object {
   key: string;
   size: number;
   uploaded: Date | string;
+  etag?: string;
   httpMetadata?: {
     contentType?: string;
     cacheControl?: string;

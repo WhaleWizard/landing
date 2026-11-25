@@ -196,9 +196,24 @@ export async function fetchArticleCandidatesFromD1(env: Env, rawSlug: string): P
 
 type ArticleUpsertContext = {
   insertSql: string;
+  /** Новая статья: id выдаётся в том же INSERT, занятый адрес не перезаписывается (DA-05, DA-03). */
+  createSql: string;
+  /** Правка: только существующая строка и только той версии, что открыта в редакторе (DA-02, DA-03). */
+  updateSql: string;
   hasCaseColumn: boolean;
   hasFeaturedColumn: boolean;
 };
+
+/**
+ * Как писать одну статью из админки.
+ * `create` — новая статья: адрес не должен быть занят, id выдаёт база.
+ * `update` — правка открытой статьи: строка должна существовать и иметь
+ * ту же `updated_at`, что была у редактора при открытии. Без режима —
+ * прежний upsert (импорт из файлов, старые клиенты).
+ */
+export type ArticleWriteGuard =
+  | { mode: 'create' }
+  | { mode: 'update'; expectedUpdatedAt: string | null };
 
 /**
  * Один SQL upsert на все пути записи. Раньше он собирался внутри записи
@@ -241,7 +256,23 @@ async function getArticleUpsertContext(env: Env & { DB: D1Database }): Promise<A
   const insertSql = `INSERT INTO articles (${columns.join(', ')}) VALUES (${placeholders})
     ON CONFLICT(slug) DO UPDATE SET ${updateSet.join(', ')}`;
 
-  return { insertSql, hasCaseColumn, hasFeaturedColumn };
+  // id новой статьи считается в самой вставке: раньше MAX(id)+1 читался до
+  // записи, и две одновременные новые статьи получали один номер (DA-05).
+  const createPlaceholders = columns.map((column) => (column === 'id' ? '(SELECT COALESCE(MAX(id), 0) + 1 FROM articles)' : '?')).join(', ');
+  const createSql = `INSERT INTO articles (${columns.join(', ')}) VALUES (${createPlaceholders})
+    ON CONFLICT(slug) DO NOTHING`;
+
+  const updateColumns = columns.filter((column) => column !== 'id' && column !== 'slug');
+  const updateSql = `UPDATE articles SET ${updateColumns.map((column) => (
+    column === 'published_at'
+      ? 'published_at = COALESCE(?, published_at)'
+      : column === 'featured_order'
+        ? 'featured_order = COALESCE(?, featured_order)'
+        : `${column} = ?`
+  )).join(', ')}
+    WHERE slug = ? AND updated_at IS ?`;
+
+  return { insertSql, createSql, updateSql, hasCaseColumn, hasFeaturedColumn };
 }
 
 function bindArticleUpsert(
@@ -249,6 +280,7 @@ function bindArticleUpsert(
   context: ArticleUpsertContext,
   article: Article,
   nowIso: string,
+  guard?: ArticleWriteGuard,
 ): D1PreparedStatement {
   // Статья уже прошла applyFreshnessMetadata, где дата публикации разрешена
   // по правилу «введённое важнее прежнего». Повторно сверяться с прежним
@@ -289,6 +321,14 @@ function bindArticleUpsert(
       : null);
   }
 
+  if (guard?.mode === 'create') {
+    // Первое значение — id: его выдаёт подзапрос в самом INSERT.
+    return env.DB.prepare(context.createSql).bind(...values.slice(1));
+  }
+  if (guard?.mode === 'update') {
+    // Без id и slug, затем условие: тот же адрес и та же версия.
+    return env.DB.prepare(context.updateSql).bind(...values.slice(2), article.slug, guard.expectedUpdatedAt);
+  }
   return env.DB.prepare(context.insertSql).bind(...values);
 }
 
@@ -329,7 +369,17 @@ export async function writeArticlesToD1(env: Env, rawArticles: Article[], existi
  * Ради этого админка и импорт перестали гонять весь список одним запросом:
  * тринадцать статей уже весили 168 КБ при лимите тела 256 КБ.
  */
-export async function writeArticleToD1(env: Env, rawArticle: Article, existing: Article | null): Promise<Article | null> {
+/**
+ * Запись одной статьи. С `guard` возвращает `null`, если условие не
+ * выполнилось: адрес занят (create) или статью удалили либо сохранили в
+ * другой вкладке (update). Вызывающий различает случаи повторным чтением.
+ */
+export async function writeArticleToD1(
+  env: Env,
+  rawArticle: Article,
+  existing: Article | null,
+  guard?: ArticleWriteGuard,
+): Promise<Article | null> {
   if (!hasD1(env)) {
     throw new Error('D1 is not configured');
   }
@@ -340,7 +390,8 @@ export async function writeArticleToD1(env: Env, rawArticle: Article, existing: 
   }
 
   const context = await getArticleUpsertContext(env);
-  await bindArticleUpsert(env, context, normalized, new Date().toISOString()).run();
+  const result = await bindArticleUpsert(env, context, normalized, new Date().toISOString(), guard).run();
+  if (guard && Number(result.meta?.changes || 0) === 0) return null;
   return fetchArticleFromD1(env, normalized.slug);
 }
 
@@ -393,13 +444,26 @@ export async function writeFeaturedOrderToD1(env: Env, slugs: string[], visibleL
   return slugs.length === 0 || Number(result.meta?.changes ?? 0) > 0;
 }
 
-/** Удаление одной статьи. История версий остаётся: она живёт в своей таблице. */
+/**
+ * Удаление одной статьи. История версий не удаляется, а уходит в архив под
+ * адресом `<slug>~deleted-<время>` (DA-47): иначе новая статья на том же
+ * адресе показывала бы чужие версии вперемешку со своими и могла
+ * «восстановить» текст удалённой. Архив через API истории не читается —
+ * адрес с `~` не проходит проверку, — но в базе остаётся.
+ */
 export async function deleteArticleFromD1(env: Env, slug: string): Promise<boolean> {
   if (!hasD1(env)) {
     throw new Error('D1 is not configured');
   }
-  const result = await env.DB.prepare('DELETE FROM articles WHERE slug = ?').bind(slug).run();
-  return Number(result.meta?.changes || 0) > 0;
+  const archiveSlug = `${slug}~deleted-${Date.now()}`;
+  const [result] = await env.DB.batch([
+    env.DB.prepare('DELETE FROM articles WHERE slug = ?').bind(slug),
+    env.DB.prepare(
+      `UPDATE article_versions SET slug = ?
+       WHERE slug = ? AND NOT EXISTS (SELECT 1 FROM articles WHERE slug = ?)`,
+    ).bind(archiveSlug, slug, slug),
+  ]);
+  return Number(result?.meta?.changes || 0) > 0;
 }
 
 /**
@@ -443,12 +507,21 @@ export async function writeScheduleToD1(
       continue;
     }
     scheduled.push(item.slug);
+    // То же условие повторяется в самой записи (DA-44): между чтением и
+    // записью статью могли опубликовать в другой вкладке (тогда перенос на
+    // завтра снял бы её с сайта) или удалить (тогда ответ врал бы, что
+    // назначил выход несуществующей статье).
     statements.push(
       env.DB
-        .prepare("UPDATE articles SET status = 'published', published_at = ?, updated_at = ? WHERE slug = ?")
-        .bind(item.publishedAt, item.publishedAt, item.slug),
+        .prepare(`UPDATE articles SET status = 'published', published_at = ?, updated_at = ?
+          WHERE slug = ? AND slug <> ? AND (status = 'draft' OR published_at > ?)`)
+        .bind(item.publishedAt, item.publishedAt, item.slug, protectedSlug, nowIso),
     );
   }
-  if (statements.length > 0) await env.DB.batch(statements);
-  return { scheduled, skipped };
+  if (statements.length === 0) return { scheduled, skipped };
+  const results = await env.DB.batch(statements);
+  // В ответ попадает только то, что действительно записано.
+  const written = scheduled.filter((_, index) => Number(results[index]?.meta?.changes || 0) > 0);
+  const lost = scheduled.filter((slug) => !written.includes(slug));
+  return { scheduled: written, skipped: [...skipped, ...lost] };
 }

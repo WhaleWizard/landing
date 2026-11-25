@@ -7,6 +7,7 @@ import {
   fetchArticle,
   fetchArticles,
   saveArticle,
+  type SaveArticleOptions,
   saveArticles,
   saveFeaturedOrder,
   saveSchedule,
@@ -22,7 +23,7 @@ interface ArticlesContextType {
   forceRefreshArticles: () => Promise<void>;
   forceRefreshAdminArticles: (password: string) => Promise<void>;
   updateArticles: (newArticles: Article[], password: string) => Promise<boolean>;
-  updateArticle: (article: Article, password: string) => Promise<Article | null>;
+  updateArticle: (article: Article, password: string, options?: SaveArticleOptions) => Promise<Article | null>;
   loadAdminArticle: (slug: string, password: string) => Promise<Article>;
   removeArticle: (slug: string, password: string) => Promise<void>;
   setFeaturedArticles: (slugs: string[], password: string) => Promise<void>;
@@ -417,9 +418,9 @@ export const ArticlesProvider = ({ children, initialLoad = 'immediate', publicPa
    * id сохраняется — так карточка новой статьи встаёт туда же, куда её поставит
    * следующая полная загрузка.
    */
-  const updateArticle = useCallback(async (article: Article, password: string) => {
+  const updateArticle = useCallback(async (article: Article, password: string, options?: SaveArticleOptions) => {
     const sequence = ++requestSequence.current;
-    const result = await saveArticle(article, password);
+    const result = await saveArticle(article, password, options);
     const saved = result.article ?? null;
     if (saved && sequence === requestSequence.current) {
       setArticles((current) => {

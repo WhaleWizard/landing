@@ -164,11 +164,19 @@ async function readD1Snapshot(env: Env): Promise<Article[] | null> {
   }
 }
 
-async function writeD1Snapshot(env: Env, serializedSnapshot: string): Promise<void> {
+/**
+ * Запись снимка с поколением (DA-43). `readAtMs` — момент чтения базы, из
+ * которой собран снимок. Две фоновые записи раньше гонялись за один ключ, и
+ * запоздавшая, собранная ещё до удаления статьи, перезаписывала свежую: при
+ * отказе D1 удалённая статья возвращалась на сайт. Теперь снимок, прочитанный
+ * раньше, чем уже лежащий, не пишется, а запись идёт условно по etag —
+ * параллельная запись между проверкой и записью заставит проверить заново.
+ */
+async function writeD1Snapshot(env: Env, serializedSnapshot: string, readAtMs: number): Promise<void> {
   const key = await getD1SnapshotKey(env);
   if (!key) return;
 
-  await env.BUCKET.put(key, serializedSnapshot, {
+  const options = {
     httpMetadata: {
       contentType: 'application/json; charset=utf-8',
       cacheControl: 'private, no-store',
@@ -176,8 +184,23 @@ async function writeD1Snapshot(env: Env, serializedSnapshot: string): Promise<vo
     customMetadata: {
       kind: 'd1-articles-last-known-good',
       version: '1',
+      readAt: String(readAtMs),
     },
-  });
+  };
+  if (typeof env.BUCKET.head !== 'function') {
+    await env.BUCKET.put(key, serializedSnapshot, options);
+    return;
+  }
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const current = await env.BUCKET.head(key);
+    const currentReadAt = Number(current?.customMetadata?.readAt || 0);
+    if (current && currentReadAt > readAtMs) return;
+    const written = await env.BUCKET.put(key, serializedSnapshot, current
+      ? { ...options, onlyIf: { etagMatches: current.etag } }
+      : options);
+    // `null` — условие не выполнилось: кто-то записал между head и put.
+    if (written !== null) return;
+  }
 }
 
 export function scheduleD1ArticlesSnapshot(
@@ -187,17 +210,19 @@ export function scheduleD1ArticlesSnapshot(
 ): void {
   if (!waitUntil || !env.BUCKET || !String(env.ADMIN_PASSWORD || '').trim()) return;
 
+  // Статьи только что прочитаны вызывающим: это и есть момент чтения базы.
+  const readAtMs = Date.now();
   const payload: D1SnapshotPayload = {
     version: 1,
     source: 'd1',
-    savedAt: new Date().toISOString(),
+    savedAt: new Date(readAtMs).toISOString(),
     total: articles.length,
     articles,
   };
   // Serialize before yielding so later sorting/mutation in a caller cannot alter the snapshot.
   const serializedSnapshot = JSON.stringify(payload);
   waitUntil(
-    writeD1Snapshot(env, serializedSnapshot).catch(() => {
+    writeD1Snapshot(env, serializedSnapshot, readAtMs).catch(() => {
       console.error('[articles] Failed to persist the D1 R2 snapshot.');
     }),
   );
@@ -211,15 +236,17 @@ export function scheduleD1ArticlesSnapshot(
 export async function persistD1ArticlesSnapshot(env: Env): Promise<void> {
   if (!env.BUCKET || !String(env.ADMIN_PASSWORD || '').trim()) return;
   try {
+    // Время берётся до чтения: снимок не новее того, что было в базе тогда.
+    const readAtMs = Date.now();
     const articles = await fetchArticlesFromD1(env);
     const payload: D1SnapshotPayload = {
       version: 1,
       source: 'd1',
-      savedAt: new Date().toISOString(),
+      savedAt: new Date(readAtMs).toISOString(),
       total: articles.length,
       articles,
     };
-    await writeD1Snapshot(env, JSON.stringify(payload));
+    await writeD1Snapshot(env, JSON.stringify(payload), readAtMs);
   } catch {
     console.error('[articles] Failed to persist the D1 R2 snapshot after a single-article save.');
   }

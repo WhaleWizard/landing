@@ -4,8 +4,13 @@ import { verifyAdminPassword } from '../../_lib/auth';
 import { enforceRateLimit } from '../../_lib/rate-limit';
 import type { Env } from '../../_lib/types';
 
-const MAX_VERSION_PAYLOAD_LENGTH = 160_000;
-const MAX_SLUG_LENGTH = 140;
+// Версия хранит статью целиком: лимит не меньше того, что пропускает само
+// сохранение статьи (тело запроса до 256 КБ). При 160 000 знаков длинная
+// статья сохранялась, а её версия молча отклонялась (DA-56).
+const MAX_VERSION_PAYLOAD_LENGTH = 262_144;
+// Тот же предел адреса, что у статьи (`isValidAdminSlug`): обрезка до 140
+// склеивала истории двух длинных адресов с общим началом (DA-46).
+const MAX_SLUG_LENGTH = 200;
 
 /**
  * Есть ли подключённая база. Это не просто проверка, а сужение типа: после
@@ -17,11 +22,11 @@ function hasD1(env: Env): env is Env & { DB: D1Database } {
 }
 
 function sanitizeSlug(value: string | null | undefined): string {
-  return String(value || '').trim().slice(0, MAX_SLUG_LENGTH);
+  return String(value || '').trim();
 }
 
 function isValidSlug(slug: string): boolean {
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
+  return slug.length <= MAX_SLUG_LENGTH && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
 }
 
 async function readJsonPayload(request: Request): Promise<{ password?: string; slug?: string; article?: unknown }> {
