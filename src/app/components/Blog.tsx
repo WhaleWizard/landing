@@ -95,7 +95,7 @@ function Blog() {
           <h2 className="text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
             <AccentTitle prefix="Практика рекламы" accent="и аналитики" />
           </h2>
-          <p className="text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-3xl mx-auto">
             Разбираю запуски, аналитику и решения, которые влияют на заявки и продажи.
           </p>
         </m.div>

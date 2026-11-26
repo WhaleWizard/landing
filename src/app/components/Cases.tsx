@@ -246,7 +246,7 @@ function Cases({
           <h2 ref={titleRef} style={managedTitleStyle(sectionContent.typography)} className={`mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4 ${managedTitleClasses(sectionContent.typography)}`}>
             <AccentTitle prefix={sectionContent.titlePrefix} accent={sectionContent.titleAccent} />
           </h2>
-          <p style={managedBodyStyle(sectionContent.typography)} className={`mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(sectionContent.typography)}`}>
+          <p style={managedBodyStyle(sectionContent.typography)} className={`mx-auto max-w-3xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(sectionContent.typography)}`}>
             {sectionContent.description}
           </p>
           {sectionContent.sourceLinks?.length ? (

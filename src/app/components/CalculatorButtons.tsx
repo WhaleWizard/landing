@@ -35,7 +35,7 @@ export default function CalculatorButtons() {
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3">
             <AccentTitle prefix="Два ориентира перед запуском" accent="рекламы" />
           </h2>
-          <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-pretty text-sm md:text-base text-muted-foreground max-w-3xl mx-auto">
             Оцените стоимость ведения и посчитайте ROAS или ROMI по своим цифрам. Это отправная точка, а не прогноз результата.
           </p>
         </m.div>

@@ -433,7 +433,7 @@ function Testimonials({
           <h2 ref={titleRef} style={managedTitleStyle(content.typography)} className={`text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4 ${managedTitleClasses(content.typography)}`}>
             <AccentTitle prefix={content.titlePrefix} accent={content.titleAccent} />
           </h2>
-          <p style={managedBodyStyle(content.typography)} className={`text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto ${managedBodyClasses(content.typography)}`}>
+          <p style={managedBodyStyle(content.typography)} className={`text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-3xl mx-auto ${managedBodyClasses(content.typography)}`}>
             {content.description}
           </p>
         </m.div>
