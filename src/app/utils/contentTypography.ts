@@ -543,6 +543,10 @@ export function useManagedTitleFit<T extends HTMLElement = HTMLHeadingElement>(
 
   useEffect(() => {
     if (!element || typeof window === 'undefined' || typeof document === 'undefined') return undefined;
+    // Заголовок раздела через AccentTitle подгоняет сам (одна строка или ровно
+    // две — docs/DESIGN_TYPOGRAPHY_RULES.md). Две подгонки на одном заголовке
+    // спорили: эта ставила кегль с !important, и правило не применялось.
+    if (element.querySelector('[data-ww-title-head]')) return undefined;
 
     let cancelled = false;
     let animationFrame = 0;

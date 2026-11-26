@@ -570,12 +570,16 @@ test('FX-13: заголовки разделов на телефоне — од�
   const source = readFileSync('src/app/components/AccentTitle.tsx', 'utf8');
   assert.match(source, /const ONE_LINE_MIN_PX = 20;/);
   assert.match(source, /const MOBILE_CAP_PX = 26;/);
-  assert.match(source, /const MOBILE_QUERY = '\(max-width: 767px\)';/, 'на компьютере вид не меняется');
+  assert.match(source, /const MOBILE_QUERY = '\(max-width: 767px\)';/);
+  assert.match(source, /const DESKTOP_ONE_LINE_RATIO = 0\.72;/, 'на компьютере ради одной строки кегль уменьшается не ниже 72 %');
+  assert.match(source, /HYPHENATED_WORD/, 'слово через дефис не рвётся по дефису');
+  assert.match(readFileSync('src/app/utils/contentTypography.ts', 'utf8'), /if \(element\.querySelector\('\[data-ww-title-head\]'\)\) return undefined;/, 'старая подгонка не спорит с AccentTitle');
+  assert.match(readFileSync('docs/DESIGN_TYPOGRAPHY_RULES.md', 'utf8'), /Одна строка, если помещается/, 'правила владельца записаны');
   assert.match(source, /groupWords > 1 && boundary <= best \* 1\.25/, 'одно слово цветной части не остаётся одно на строке');
   assert.match(source, /measureText/, 'ширина меряется шрифтом заголовка, без чтения раскладки');
   assert.doesNotMatch(source, /data-ww-title-fit/, 'своё имя признака: data-ww-title-fit занят подгонкой списков блога и кейсов');
   const css = readFileSync('src/styles/index.css', 'utf8');
-  assert.match(css, /\[data-ww-accent-fit\] \{\s*font-size: var\(--ww-title-size\) !important;\s*max-width: none !important;/);
+  assert.match(css, /\[data-ww-accent-fit\] \{\s*font-size: var\(--ww-title-size\) !important;\s*max-width: var\(--ww-title-max, none\) !important;/);
   assert.match(css, /\[data-ww-accent-fit='split'\] \.ww-title-break \{ display: inline; \}/);
   assert.match(css, /:is\(h1, h2, h3\)\[data-ww-accent-fit='free'\] \{ text-wrap: balance; \}/);
   for (const file of ['src/app/pages/BlogPage.tsx', 'src/app/pages/CasesPage.tsx', 'src/app/pages/AboutPage.tsx', 'src/app/pages/ServiceLandingPage.tsx']) {
