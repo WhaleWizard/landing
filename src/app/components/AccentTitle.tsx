@@ -74,6 +74,14 @@ function clearFit(heading: HTMLElement) {
 function fitHeading(heading: HTMLElement) {
   const mobile = window.matchMedia(MOBILE_QUERY).matches;
   clearFit(heading);
+  // Заголовок первого экрана мог получить кегль до JavaScript от встроенного
+  // скрипта (scripts/title-prefit.js, с !important). Раньше его снимала старая
+  // подгонка; для заголовков AccentTitle она отключена — снимаем здесь, иначе
+  // предварительный кегль перебивал правило навсегда.
+  if (heading.hasAttribute('data-ww-title-prefit')) {
+    heading.removeAttribute('data-ww-title-prefit');
+    if (heading.style.getPropertyPriority('font-size') === 'important') heading.style.removeProperty('font-size');
+  }
   const style = getComputedStyle(heading);
   const designed = parseFloat(style.fontSize) || MOBILE_CAP_PX;
   const padding = (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
