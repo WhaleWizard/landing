@@ -1443,7 +1443,11 @@ function htmlTemplate({
   // — сорванная загрузка стартового модуля (DA-149) повторяется дважды с
   //   паузой, потом страница перезагружается один раз за сессию. Раньше
   //   import() без обработки отказа оставлял текст без работающего меню.
-  const bootstrapScript = isDeferred && mainScriptMatch ? `\n  <script type="module">(function(){var u='${mainScriptMatch[1]}',s=false;function l(n){import(n?u+'?ww-retry='+n:u).catch(function(){if(n<2){setTimeout(function(){l(n+1);},n?4000:1500);return;}try{if(!sessionStorage.getItem('ww-boot-reload')){sessionStorage.setItem('ww-boot-reload','1');location.reload();}}catch(e){}});}function go(){if(s)return;s=true;l(0);}document.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.target.closest('[data-ww-early-menu]');if(t&&!window.__wwMenuReady){window.__wwEarlyMenu=true;go();}},true);setTimeout(function(){(window.requestIdleCallback||function(cb){setTimeout(cb,1);})(go);},${deferDelay});})();</script>` : '';
+  // Простоя браузер ждёт не дольше полутора секунд (FX-09): в фоновой
+  // вкладке и во встроенном браузере приложения requestIdleCallback без
+  // ограничения не наступает, и страница оставалась без приложения и без
+  // счётчиков, пока её не откроют.
+  const bootstrapScript = isDeferred && mainScriptMatch ? `\n  <script type="module">(function(){var u='${mainScriptMatch[1]}',s=false;function l(n){import(n?u+'?ww-retry='+n:u).catch(function(){if(n<2){setTimeout(function(){l(n+1);},n?4000:1500);return;}try{if(!sessionStorage.getItem('ww-boot-reload')){sessionStorage.setItem('ww-boot-reload','1');location.reload();}}catch(e){}});}function go(){if(s)return;s=true;l(0);}document.addEventListener('click',function(e){var t=e.target&&e.target.closest&&e.target.closest('[data-ww-early-menu]');if(t&&!window.__wwMenuReady){window.__wwEarlyMenu=true;go();}},true);setTimeout(function(){window.requestIdleCallback?requestIdleCallback(go,{timeout:1500}):setTimeout(go,1);},${deferDelay});})();</script>` : '';
   const rootHtml = hydratable
     ? `<div id="root">${bodyHtml}</div>${afterRootHtml ? `\n${afterRootHtml}` : ''}${bootstrapScript}`
     : `  <div id="root">\n${bodyHtml}\n  </div>${afterRootHtml ? `\n${afterRootHtml}` : ''}${bootstrapScript}`;

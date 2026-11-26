@@ -759,7 +759,12 @@ test('F-PHASE4-ALL: палитра расширена, справка по ?, ч
   assert.match(adminSource, /AdminShortcutsModal/, 'модальное окно горячих клавиш вмонтировано');
   assert.match(adminSource, /heading: 'CRM и Сделки'/, 'группа CRM в командной палитре');
   assert.match(adminSource, /heading: 'Медиатека и файлы'/, 'группа Медиатеки в командной палитре');
-  assert.match(adminSource, /admin-topbar__shortcuts/, 'кнопка вызова клавиш в шапке');
+  // Справка по клавишам — в палитре Ctrl+K и по «?». Кнопка на экране входа
+  // убрана: до входа сочетания не работают, а окно справки там не смонтировано.
+  assert.match(adminSource, /id: 'shortcuts',[\s\S]*?run: \(\) => setShortcutsOpen\(true\)/, 'справка по клавишам в палитре');
+  const loginScreen = adminSource.slice(adminSource.indexOf('if (!isAuthenticated) {'), adminSource.indexOf('<AdminCommandHost'));
+  assert.ok(loginScreen.length > 0);
+  assert.doesNotMatch(loginScreen, /admin-topbar__shortcuts|Справка по горячим клавишам/, 'на экране входа кнопки «Клавиши» нет');
 
   // 2. Пункт 16 & 19: CRM Чипсы и 1-тап действия
   const leadsSource = await source('src/app/components/admin/AdminLeads.tsx');

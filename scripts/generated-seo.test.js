@@ -331,6 +331,14 @@ test('article routes are served with their own meta, not the home page shell', (
   assert.match(handler, /status: 404/, 'a missing article must answer 404, not 200');
 });
 
+test('FX-09: deferred app start waits for browser idle at most 1.5 s', () => {
+  const html = readFileSync(join(DIST, 'index.html'), 'utf8');
+  const boot = html.match(/<script type="module">\(function\(\)\{var u='[^']+'[\s\S]*?<\/script>/);
+  assert.ok(boot, 'главная запускает приложение отложенно');
+  assert.match(boot[0], /requestIdleCallback\(go,\{timeout:1500\}\)/, 'без timeout простой в фоновой вкладке не наступает');
+  assert.doesNotMatch(boot[0], /requestIdleCallback\|\|/);
+});
+
 test('blog and article HTML preload the private BlogPage route chunk', () => {
   const manifestPath = join(DIST, '.vite', 'manifest.json');
   assert.ok(existsSync(manifestPath), 'Vite manifest is missing');

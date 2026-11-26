@@ -2379,17 +2379,10 @@ export default function Admin() {
           >
             <div className="admin-login__head">
               <WhaleMark size="var(--adm-login-whale-size)" className="admin-brand-whale" priority />
-              <button
-                type="button"
-                onClick={() => setShortcutsOpen(true)}
-                className="admin-button admin-button--quiet admin-topbar__shortcuts"
-                title="Справка по горячим клавишам (?)"
-                aria-label="Справка по горячим клавишам"
-              >
-                <Keyboard aria-hidden="true" />
-                <span className="admin-topbar__label">Клавиши</span>
-                <kbd className="admin-topbar__kbd" aria-hidden="true">?</kbd>
-              </button>
+              {/* Кнопки «Клавиши» здесь больше нет: до входа ни одно сочетание
+                  не работает, а окно справки на этом экране даже не смонтировано —
+                  кнопка ничего не открывала. Внутри админки справка — по «?» и
+                  в палитре Ctrl+K. */}
               <AdminThemeToggleButton />
             </div>
             <h1 className="admin-login__title">Вход в админку</h1>
