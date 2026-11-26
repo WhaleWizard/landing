@@ -25,7 +25,7 @@ interface Template {
  * заметку, написать текст, сохранить, поменять этап, поставить дату
  * следующего шага. Пять действий на каждое касание — поэтому CRM и не велась.
  */
-const QUICK_ACTIONS: Array<{
+export const QUICK_ACTIONS: Array<{
   id: string;
   label: string;
   icon: typeof PhoneCall;
@@ -73,7 +73,10 @@ const QUICK_ACTIONS: Array<{
     icon: Send,
     plan: {
       note: 'Клиент взял паузу на подумать.',
-      stage: null,
+      // Клиент уже ответил «подумаю» — значит, с ним связались. Новая заявка
+      // уходит в «Связались» и пропадает из уведомления «ждут первого ответа»;
+      // сделку дальше по воронке быстрые действия назад не двигают (CL-13).
+      stage: 'contacted',
       nextInDays: 5,
       nextText: 'Мягко напомнить о себе',
       success: 'Напоминание поставлено через 5 дней',
@@ -81,9 +84,21 @@ const QUICK_ACTIONS: Array<{
   },
 ];
 
-function fillTemplate(body: string, lead: { name?: string; service?: string; budget?: string }): string {
-  return body
-    .replace(/\{имя\}/gi, String(lead.name || '').trim() || 'Здравствуйте')
+/**
+ * Подстановки шаблона. Без имени «Здравствуйте, {имя}!» раньше превращалось в
+ * «Здравствуйте, Здравствуйте!» (CL-14): теперь имя просто опускается вместе
+ * с запятой, а фраза, начинавшаяся с имени, начинается с заглавной.
+ */
+export function fillTemplate(body: string, lead: { name?: string; service?: string; budget?: string }): string {
+  const name = String(lead.name || '').trim();
+  const withName = name
+    ? body.replace(/\{имя\}/gi, name)
+    : body
+      .replace(/\s*,\s*\{имя\}/gi, '')
+      // Имя в начале фразы: «{имя}, добрый день» → «Добрый день».
+      .replace(/(^|[.!?]\s+|\n\s*)\{имя\}\s*,?\s*(\S?)/gi, (_, start: string, letter: string) => `${start}${letter.toUpperCase()}`)
+      .replace(/\{имя\}\s*/gi, '');
+  return withName
     .replace(/\{услуга\}/gi, String(lead.service || '').trim() || 'реклама')
     .replace(/\{бюджет\}/gi, String(lead.budget || '').trim() || 'бюджет');
 }

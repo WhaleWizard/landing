@@ -6,7 +6,7 @@ import {
   RefreshCw,
   AlertCircle,
 } from 'lucide-react';
-import { notify } from './AdminFeedback';
+import { confirmAsk, notify } from './AdminFeedback';
 import { toCanonicalUrl } from '../SEO';
 
 export interface UtmPreset {
@@ -79,6 +79,26 @@ interface UtmHistoryItem {
 const UTM_HISTORY_KEY = 'ww_admin_utm_history';
 const UTM_HISTORY_LIMIT = 8;
 
+/**
+ * Что мешает ссылке (CL-02) и что стоит поправить (CL-04).
+ * Обязательные поля проверяются после обрезки пробелов. Заглавные буквы и
+ * пробелы в источнике и канале не исправляются молча — макросы Meta регистр
+ * сохраняют, — а только называются: «Meta» и «meta» в отчётах окажутся
+ * разными источниками.
+ */
+export function utmIssues(fields: { source: string; medium: string; campaign: string }): { missing: string[]; warnings: string[] } {
+  const missing = (['source', 'medium', 'campaign'] as const)
+    .filter((key) => !fields[key].trim())
+    .map((key) => `utm_${key}`);
+  const warnings: string[] = [];
+  for (const key of ['source', 'medium'] as const) {
+    const plain = fields[key].trim().replace(/\{\{?[^}]*\}\}?/g, '');
+    if (/[A-ZА-ЯЁ]/.test(plain)) warnings.push(`В utm_${key} заглавные буквы: «Meta» и «meta» в отчётах окажутся разными источниками.`);
+    if (/\s/.test(plain)) warnings.push(`В utm_${key} пробел: в ссылке он станет «+», а в отчётах — отдельным значением.`);
+  }
+  return { missing, warnings };
+}
+
 export function readUtmHistory(raw: string | null): UtmHistoryItem[] {
   let saved: unknown;
   try {
@@ -126,6 +146,13 @@ export default function AdminUtmBuilder() {
   const [copiedLink, setCopiedLink] = useState<{ url: string } | null>(null);
   const [history, setHistory] = useState<UtmHistoryItem[]>([]);
   const historyGeneration = useRef(0);
+  // Поля правили руками после выбора пресета — другой пресет спросит, прежде
+  // чем затереть их (CL-03).
+  const fieldsEdited = useRef(false);
+  const edit = (setter: (value: string) => void) => (value: string) => {
+    fieldsEdited.current = true;
+    setter(value);
+  };
 
   // Load history from localStorage
   useEffect(() => {
@@ -135,7 +162,17 @@ export default function AdminUtmBuilder() {
   }, []);
 
   // Apply preset
-  const handleApplyPreset = (presetId: string) => {
+  const handleApplyPreset = async (presetId: string) => {
+    if (presetId === activePreset && !fieldsEdited.current) return;
+    if (fieldsEdited.current) {
+      const confirmed = await confirmAsk({
+        title: 'Заменить введённые значения?',
+        description: 'Пресет перезапишет все пять полей UTM. То, что вы ввели вручную, пропадёт.',
+        confirmLabel: 'Заменить',
+      });
+      if (!confirmed) return;
+    }
+    fieldsEdited.current = false;
     setActivePreset(presetId);
     const p = PRESETS.find((x) => x.id === presetId);
     if (p) {
@@ -158,6 +195,11 @@ export default function AdminUtmBuilder() {
       return '';
     }
   }, [selectedLanding, customPath]);
+
+  const issues = useMemo(
+    () => utmIssues({ source: utmSource, medium: utmMedium, campaign: utmCampaign }),
+    [utmSource, utmMedium, utmCampaign],
+  );
 
   // Full clean URL
   const fullUrl = useMemo(() => {
@@ -236,7 +278,7 @@ export default function AdminUtmBuilder() {
 
   // Copy URL with toast & history saving
   const handleCopyUrl = async () => {
-    if (!fullUrl) return;
+    if (!fullUrl || issues.missing.length) return;
     const generation = historyGeneration.current;
     try {
       await navigator.clipboard.writeText(fullUrl);
@@ -289,7 +331,7 @@ export default function AdminUtmBuilder() {
               type="button"
               className={`admin-crm-chip ${activePreset === p.id ? 'is-active is-primary' : ''}`}
               aria-pressed={activePreset === p.id}
-              onClick={() => handleApplyPreset(p.id)}
+              onClick={() => void handleApplyPreset(p.id)}
             >
               {p.name}
             </button>
@@ -352,7 +394,7 @@ export default function AdminUtmBuilder() {
               placeholder="fb, google, tg"
               aria-label="utm_source"
               value={utmSource}
-              onChange={(e) => setUtmSource(e.target.value)}
+              onChange={(e) => edit(setUtmSource)(e.target.value)}
             />
           </div>
 
@@ -365,7 +407,7 @@ export default function AdminUtmBuilder() {
               placeholder="cpc, post, story"
               aria-label="utm_medium"
               value={utmMedium}
-              onChange={(e) => setUtmMedium(e.target.value)}
+              onChange={(e) => edit(setUtmMedium)(e.target.value)}
             />
           </div>
 
@@ -378,7 +420,7 @@ export default function AdminUtmBuilder() {
               placeholder="{{campaign.name}}, retargeting"
               aria-label="utm_campaign"
               value={utmCampaign}
-              onChange={(e) => setUtmCampaign(e.target.value)}
+              onChange={(e) => edit(setUtmCampaign)(e.target.value)}
             />
           </div>
 
@@ -391,7 +433,7 @@ export default function AdminUtmBuilder() {
               placeholder="{{ad.name}}, banner_v1"
               aria-label="utm_content"
               value={utmContent}
-              onChange={(e) => setUtmContent(e.target.value)}
+              onChange={(e) => edit(setUtmContent)(e.target.value)}
             />
           </div>
 
@@ -404,7 +446,7 @@ export default function AdminUtmBuilder() {
               placeholder="{{adset.name}}, performance"
               aria-label="utm_term"
               value={utmTerm}
-              onChange={(e) => setUtmTerm(e.target.value)}
+              onChange={(e) => edit(setUtmTerm)(e.target.value)}
             />
           </div>
         </div>
@@ -435,13 +477,23 @@ export default function AdminUtmBuilder() {
             type="button"
             className="admin-button admin-button--primary admin-button--compact px-3"
             onClick={handleCopyUrl}
-            disabled={!fullUrl}
+            disabled={!fullUrl || issues.missing.length > 0}
+            aria-describedby={issues.missing.length ? 'admin-utm-missing' : undefined}
             title="Скопировать ссылку"
           >
             {copied ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
             <span>{copied ? 'Скопировано!' : 'Копировать'}</span>
           </button>
         </div>
+
+        {issues.missing.length > 0 && (
+          <p id="admin-utm-missing" className="admin-hint" role="status">
+            Чтобы скопировать ссылку, заполните {issues.missing.join(', ')}: без {issues.missing.length > 1 ? 'них' : 'этого поля'} заявка в отчётах останется без источника.
+          </p>
+        )}
+        {issues.warnings.map((warning) => (
+          <p key={warning} className="admin-hint">{warning}</p>
+        ))}
 
         {checkStatus && (
           <div className={`p-2.5 rounded-lg border text-xs flex items-center gap-2 ${checkStatus.ok ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300' : 'border-rose-500/30 bg-rose-500/10 text-rose-300'}`} role="status">

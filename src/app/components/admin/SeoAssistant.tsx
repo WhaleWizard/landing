@@ -17,6 +17,7 @@ interface CheckResult {
 
 interface ArticleLike {
   title?: string;
+  category?: string;
   slug?: string;
   description?: string;
   summary?: string;
@@ -269,6 +270,21 @@ function isAbsoluteUrl(href: string): boolean {
   }
 }
 
+/** Хвост, который сайт сам дописывает к заголовку страницы статьи (`functions/_lib/seo.ts`). */
+export const SEARCH_TITLE_SUFFIX = ' | Whale Wizard';
+
+/**
+ * Заголовок страницы статьи ровно так, как его соберёт сайт: свой SEO-заголовок
+ * или «Заголовок — Раздел», плюс « | Whale Wizard». Ассистент раньше мерил
+ * только заголовок без хвоста, и «зелёные» 65 знаков в выдаче были 80 (CL-37).
+ */
+export function searchTitleOf(article: ArticleLike): string {
+  const own = (article.seoTitle || '').trim();
+  const title = (article.title || '').trim();
+  const base = own || (title ? `${title} — ${article.category || 'Маркетинг'}` : '');
+  return base ? `${base}${SEARCH_TITLE_SUFFIX}` : '';
+}
+
 /**
  * Проверки перед публикацией. Раньше в редакторе был короткий список
  * «чего не хватает», но без чисел и без объяснения, почему это важно —
@@ -280,8 +296,9 @@ export function runChecks(
 ): CheckResult[] {
   const text = stripHtml(article.content || '');
   const words = countWords(text);
-  const title = (article.seoTitle || article.title || '').trim();
-  const description = (article.seoDescription || article.description || '').trim();
+  const title = searchTitleOf(article);
+  // Описание — в том же порядке, что у сайта: своё, краткое содержание, анонс.
+  const description = (article.seoDescription || article.summary || article.description || '').trim();
   const internalLinks = countInternalLinks(article.content);
   const linkStats = validateContentLinks(article.content, options);
   const headings = (String(article.content || '').match(/<h2\b/gi) || []).length;
@@ -290,7 +307,11 @@ export function runChecks(
   const customCover = hasCustomCover(article.image);
 
   const checks: CheckResult[] = [
-    rangeCheck('title', 'Заголовок для поиска', title.length, 30, 65, SYMBOLS, 'Не заполнен — в выдаче будет обрезанный слаг'),
+    (() => {
+      // Google показывает около 55–60 знаков; считаем вместе с хвостом сайта.
+      const check = rangeCheck('title', 'Заголовок для поиска', title.length, 40, 60, SYMBOLS, 'Не заполнен — в выдаче будет обрезанный слаг');
+      return title ? { ...check, detail: `${check.detail} (с хвостом «${SEARCH_TITLE_SUFFIX.trim()}», который сайт добавляет сам)` } : check;
+    })(),
     rangeCheck('description', 'Описание для поиска', description.length, 80, 160, SYMBOLS, 'Не заполнено — Google соберёт сниппет сам, и обычно неудачно'),
     {
       id: 'image',

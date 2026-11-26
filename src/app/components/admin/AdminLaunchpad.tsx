@@ -15,7 +15,7 @@ import {
   Sparkles,
   Trash2,
 } from 'lucide-react';
-import { notify } from './AdminFeedback';
+import { confirmAsk, notify } from './AdminFeedback';
 import { AdminSelect } from './AdminUI';
 import { Dialog, DialogContent, DialogTitle } from '../ui/dialog';
 
@@ -75,14 +75,16 @@ export const TEMPLATES: LaunchpadTemplate[] = [
       {
         id: 'ml_utm_template',
         title: 'Единый шаблон UTM-меток проверен в URL Parameters',
-        desc: 'Шаблон utm_source=fb&utm_medium=cpc&utm_campaign={{campaign.name}}&utm_content={{ad.id}}',
+        // Тот же шаблон, что подставляет конструктор UTM, — два инструмента не советуют разное (CL-09).
+        desc: 'Шаблон utm_source=fb&utm_medium=cpc&utm_campaign={{campaign.name}}&utm_content={{ad.name}}&utm_term={{adset.name}}',
         category: 'tracking',
         priority: 'critical',
         tip: 'Не зашивайте UTM прямо в ссылку сайта в Ads Manager, используйте поле URL Parameters.',
       },
       {
         id: 'ml_speed_mobile',
-        title: 'Скорость мобильной посадочной < 1.8с (LCP)',
+        // 1,8 с — порог «хорошо» для FCP; для LCP он 2,5 с (CL-09).
+        title: 'Скорость мобильной посадочной: LCP до 2,5 с',
         desc: 'Тест в PageSpeed Insights пройден, критические стили заинлайнены, картинки в WebP',
         category: 'landing',
         priority: 'critical',
@@ -136,7 +138,8 @@ export const TEMPLATES: LaunchpadTemplate[] = [
       {
         id: 'ml_daily_budget',
         title: 'Дневной бюджет рассчитан с запасом на обучение (50 конверсий / нед)',
-        desc: 'Бюджет группы >= 5 × целевая стоимость лида (CPL) в сутки для стабильного прохождения фазы Learning',
+        // 50 конверсий за 7 дней — это ≈ 7 в сутки; при 5 × CPL выходило бы 35 (CL-09).
+        desc: 'Бюджет группы ≥ 7 × целевая стоимость лида (CPL) в сутки: так набирается ~50 конверсий за неделю и группа выходит из фазы обучения',
         category: 'campaign',
         priority: 'important',
       },
@@ -232,7 +235,8 @@ export const TEMPLATES: LaunchpadTemplate[] = [
       {
         id: 'ea_domain_verification',
         title: 'Домен верифицирован в Meta Business Manager через DNS TXT',
-        desc: 'Статус домена "Подтвержден", настроена конфигурация агрегированных событий (AEM)',
+        // Ручную настройку приоритета событий (AEM) Meta в 2025 году убрала (CL-09).
+        desc: 'Статус домена «Подтверждён» в настройках бизнеса Meta',
         category: 'tracking',
         priority: 'important',
       },
@@ -520,8 +524,15 @@ export default function AdminLaunchpad() {
   };
 
   // Reset checklist
-  const handleResetChecklist = () => {
-    if (!window.confirm('Сбросить все отметки выполнения в этом чек-листе?')) return;
+  const handleResetChecklist = async () => {
+    // Свой диалог, как в карточке клиента, а не системный confirm (CL-07).
+    const confirmed = await confirmAsk({
+      title: 'Сбросить отметки?',
+      description: 'Все отметки выполнения в этом чек-листе для текущего проекта будут сняты.',
+      confirmLabel: 'Сбросить',
+      tone: 'danger',
+    });
+    if (!confirmed) return;
     setProjectChecks((prev) => {
       const updated = {
         ...prev,
@@ -705,6 +716,7 @@ export default function AdminLaunchpad() {
           />
           <span id="admin-launchpad-project-hint" className="admin-hint">
             {clientName.trim() ? 'Отметки хранятся отдельно для этого проекта.' : 'Без названия — общий черновик. У каждого проекта свои отметки.'}
+            {' '}Всё хранится только в этом браузере: на другом устройстве, в приватном окне или после очистки данных сайта отметок не будет.
           </span>
         </div>
       </div>

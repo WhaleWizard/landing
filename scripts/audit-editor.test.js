@@ -73,7 +73,7 @@ const { createElement, act, useState, createRoot } = await bundle(`
 `);
 
 const editor = await bundle(`
-  export { default as ArticleEditor, parseHtmlToBlocks, serializeBlocks, markdownToBlocks, blockToMarkdown } from './src/app/components/ArticleEditor';
+  export { default as ArticleEditor, parseHtmlToBlocks, serializeBlocks, markdownToBlocks, blockToMarkdown, toVideoEmbedUrl, youtubeStartSeconds } from './src/app/components/ArticleEditor';
   export { default as CaseFieldsEditor } from './src/app/components/CaseFieldsEditor';
 `);
 
@@ -608,4 +608,21 @@ test('F-PHASE3-EDITOR: переключение режимов Редактор 
   assert.equal(view.container.querySelector('.admin-block-palette'), null, 'палитра блоков скрыта в режиме предпросмотра');
 
   await view.unmount();
+});
+
+test('CL-29: ссылка на видео — время YouTube в секундах, скрытое видео Vimeo с хешем доступа', () => {
+  const { toVideoEmbedUrl, youtubeStartSeconds } = editor;
+  assert.equal(youtubeStartSeconds('1m30s'), 90);
+  assert.equal(youtubeStartSeconds('90'), 90);
+  assert.equal(youtubeStartSeconds('90s'), 90);
+  assert.equal(youtubeStartSeconds('1h2m3s'), 3723);
+  assert.equal(youtubeStartSeconds('abc'), 0);
+  assert.equal(youtubeStartSeconds(null), 0);
+  assert.equal(toVideoEmbedUrl('https://youtu.be/dQw4w9WgXcQ?t=1m30s'), 'https://www.youtube.com/embed/dQw4w9WgXcQ?start=90');
+  assert.equal(toVideoEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=42'), 'https://www.youtube.com/embed/dQw4w9WgXcQ?start=42');
+  assert.equal(toVideoEmbedUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ'), 'https://www.youtube.com/embed/dQw4w9WgXcQ');
+  assert.equal(toVideoEmbedUrl('https://vimeo.com/123456789'), 'https://player.vimeo.com/video/123456789');
+  assert.equal(toVideoEmbedUrl('https://vimeo.com/123456789/abcdef1234'), 'https://player.vimeo.com/video/123456789?h=abcdef1234');
+  assert.equal(toVideoEmbedUrl('https://vimeo.com/channels/staffpicks/123456789'), 'https://player.vimeo.com/video/123456789');
+  assert.equal(toVideoEmbedUrl('https://player.vimeo.com/video/123456789?h=abc123'), 'https://player.vimeo.com/video/123456789?h=abc123');
 });

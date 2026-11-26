@@ -20,7 +20,7 @@ import { useBlocker, useNavigate } from 'react-router';
 import type { ArticleEditorHandle } from '../components/ArticleEditor';
 import { m, useReducedMotion } from 'motion/react';
 import {
-  LogIn, Save, Plus, Trash2, Sun, Moon,
+  LogIn, LogOut, Save, Plus, Trash2, Sun, Moon,
   Search, Copy, Calendar, EyeOff, Upload, Pin, PinOff, ArrowUp, ArrowDown,
   ExternalLink, History, RotateCcw,
   LayoutDashboard, Newspaper, Briefcase, Inbox, Images, Stethoscope,
@@ -2157,6 +2157,31 @@ export default function Admin() {
     })();
   };
 
+  // «Выйти» был только в разделе «Проверка» (CL-17): на чужом компьютере его
+  // не найти. Теперь он есть в палитре (с телефона — через кнопку поиска) и
+  // внизу бокового меню. Несохранённые правки спрашиваются, как при уходе.
+  const signOut = () => {
+    void (async () => {
+      if (!(await confirmLeaveSection())) return;
+      try {
+        const response = await fetch('/api/admin/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ action: 'logout' }),
+        });
+        const payload = await response.json().catch(() => null) as { success?: boolean } | null;
+        if (response.ok && payload?.success) {
+          window.location.reload();
+          return;
+        }
+      } catch {
+        // ниже — общее сообщение
+      }
+      notify.error('Не удалось выйти', 'Проверьте связь и попробуйте ещё раз.');
+    })();
+  };
+
   // Пункты палитры собираются один раз на список, а не на каждое нажатие
   // клавиши в редакторе: при 600 статьях это 600 объектов за рендер.
   const paletteItems = useMemo(() => sortArticlesForPalette(articles).map((article) => ({
@@ -2232,6 +2257,13 @@ export default function Admin() {
           keywords: ['сайт', 'главная', 'публичная'],
           icon: <ExternalLink />,
           run: openSite,
+        },
+        {
+          id: 'sign-out',
+          label: 'Выйти из админки',
+          keywords: ['выход', 'выйти', 'logout', 'сессия'],
+          icon: <LogOut />,
+          run: signOut,
         },
       ],
     },
@@ -2535,6 +2567,9 @@ export default function Admin() {
             </nav>
             <AdminDensitySwitch />
             <p className="admin-sidebar__foot">Источник контента: {sourceLabel}</p>
+            <button type="button" className="admin-sidebar__signout" onClick={signOut} aria-label="Выйти из админки" title="Выйти из админки">
+              <LogOut aria-hidden="true" /> <span>Выйти</span>
+            </button>
           </aside>
 
           <main className="admin-content">

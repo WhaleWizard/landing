@@ -2,14 +2,30 @@ import { createServer } from 'node:http'
 import fs from 'node:fs'
 import path from 'node:path'
 import { chromium } from 'playwright'
+import { STATIC_ROUTES } from '../config.js'
+
+// DA-24: сервер стенда отвечает как Cloudflare Pages — каталог с index.html
+// или 404.html с кодом 404. Раньше любой несуществующий адрес получал главную
+// с кодом 200, и проверка засчитывала её за «/privacy/» или «/glossary/».
+function resolveStaticFile(distDir, reqPath) {
+  const clean = decodeURIComponent(reqPath).replace(/\/+$/, '') || '/'
+  const candidates = clean === '/'
+    ? [path.join(distDir, 'index.html')]
+    : [path.join(distDir, clean), path.join(distDir, clean, 'index.html'), path.join(distDir, `${clean}.html`)]
+  const root = path.resolve(distDir)
+  for (const file of candidates) {
+    if (!path.resolve(file).startsWith(root)) continue
+    if (fs.existsSync(file) && fs.statSync(file).isFile()) return { file, status: 200 }
+  }
+  return { file: path.join(distDir, '404.html'), status: 404 }
+}
 
 function startStaticServer(distDir, port = 4177) {
   return new Promise((resolve) => {
     const server = createServer((req, res) => {
-      let reqPath = req.url.split('?')[0]
-      let filePath = path.join(distDir, reqPath)
-      if (reqPath === '/' || reqPath.endsWith('/')) filePath = path.join(filePath, 'index.html')
-      if (!fs.existsSync(filePath)) filePath = path.join(distDir, 'index.html')
+      const reqPath = req.url.split('?')[0]
+      const { file: filePath, status } = resolveStaticFile(distDir, reqPath)
+      res.statusCode = status
 
       const ext = path.extname(filePath)
       const mimeTypes = {
@@ -23,7 +39,7 @@ function startStaticServer(distDir, port = 4177) {
         '.svg': 'image/svg+xml'
       }
       res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream')
-      res.end(fs.readFileSync(filePath))
+      res.end(fs.existsSync(filePath) ? fs.readFileSync(filePath) : 'Not found')
     })
 
     server.listen(port, () => resolve(server))
@@ -59,22 +75,9 @@ const MOBILE_VIEWPORTS = [
   { name: '1023px (lg breakpoint - 1)', width: 1023, height: 768 }
 ]
 
-const ROUTES = [
-  '/',
-  '/meta-ads/',
-  '/meta-apps/',
-  '/google-ads/',
-  '/consult/',
-  '/blog/',
-  '/cases/',
-  '/faq/',
-  '/privacy/',
-  '/terms/',
-  '/cookies/',
-  '/calculator/',
-  '/budget-calculator/',
-  '/glossary/'
-]
+// Канонический список страниц — тот же, по которому генератор пишет HTML.
+const ROUTES = STATIC_ROUTES
+const MISSING_ROUTE = '/__viewport-qa-missing__'
 
 async function run() {
   const port = 4177
@@ -92,10 +95,33 @@ async function run() {
   try {
     const page = await browser.newPage()
 
+    // Заведомо несуществующий адрес обязан остаться 404, а не главной.
+    const missing = await page.goto(`http://localhost:${port}${MISSING_ROUTE}`, { waitUntil: 'domcontentloaded' })
+    totalChecks++
+    if (missing?.status() !== 404) {
+      failures.push({ route: MISSING_ROUTE, viewport: '—', type: 'identity', width: 0, overflowPx: 0, note: `ожидался 404, пришёл ${missing?.status()}` })
+      console.error(`[FAIL] ${MISSING_ROUTE}: ожидался 404, пришёл ${missing?.status()}`)
+    }
+
     for (const route of ROUTES) {
       const url = `http://localhost:${port}${route}`
-      await page.goto(url, { waitUntil: 'networkidle' })
+      const response = await page.goto(url, { waitUntil: 'networkidle' })
       await page.waitForTimeout(300)
+
+      // Та ли это страница: код 200, адрес не уехал, canonical указывает на неё.
+      totalChecks++
+      const identity = await page.evaluate(() => ({
+        path: location.pathname.replace(/\/+$/, '') || '/',
+        canonical: (() => {
+          try { return new URL(document.querySelector('link[rel="canonical"]')?.href || '').pathname.replace(/\/+$/, '') || '/' } catch { return '' }
+        })(),
+        title: document.title,
+      }))
+      if (response?.status() !== 200 || identity.path !== route || identity.canonical !== route) {
+        failures.push({ route, viewport: '—', type: 'identity', width: 0, overflowPx: 0, note: `HTTP ${response?.status()}, путь ${identity.path}, canonical ${identity.canonical}` })
+        console.error(`[FAIL] ${route}: не та страница — HTTP ${response?.status()}, путь ${identity.path}, canonical ${identity.canonical}`)
+        continue
+      }
 
       // Test all desktop viewports
       for (const vp of DESKTOP_VIEWPORTS) {
@@ -109,6 +135,28 @@ async function run() {
           if (sw > iw) {
             return { diff: sw - iw, sw, iw }
           }
+          // Документ не прокручивается, но элемент уходит за край и обрезан
+          // контейнером с overflow: hidden — это тоже поломка (DA-24).
+          // Только то, что человек должен увидеть или нажать: свой текст или
+          // элемент управления. Декор (блики, фоны, aria-hidden) уезжает за край
+          // намеренно и обрезается специально.
+          const clipped = [...document.querySelectorAll('body *')].find((element) => {
+            if (element.closest('[aria-hidden="true"]')) return false
+            const meaningful = /^(A|BUTTON|INPUT|SELECT|TEXTAREA|IMG)$/.test(element.tagName)
+              || [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim())
+            if (!meaningful) return false
+            // Лента с горизонтальной прокруткой — до элемента можно докрутить.
+            for (let parent = element.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+              const overflowX = getComputedStyle(parent).overflowX
+              if ((overflowX === 'auto' || overflowX === 'scroll') && parent.scrollWidth > parent.clientWidth) return false
+            }
+            const rect = element.getBoundingClientRect()
+            return rect.width > 0 && rect.height > 0 && rect.right > iw + 1 && getComputedStyle(element).visibility !== 'hidden'
+          })
+          if (clipped) {
+            const rect = clipped.getBoundingClientRect()
+            return { diff: Math.round(rect.right - iw), sw, iw, clipped: `${clipped.tagName.toLowerCase()}.${String(clipped.className).split(' ')[0]}` }
+          }
           return null
         })
 
@@ -116,11 +164,12 @@ async function run() {
           failures.push({
             route,
             viewport: vp.name,
-            type: 'desktop',
+            type: check.clipped ? 'clipped' : 'desktop',
             width: vp.width,
-            overflowPx: check.diff
+            overflowPx: check.diff,
+            note: check.clipped || ''
           })
-          console.error(`[FAIL] ${route} @ ${vp.name}: overflow ${check.diff}px (scrollWidth ${check.sw} > innerWidth ${check.iw})`)
+          console.error(`[FAIL] ${route} @ ${vp.name}: ${check.clipped ? `${check.clipped} обрезан на ${check.diff}px` : `overflow ${check.diff}px (scrollWidth ${check.sw} > innerWidth ${check.iw})`}`)
         }
       }
 
@@ -136,6 +185,28 @@ async function run() {
           if (sw > iw) {
             return { diff: sw - iw, sw, iw }
           }
+          // Документ не прокручивается, но элемент уходит за край и обрезан
+          // контейнером с overflow: hidden — это тоже поломка (DA-24).
+          // Только то, что человек должен увидеть или нажать: свой текст или
+          // элемент управления. Декор (блики, фоны, aria-hidden) уезжает за край
+          // намеренно и обрезается специально.
+          const clipped = [...document.querySelectorAll('body *')].find((element) => {
+            if (element.closest('[aria-hidden="true"]')) return false
+            const meaningful = /^(A|BUTTON|INPUT|SELECT|TEXTAREA|IMG)$/.test(element.tagName)
+              || [...element.childNodes].some((node) => node.nodeType === 3 && node.textContent.trim())
+            if (!meaningful) return false
+            // Лента с горизонтальной прокруткой — до элемента можно докрутить.
+            for (let parent = element.parentElement; parent && parent !== document.body; parent = parent.parentElement) {
+              const overflowX = getComputedStyle(parent).overflowX
+              if ((overflowX === 'auto' || overflowX === 'scroll') && parent.scrollWidth > parent.clientWidth) return false
+            }
+            const rect = element.getBoundingClientRect()
+            return rect.width > 0 && rect.height > 0 && rect.right > iw + 1 && getComputedStyle(element).visibility !== 'hidden'
+          })
+          if (clipped) {
+            const rect = clipped.getBoundingClientRect()
+            return { diff: Math.round(rect.right - iw), sw, iw, clipped: `${clipped.tagName.toLowerCase()}.${String(clipped.className).split(' ')[0]}` }
+          }
           return null
         })
 
@@ -143,15 +214,17 @@ async function run() {
           failures.push({
             route,
             viewport: vp.name,
-            type: 'mobile',
+            type: check.clipped ? 'clipped' : 'mobile',
             width: vp.width,
-            overflowPx: check.diff
+            overflowPx: check.diff,
+            note: check.clipped || ''
           })
-          console.error(`[FAIL] ${route} @ ${vp.name}: overflow ${check.diff}px (scrollWidth ${check.sw} > innerWidth ${check.iw})`)
+          console.error(`[FAIL] ${route} @ ${vp.name}: ${check.clipped ? `${check.clipped} обрезан на ${check.diff}px` : `overflow ${check.diff}px (scrollWidth ${check.sw} > innerWidth ${check.iw})`}`)
         }
       }
 
-      // Zoom stress test (125%, 150%, 200% simulated via zoom CSS / scale factor)
+      // Масштаб браузера 125/150/200 % для вёрстки равен окну 1440 × 900, делённому
+      // на масштаб: проверяется именно эта ширина, и в отчёте она так и названа.
       for (const zoom of [1.25, 1.5, 2.0]) {
         totalChecks++
         await page.setViewportSize({ width: Math.round(1440 / zoom), height: Math.round(900 / zoom) })
@@ -164,7 +237,7 @@ async function run() {
         if (check > 0) {
           failures.push({
             route,
-            viewport: `Desktop Zoom ${(zoom * 100)}%`,
+            viewport: `Ширина ${Math.round(1440 / zoom)} px (как масштаб ${zoom * 100} % на 1440 × 900)`,
             type: 'zoom',
             width: Math.round(1440 / zoom),
             overflowPx: check
@@ -185,7 +258,7 @@ async function run() {
     md += `- **Routes Audited**: ${ROUTES.length} static routes\n`
     md += `- **Desktop Viewports**: 8 configurations (768px to 2560px)\n`
     md += `- **Mobile Viewports**: 15 breakpoints (320px to 1023px)\n`
-    md += `- **Zoom Stress Levels**: 125%, 150%, 200%\n`
+    md += `- **Zoom-equivalent widths**: 1152, 960, 720 px (1440 × 900 / 125, 150, 200 %)\n`
     md += `- **Total Verification Runs**: ${totalChecks} automated checks\n`
     md += `- **Overflow Rule**: Zero Tolerance (\`scrollWidth <= innerWidth\`)\n\n`
 
@@ -195,10 +268,10 @@ async function run() {
       md += `All **${totalChecks}** checks passed across all routes and viewports without a single pixel of horizontal overflow.\n\n`
     } else {
       md += `### ⚠️ DETECTED ${failures.length} OVERFLOW FAILURES\n\n`
-      md += '| Route | Viewport | Type | Width (px) | Overflow (px) |\n'
-      md += '|---|---|---|---|---|\n'
+      md += '| Route | Viewport | Type | Width (px) | Overflow (px) | Note |\n'
+      md += '|---|---|---|---|---|---|\n'
       for (const f of failures) {
-        md += `| \`${f.route}\` | ${f.viewport} | ${f.type} | ${f.width} | **+${f.overflowPx}px** |\n`
+        md += `| \`${f.route}\` | ${f.viewport} | ${f.type} | ${f.width} | **+${f.overflowPx}px** | ${f.note || ''} |\n`
       }
       md += '\n'
     }

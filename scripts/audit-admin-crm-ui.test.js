@@ -1,7 +1,7 @@
 import test, { after } from 'node:test';
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { build } from 'esbuild';
 import { JSDOM } from 'jsdom';
@@ -95,6 +95,10 @@ const finance = await bundle(`
 
 const leadsModule = await bundle(`
   export { default as AdminLeads, parseDealValue, advanceStage, quickActionDue, exportLeadsToCsv } from './src/app/components/admin/AdminLeads';
+`);
+
+const quickModule = await bundle(`
+  export { QUICK_ACTIONS, fillTemplate } from './src/app/components/admin/CrmQuickActions';
 `);
 
 const analyticsModule = await bundle(`
@@ -265,8 +269,9 @@ test('PA-01: zero or cleared unit-economics input shows guidance instead of NaN 
     assert.equal(copy.disabled, true);
   }
   await type(target, '10000');
-  assert.match(view.container.textContent, /CPL не выше \$56\.16/);
-  assert.doesNotMatch(view.container.textContent, /56\.16 - \$30/);
+  // CL-15: числа по-русски — дробь через запятую.
+  assert.match(view.container.textContent, /CPL не выше \$56,16/);
+  assert.doesNotMatch(view.container.textContent, /56[.,]16 - \$30/);
   await view.unmount();
   localStorage.removeItem('ww_unit_economics_state');
 });
@@ -313,11 +318,14 @@ test('PA-03: exported plan does not recommend scaling a first-purchase loss desp
   try {
     await type(view.container.querySelector('#unit-cpc'), '6');
     assert.match(view.container.textContent, /Экономика убыточна/);
-    assert.match(view.container.textContent, /CPC \$5\.61/);
+    assert.match(view.container.textContent, /CPC \$5,61/);
     await click([...view.container.querySelectorAll('button')].find(b => b.textContent.includes('Копировать план')));
     assert.match(exported, /высокий риск при масштабировании/);
     assert.doesNotMatch(exported, /Экономика сходится с запасом/);
     assert.match(exported, /до остальных расходов и налогов/);
+    // CL-15: медиаплан для клиента без американских разделителей.
+    assert.doesNotMatch(exported, /\d,\d{3}(?!\d)/, '«$10,000» в русском тексте читается как «десять»');
+    assert.match(exported, /Целевая выручка: \$\d{1,3}(\u00A0\d{3})*/);
   } finally {
     await view.unmount();
     localStorage.removeItem('ww_unit_economics_state');
@@ -472,6 +480,30 @@ test('F-035: быстрое действие двигает сделку тол�
   assert.equal(advanceStage('lost', 'contacted'), 'lost');
   assert.equal(advanceStage('archived', 'proposal'), 'archived');
   assert.equal(advanceStage('discovery', null), 'discovery', '«Ждёт ответа» этап не меняет');
+});
+
+test('CL-13, CL-14: «Ждёт ответа» снимает новую заявку из «ждут ответа», шаблон без имени не повторяет приветствие', () => {
+  const { QUICK_ACTIONS, fillTemplate } = quickModule;
+  const { advanceStage } = leadsModule;
+  const waiting = QUICK_ACTIONS.find((item) => item.id === 'waiting');
+  assert.equal(advanceStage('new', waiting.plan.stage), 'contacted', 'клиент ответил «подумаю» — с ним связались');
+  assert.equal(advanceStage('proposal', waiting.plan.stage), 'proposal', 'сделку дальше по воронке назад не двигает');
+  assert.equal(advanceStage('won', waiting.plan.stage), 'won');
+
+  assert.equal(fillTemplate('Здравствуйте, {имя}! Получил заявку.', { name: '' }), 'Здравствуйте! Получил заявку.');
+  assert.equal(fillTemplate('{имя}, добрый день! Пишу по заявке.', { name: '  ' }), 'Добрый день! Пишу по заявке.');
+  assert.equal(fillTemplate('Спасибо. {имя}, когда удобно созвониться?', {}), 'Спасибо. Когда удобно созвониться?');
+  assert.equal(fillTemplate('Здравствуйте, {имя}! Бюджет {бюджет}.', { name: 'Анна', budget: '$500' }), 'Здравствуйте, Анна! Бюджет $500.');
+});
+
+test('CL-11, CL-12: быстрое действие повторяется с тем же action_id и сообщает успех только после обеих записей', () => {
+  const source = readFileSync('src/app/components/admin/AdminLeads.tsx', 'utf8');
+  const body = source.slice(source.indexOf('const runQuickAction = async'), source.indexOf('const addNote = async'));
+  assert.ok(body.length > 0);
+  assert.doesNotMatch(body, /crypto\.randomUUID/, 'новый action_id на каждое нажатие давал вторую заметку после обрыва связи');
+  assert.match(body, /saveWithRetry\(\{ action: 'add_note'[^]*?, '',/, 'заметка пишется без отдельного «успеха»');
+  assert.match(body, /plan\.success, 'quick-step'\)/, 'успех — после записи этапа и следующего шага');
+  assert.match(body, /Заметка записана, но этап и дата следующего шага не сохранились/);
 });
 
 test('F-067: «Связаться сегодня» переносит просроченный срок на сегодня, а не оставляет его в прошлом', () => {

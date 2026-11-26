@@ -5,6 +5,7 @@ import {
   Lightbulb, RefreshCw, Search, ShieldAlert, Sparkles, X,
 } from 'lucide-react';
 import { AdminSelect } from './AdminUI';
+import { gscCalendarDays, gscSegments } from '../../utils/gscCalendar';
 import { AdminSectionSkeleton, notify } from './AdminFeedback';
 import type {
   SearchConsoleResponse,
@@ -678,24 +679,41 @@ function GscSvgChart({
   const maxClicks = Math.max(...points.map((p) => p.clicks), 1);
   const maxImpressions = Math.max(...points.map((p) => p.impressions), 1);
 
-  const getX = (index: number) => padding.left + (points.length === 1 ? 0.5 : index / (points.length - 1)) * chartW;
+  // Шкала — по календарю, а не по номеру строки (DA-121): у каждого дня периода
+  // своё место, день без данных Google — пропуск, и линия на нём рвётся.
+  const days = useMemo(() => gscCalendarDays(points), [points]);
+  const segments = useMemo(() => gscSegments(days), [days]);
+
+  const getX = (index: number) => padding.left + (days.length <= 1 ? 0.5 : index / (days.length - 1)) * chartW;
   const getClickY = (val: number) => padding.top + chartH - (val / maxClicks) * chartH;
   const getImpY = (val: number) => padding.top + chartH - (val / maxImpressions) * chartH;
+  const baseY = (padding.top + chartH).toFixed(1);
 
-  // Построение полилиний
-  const clicksPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getClickY(p.clicks).toFixed(1)}`)
+  const linePath = (y: (point: GscDailyPoint) => number) => segments
+    .map((segment) => segment.map(({ index, point }, i) => `${i === 0 ? 'M' : 'L'} ${getX(index).toFixed(1)} ${y(point).toFixed(1)}`).join(' '))
     .join(' ');
-
-  const impressionsPath = points
-    .map((p, i) => `${i === 0 ? 'M' : 'L'} ${getX(i).toFixed(1)} ${getImpY(p.impressions).toFixed(1)}`)
+  const areaPath = (y: (point: GscDailyPoint) => number) => segments
+    .filter((segment) => segment.length > 1)
+    .map((segment) => {
+      const first = getX(segment[0].index).toFixed(1);
+      const last = getX(segment[segment.length - 1].index).toFixed(1);
+      return `M ${first} ${baseY} ${segment.map(({ index, point }) => `L ${getX(index).toFixed(1)} ${y(point).toFixed(1)}`).join(' ')} L ${last} ${baseY} Z`;
+    })
     .join(' ');
+  const clickY = (point: GscDailyPoint) => getClickY(point.clicks);
+  const impressionY = (point: GscDailyPoint) => getImpY(point.impressions);
+  const clicksPath = linePath(clickY);
+  const impressionsPath = linePath(impressionY);
+  const clicksArea = areaPath(clickY);
+  const impressionsArea = areaPath(impressionY);
+  // Одиночный день между пропусками — точка, иначе его не было бы видно.
+  const isolated = segments.filter((segment) => segment.length === 1).map((segment) => segment[0]);
 
-  const clicksArea = `${clicksPath} L ${getX(points.length - 1).toFixed(1)} ${(padding.top + chartH).toFixed(1)} L ${getX(0).toFixed(1)} ${(padding.top + chartH).toFixed(1)} Z`;
-  const impressionsArea = `${impressionsPath} L ${getX(points.length - 1).toFixed(1)} ${(padding.top + chartH).toFixed(1)} L ${getX(0).toFixed(1)} ${(padding.top + chartH).toFixed(1)} Z`;
+  const hoveredIndex = days.findIndex((day) => day.date === activeDate);
+  const hoveredDay = hoveredIndex >= 0 ? days[hoveredIndex] : undefined;
+  const hoveredPoint = hoveredDay?.point ?? undefined;
 
-  const hoveredIndex = points.findIndex((point) => point.date === activeDate);
-  const hoveredPoint = points[hoveredIndex];
+  if (!days.length) return null;
 
   return (
     <div
@@ -704,22 +722,24 @@ function GscSvgChart({
       aria-label="График кликов и показов"
       aria-describedby={instructionsId}
       tabIndex={0}
-      onFocus={() => setActiveDate((current) => points.some((point) => point.date === current) ? current : points[0].date)}
+      onFocus={() => setActiveDate((current) => days.some((day) => day.date === current) ? current : days[0].date)}
       onBlur={() => setActiveDate(null)}
       onKeyDown={(event) => {
         const current = Math.max(0, hoveredIndex);
         const next = event.key === 'ArrowLeft' ? Math.max(0, current - 1)
-          : event.key === 'ArrowRight' ? Math.min(points.length - 1, current + 1)
+          : event.key === 'ArrowRight' ? Math.min(days.length - 1, current + 1)
           : event.key === 'Home' ? 0
-          : event.key === 'End' ? points.length - 1 : null;
+          : event.key === 'End' ? days.length - 1 : null;
         if (next === null) return;
         event.preventDefault();
-        setActiveDate(points[next].date);
+        setActiveDate(days[next].date);
       }}
     >
       <span id={instructionsId} className="sr-only">Выберите день стрелками влево и вправо. Home и End переходят к краям графика.</span>
       <span className="sr-only" role="status" aria-atomic="true">
-        {hoveredPoint ? `${hoveredPoint.date}. Клики: ${hoveredPoint.clicks}. Показы: ${hoveredPoint.impressions}. CTR: ${hoveredPoint.ctr}%. Позиция: ${hoveredPoint.position}.` : ''}
+        {hoveredPoint
+          ? `${hoveredPoint.date}. Клики: ${hoveredPoint.clicks}. Показы: ${hoveredPoint.impressions}. CTR: ${hoveredPoint.ctr}%. Позиция: ${hoveredPoint.position}.`
+          : hoveredDay ? `${hoveredDay.date}. Нет данных Google за этот день.` : ''}
       </span>
       <svg
         viewBox={`0 0 ${width} ${height}`}
@@ -771,30 +791,44 @@ function GscSvgChart({
           </>
         )}
 
-        {points.length === 1 && view !== 'clicks' && (
-          <circle cx={getX(0)} cy={getImpY(points[0].impressions)} r="6" fill="none" stroke="#a855f7" strokeWidth="2" />
-        )}
-        {points.length === 1 && view !== 'impressions' && (
-          <circle cx={getX(0)} cy={getClickY(points[0].clicks)} r="3.5" fill="#3b82f6" />
-        )}
+        {isolated.map(({ index, point }) => (
+          <g key={point.date} pointerEvents="none">
+            {view !== 'clicks' && <circle cx={getX(index)} cy={getImpY(point.impressions)} r="6" fill="none" stroke="#a855f7" strokeWidth="2" />}
+            {view !== 'impressions' && <circle cx={getX(index)} cy={getClickY(point.clicks)} r="3.5" fill="#3b82f6" />}
+          </g>
+        ))}
 
-        {/* Интерактивные вертикальные зоны для hover */}
-        {points.map((pt, i) => {
+        {/* Интерактивные вертикальные зоны для hover — на каждый день, и на пропуск тоже */}
+        {days.map((day, i) => {
           const x = getX(i);
           return (
             <rect
-              key={pt.date}
-              x={x - chartW / (points.length * 2)}
+              key={day.date}
+              x={x - chartW / (days.length * 2)}
               y={padding.top}
-              width={chartW / points.length}
+              width={chartW / days.length}
               height={chartH}
               fill="transparent"
               style={{ cursor: 'pointer' }}
-              onMouseEnter={() => setActiveDate(pt.date)}
-              onClick={() => setActiveDate(pt.date)}
+              onMouseEnter={() => setActiveDate(day.date)}
+              onClick={() => setActiveDate(day.date)}
             />
           );
         })}
+
+        {/* День без данных — только пунктир */}
+        {hoveredDay && !hoveredPoint && (
+          <line
+            x1={getX(hoveredIndex)}
+            y1={padding.top}
+            x2={getX(hoveredIndex)}
+            y2={padding.top + chartH}
+            stroke="rgba(255, 255, 255, 0.3)"
+            strokeWidth="1"
+            strokeDasharray="3 3"
+            pointerEvents="none"
+          />
+        )}
 
         {/* Подсветка точки при hover */}
         {hoveredPoint && (
@@ -832,13 +866,13 @@ function GscSvgChart({
         )}
 
         {/* Подписи дат */}
-        {points.map((pt, i) => {
-          if (i % Math.ceil(points.length / 7) !== 0 && i !== points.length - 1) return null;
+        {days.map((day, i) => {
+          if (i % Math.ceil(days.length / 7) !== 0 && i !== days.length - 1) return null;
           const x = getX(i);
-          const shortDate = pt.date.slice(5); // MM-DD
+          const shortDate = day.date.slice(5); // MM-DD
           return (
             <text
-              key={pt.date}
+              key={day.date}
               x={x}
               y={height - 10}
               textAnchor="middle"
@@ -851,6 +885,22 @@ function GscSvgChart({
           );
         })}
       </svg>
+
+      {/* Тултип дня без данных */}
+      {hoveredDay && !hoveredPoint && (
+        <div
+          className="admin-gsc-chart-tooltip"
+          aria-hidden="true"
+          style={{
+            ['--gsc-tooltip-x' as string]: `${(getX(hoveredIndex) / width) * 100}%`,
+          }}
+        >
+          <div className="admin-gsc-tooltip-date">{hoveredDay.date}</div>
+          <div className="admin-gsc-tooltip-row text-slate-300">
+            <span>Нет данных Google за этот день</span>
+          </div>
+        </div>
+      )}
 
       {/* Тултип точки */}
       {hoveredPoint && (

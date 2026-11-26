@@ -20513,3 +20513,24 @@ html:has(.admin-root .admin-editor-actions) { scroll-padding-bottom: 120px; }
   .admin-root .adm-channel-metric__val { white-space: normal; overflow-wrap: anywhere; }
 }
 
+/* «Выйти» внизу бокового меню (CL-17): тихая строка под подписью источника,
+   а не ещё одна кнопка в шапке. */
+.admin-root .admin-sidebar__signout {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 32px;
+  margin: 4px 10px 0;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--adm-text-tertiary);
+  font-size: 12px;
+  cursor: pointer;
+}
+.admin-root .admin-sidebar__signout svg { width: 14px; height: 14px; }
+.admin-root .admin-sidebar__signout:hover { color: var(--adm-text-primary); background: var(--adm-surface-subtle); }
+.admin-root .admin-sidebar__signout:focus-visible { outline: 2px solid var(--adm-primary); outline-offset: 2px; }
+.admin-root[data-sidebar-collapsed='true'] .admin-sidebar__signout span { display: none; }
+

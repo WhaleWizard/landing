@@ -104,3 +104,69 @@ test('F-118: Budget selector uses 2-column grid across Android (360px) and iPhon
   assert.match(socialCode, /https:\/\/x\.com\/whalewzrd/, 'SocialBar must link to x.com/whalewzrd');
   assert.ok(!socialCode.includes('twitter.com/whalewzrd'), 'SocialBar must not use legacy twitter.com domain');
 });
+
+test('DA-19: INP отбрасывает по одному самому медленному взаимодействию на каждые 50', async () => {
+  const { interactionToNextPaint } = await compile('src/app/utils/webVitals.ts');
+  assert.equal(interactionToNextPaint([800], 1), 800, 'одно действие — оно и есть INP');
+  assert.equal(interactionToNextPaint([800, 80], 49), 800, 'до 50 действий выброс не отбрасывается');
+  assert.equal(interactionToNextPaint([800, 80, 80], 50), 80, 'на 50 действий один максимум отбрасывается');
+  assert.equal(interactionToNextPaint([900, 800, 80], 100), 80, 'на 100 — два');
+  assert.equal(interactionToNextPaint([], 10), 0);
+});
+
+test('DA-18: стабильная видимая страница отправляет CLS 0, фоновая загрузка — нет', async () => {
+  const { startWebVitals } = await compile('src/app/utils/webVitals.ts');
+  const run = ({ hidden, supported = true, shifts = [] }) => {
+    const sent = [];
+    const listeners = {};
+    const observers = [];
+    const saved = {};
+    for (const key of ['window', 'document', 'PerformanceObserver', 'navigator', 'performance', 'Blob']) saved[key] = Object.getOwnPropertyDescriptor(globalThis, key);
+    class FakeObserver {
+      static supportedEntryTypes = supported ? ['largest-contentful-paint', 'layout-shift', 'event', 'first-input'] : ['largest-contentful-paint', 'event'];
+      constructor(callback) { this.callback = callback; }
+      observe({ type }) {
+        if (!FakeObserver.supportedEntryTypes.includes(type)) throw new Error('unsupported');
+        this.type = type;
+        observers.push(this);
+      }
+      disconnect() {}
+    }
+    const define = (key, value) => Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
+    define('window', { location: { pathname: '/meta-ads' }, addEventListener: (type, handler) => { listeners[type] = handler; } });
+    define('document', {
+      visibilityState: hidden ? 'hidden' : 'visible',
+      addEventListener: (type, handler) => { (listeners[`doc:${type}`] ||= []).push(handler); },
+    });
+    define('PerformanceObserver', FakeObserver);
+    define('navigator', { sendBeacon: (_url, blob) => { sent.push(JSON.parse(blob.text)); return true; } });
+    define('performance', { getEntriesByType: () => [] });
+    define('Blob', class { constructor(parts) { this.text = parts.join(''); } });
+    const random = Math.random;
+    Math.random = () => 0;
+    try {
+      startWebVitals();
+      const emit = (type, entries) => observers.filter((item) => item.type === type).forEach((item) => item.callback({ getEntries: () => entries }));
+      emit('largest-contentful-paint', [{ startTime: 1200 }]);
+      if (shifts.length) emit('layout-shift', shifts);
+      listeners.pagehide();
+    } finally {
+      Math.random = random;
+      for (const [key, descriptor] of Object.entries(saved)) {
+        if (descriptor) Object.defineProperty(globalThis, key, descriptor);
+        else delete globalThis[key];
+      }
+    }
+    return sent.flatMap((item) => item.metrics);
+  };
+
+  const stable = run({ hidden: false });
+  assert.deepEqual(stable.find((item) => item.metric === 'CLS'), { metric: 'CLS', value: 0, path: '/meta-ads' }, 'ноль — тоже замер');
+  const shifted = run({ hidden: false, shifts: [{ value: 0.26, startTime: 100 }] });
+  assert.equal(shifted.find((item) => item.metric === 'CLS').value, 0.26);
+  const background = run({ hidden: true });
+  assert.equal(background.find((item) => item.metric === 'CLS'), undefined, 'вкладка открыта в фоне — CLS не отправляется');
+  assert.equal(background.find((item) => item.metric === 'LCP'), undefined, 'и LCP тоже');
+  const unsupported = run({ hidden: false, supported: false });
+  assert.equal(unsupported.find((item) => item.metric === 'CLS'), undefined, 'браузер не считает сдвиги — нуля не выдумываем');
+});

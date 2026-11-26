@@ -717,13 +717,13 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
     }
   };
 
-  const saveWithRetry = async (body: { action: string } & Record<string, unknown>, message: string) => {
+  const saveWithRetry = async (body: { action: string } & Record<string, unknown>, message: string, slot: string = body.action) => {
     const fingerprint = JSON.stringify({ leadId: lead.id, ...body });
-    const pending = pendingWrites.current.get(body.action);
+    const pending = pendingWrites.current.get(slot);
     const actionId = pending?.fingerprint === fingerprint ? pending.actionId : crypto.randomUUID();
-    pendingWrites.current.set(body.action, { fingerprint, actionId });
+    pendingWrites.current.set(slot, { fingerprint, actionId });
     const saved = await post({ ...body, action_id: actionId }, message);
-    if (saved) pendingWrites.current.delete(body.action);
+    if (saved) pendingWrites.current.delete(slot);
     return saved;
   };
 
@@ -909,10 +909,10 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
    */
   const runQuickAction = async (plan: QuickActionPlan) => {
     if (!draft) return;
-    const noteOk = await post(
-      { action: 'add_note', action_id: crypto.randomUUID(), body: plan.note },
-      plan.success,
-    );
+    // Повтор после обрыва связи идёт с тем же action_id — вторая заметка
+    // «Позвонил клиенту.» не появляется (CL-11). Успех показывается один раз,
+    // когда записаны и заметка, и следующий шаг (CL-12).
+    const noteOk = await saveWithRetry({ action: 'add_note', body: plan.note }, '', `quick-note:${plan.note}`);
     if (!noteOk) return;
 
     const next = new Date();
@@ -922,14 +922,14 @@ function LeadDetail({ lead, password, onChanged, editingReady, onOpenClients }: 
     // Этап двигается от сохранённого, а не от выбранного в форме: иначе
     // «Позвонил» молча записывал несохранённое «Выиграна» без суммы (CL-10).
     const saved = savedDraftRef.current ?? draft;
-    await post({
+    const stepOk = await saveWithRetry({
       action: 'update_lead',
-      action_id: crypto.randomUUID(),
       expected_revision: saved.crm_revision,
       pipeline_stage: advanceStage(saved.pipeline_stage, plan.stage),
       next_action_at: next.toISOString(),
       next_action_text: plan.nextText,
-    }, plan.success);
+    }, plan.success, 'quick-step');
+    if (!stepOk) setNotice('Заметка записана, но этап и дата следующего шага не сохранились — повторите действие или поставьте их вручную.');
   };
 
   const addNote = async () => {

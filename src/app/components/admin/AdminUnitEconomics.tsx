@@ -105,6 +105,14 @@ function scenarioNumber(saved: unknown, fallback: number, min = 0, max = Number.
   return typeof saved === 'number' && Number.isFinite(saved) && saved >= min && saved <= max ? saved : fallback;
 }
 
+/**
+ * Числа по-русски (CL-15): «$10 000» и «140,4», а не «$10,000» и «140.4» —
+ * в русском тексте запятая означает дробь, и «10,000» читается как «десять».
+ */
+function num(value: number, digits = 2): string {
+  return Number.isFinite(value) ? value.toLocaleString('ru-RU', { maximumFractionDigits: digits }) : '—';
+}
+
 export default function AdminUnitEconomics() {
   const [saved] = useState(readSavedScenario);
   const defaults = PRESETS[0];
@@ -177,25 +185,25 @@ export default function AdminUnitEconomics() {
     if (!calculations) return;
     let report = `📊 МЕДИАПЛАН И РАСЧЕТ ЮНИТ-ЭКОНОМИКИ (${scenarioName})\nРасчёт по введённым параметрам.\n`;
     report += `--------------------------------------------------\n`;
-    report += `🎯 Целевая выручка: $${targetRevenue.toLocaleString('en-US')}\n`;
-    report += `📦 Средний чек: $${averageCheck} | Маржинальность: ${marginPercent}%\n`;
-    report += `🤝 Конверсия лида в сделку: ${leadToDealPercent}%\n`;
-    report += `🌐 Конверсия сайта: ${siteConvPercent}% | Средний CPC: $${cpc}\n\n`;
+    report += `🎯 Целевая выручка: $${num(targetRevenue)}\n`;
+    report += `📦 Средний чек: $${num(averageCheck)} | Маржинальность: ${num(marginPercent)}%\n`;
+    report += `🤝 Конверсия лида в сделку: ${num(leadToDealPercent)}%\n`;
+    report += `🌐 Конверсия сайта: ${num(siteConvPercent)}% | Средний CPC: $${num(cpc)}\n\n`;
 
     report += `📈 ВОРОНКА И НЕОБХОДИМЫЕ РЕСУРСЫ:\n`;
-    report += `• Продаж необходимо: ${calculations.dealsNeeded} шт.\n`;
-    report += `• Лидов необходимо: ${calculations.leadsNeeded} шт.\n`;
-    report += `• Переходов на сайт: ${calculations.clicksNeeded.toLocaleString('en-US')} кликов\n`;
-    report += `• Рекомендуемый рекламный бюджет: $${calculations.estimatedBudget.toLocaleString('en-US')}\n\n`;
+    report += `• Продаж необходимо: ${num(calculations.dealsNeeded)} шт.\n`;
+    report += `• Лидов необходимо: ${num(calculations.leadsNeeded)} шт.\n`;
+    report += `• Переходов на сайт: ${num(calculations.clicksNeeded)} кликов\n`;
+    report += `• Рекомендуемый рекламный бюджет: $${num(calculations.estimatedBudget)}\n\n`;
 
     report += `💰 ЭКОНОМИКА И ОКУПАЕМОСТЬ:\n`;
-    report += `• Прогнозируемый CPL (цена лида): $${calculations.calculatedCpl}\n`;
-    report += `• Предельный CPL безубыточности: $${calculations.breakEvenCpl}\n`;
-    report += `• Стоимость привлечения клиента (CAC): $${calculations.calculatedCac}\n`;
-    report += `• Валовая прибыль: $${calculations.grossProfit.toLocaleString('en-US')}\n`;
-    report += `• Прибыль после рекламы (до остальных расходов и налогов): $${calculations.netProfit.toLocaleString('en-US')}\n`;
-    report += `• Ожидаемый ROMI: ${calculations.romi}%\n`;
-    report += `• LTV / CAC соотношение: ${calculations.ltvCacRatio}x (LTV = $${calculations.ltv})\n\n`;
+    report += `• Прогнозируемый CPL (цена лида): $${num(calculations.calculatedCpl)}\n`;
+    report += `• Предельный CPL безубыточности: $${num(calculations.breakEvenCpl)}\n`;
+    report += `• Стоимость привлечения клиента (CAC): $${num(calculations.calculatedCac)}\n`;
+    report += `• Валовая прибыль: $${num(calculations.grossProfit)}\n`;
+    report += `• Прибыль после рекламы (до остальных расходов и налогов): $${num(calculations.netProfit)}\n`;
+    report += `• Ожидаемый ROMI: ${num(calculations.romi)}%\n`;
+    report += `• LTV / CAC соотношение: ${num(calculations.ltvCacRatio)}x (LTV = $${num(calculations.ltv)})\n\n`;
 
     report += `💡 ВЫВОД: ${
       !calculations.isLoss && calculations.hasLtvHeadroom
@@ -477,10 +485,10 @@ export default function AdminUnitEconomics() {
                 <DollarSign className="h-4 w-4 text-blue-400" />
               </div>
               <div className="admin-unit-econ-kpi-val text-blue-400">
-                ${calculations.estimatedBudget.toLocaleString('en-US')}
+                ${num(calculations.estimatedBudget)}
               </div>
               <span className="admin-unit-econ-kpi-sub">
-                для достижения ${targetRevenue.toLocaleString('en-US')}
+                для достижения ${num(targetRevenue)}
               </span>
             </div>
 
@@ -491,10 +499,10 @@ export default function AdminUnitEconomics() {
                 <Zap className="h-4 w-4 text-amber-400" />
               </div>
               <div className="admin-unit-econ-kpi-val text-amber-300">
-                ${calculations.calculatedCpl}
+                ${num(calculations.calculatedCpl)}
               </div>
               <span className="admin-unit-econ-kpi-sub">
-                порог нуля: ${calculations.breakEvenCpl}
+                порог нуля: ${num(calculations.breakEvenCpl)}
               </span>
             </div>
 
@@ -509,7 +517,7 @@ export default function AdminUnitEconomics() {
                   calculations.isLoss ? 'text-red-400' : 'text-emerald-400'
                 }`}
               >
-                ${calculations.netProfit.toLocaleString('en-US')}
+                ${num(calculations.netProfit)}
               </div>
               <span className="admin-unit-econ-kpi-sub">
                 ROMI: {calculations.romi}% (ROAS {calculations.roas}x) · до остальных расходов и налогов
@@ -534,7 +542,7 @@ export default function AdminUnitEconomics() {
                 {calculations.ltvCacRatio}x
               </div>
               <span className="admin-unit-econ-kpi-sub">
-                LTV: ${calculations.ltv} | CAC: ${calculations.calculatedCac}
+                LTV: ${num(calculations.ltv)} | CAC: ${num(calculations.calculatedCac)}
               </span>
             </div>
           </div>
@@ -542,16 +550,16 @@ export default function AdminUnitEconomics() {
           {/* Funnel Cascade Steps */}
           <div className="admin-unit-econ-funnel-card">
             <h4 className="admin-unit-econ-funnel-title">
-              Каскад воронки для плана ${targetRevenue.toLocaleString('en-US')}
+              Каскад воронки для плана ${num(targetRevenue)}
             </h4>
 
             <div className="admin-unit-econ-funnel-steps">
               <div className="admin-unit-econ-step">
                 <div className="admin-unit-econ-step-badge">1. Клики</div>
                 <div className="admin-unit-econ-step-val">
-                  {calculations.clicksNeeded.toLocaleString('en-US')}
+                  {num(calculations.clicksNeeded)}
                 </div>
-                <div className="admin-unit-econ-step-desc">по ${cpc} за переход</div>
+                <div className="admin-unit-econ-step-desc">по ${num(cpc)} за переход</div>
               </div>
 
               <div className="admin-unit-econ-step-arrow">
@@ -562,9 +570,9 @@ export default function AdminUnitEconomics() {
               <div className="admin-unit-econ-step">
                 <div className="admin-unit-econ-step-badge">2. Лиды</div>
                 <div className="admin-unit-econ-step-val text-amber-300">
-                  {calculations.leadsNeeded.toLocaleString('en-US')}
+                  {num(calculations.leadsNeeded)}
                 </div>
-                <div className="admin-unit-econ-step-desc">по ${calculations.calculatedCpl}</div>
+                <div className="admin-unit-econ-step-desc">по ${num(calculations.calculatedCpl)}</div>
               </div>
 
               <div className="admin-unit-econ-step-arrow">
@@ -577,7 +585,7 @@ export default function AdminUnitEconomics() {
                 <div className="admin-unit-econ-step-val text-emerald-400">
                   {calculations.dealsNeeded}
                 </div>
-                <div className="admin-unit-econ-step-desc">по ${averageCheck} чек</div>
+                <div className="admin-unit-econ-step-desc">по ${num(averageCheck)} чек</div>
               </div>
             </div>
           </div>
@@ -613,7 +621,7 @@ export default function AdminUnitEconomics() {
               {calculations.isLoss ? (
                 <>
                   В этом плане расходы на рекламу превышают валовую прибыль с первых покупок.
-                  Порог безубыточности первой покупки — CPC ${calculations.breakEvenCpc}.
+                  Порог безубыточности первой покупки — CPC ${num(calculations.breakEvenCpc)}.
                   Для запаса снижайте цену клика ниже этого порога или улучшайте конверсию и маржу.
                 </>
               ) : !calculations.hasLtvHeadroom ? (
@@ -624,9 +632,9 @@ export default function AdminUnitEconomics() {
                 </>
               ) : (
                 <>
-                  Каждый вложенный в рекламу $1 приносит ${calculations.roas.toFixed(2)} выручки
+                  Каждый вложенный в рекламу $1 приносит ${num(calculations.roas, 2)} выручки
                   и LTV клиента покрывает затраты на привлечение в {calculations.ltvCacRatio} раза.
-                  Целевой ориентир для таргетолога в Ads Manager: CPL не выше ${calculations.targetCplForRomi150} для ROMI 150%. Прогноз при текущих параметрах — ${calculations.calculatedCpl}.
+                  Целевой ориентир для таргетолога в Ads Manager: CPL не выше ${num(calculations.targetCplForRomi150)} для ROMI 150%. Прогноз при текущих параметрах — ${num(calculations.calculatedCpl)}.
                 </>
               )}
             </p>

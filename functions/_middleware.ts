@@ -70,6 +70,11 @@ function buildCsp(): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
+    // Тегов Google Ads (конверсия, ремаркетинг) в контейнере GTM сейчас нет.
+    // Если их добавят, им нужны googleads.g.doubleclick.net и
+    // www.googleadservices.com в script-src и connect-src, а td.doubleclick.net —
+    // в frame-src: без них браузер молча заблокирует теги (CL-21). Заранее не
+    // открываем — лишний домен в политике только расширяет поверхность атаки.
     "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://www.googletagmanager.com https://www.google-analytics.com https://mc.yandex.ru https://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://analytics.tiktok.com",
     "connect-src 'self' https://challenges.cloudflare.com https://www.google-analytics.com https://region1.google-analytics.com https://stats.g.doubleclick.net https://www.googletagmanager.com https://www.google.com https://mc.yandex.ru https://mc.yandex.com wss://mc.yandex.ru wss://mc.yandex.com https://mc.webvisor.org https://mc.webvisor.com https://connect.facebook.net https://www.facebook.com https://graph.facebook.com https://analytics.tiktok.com https://ipwho.is",
     // Метрика ставит собственный кадр на mc.yandex.ru и без него писала в

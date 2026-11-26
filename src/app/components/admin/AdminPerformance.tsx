@@ -177,6 +177,30 @@ function blockedDescription(block: ApiBlock): string {
   return 'Новые проверки остановлены. Подождите до следующего минутного окна, затем обновите sitemap и повторите запуск.';
 }
 
+/** Запрос одного замера, который можно отменить при уходе из раздела (DA-122). */
+type AuditRequest = AbortController;
+
+function formatMeasuredAt(value: string): string {
+  const time = Date.parse(value);
+  if (!Number.isFinite(time)) return 'время неизвестно';
+  return new Date(time).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+}
+
+/** Адрес, который на самом деле измерил PageSpeed, если он не тот, что в списке. */
+export function redirectedTo(result: Pick<PerformanceResult, 'url' | 'finalUrl'>): string {
+  const normalize = (value: string) => {
+    try {
+      const url = new URL(value);
+      const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, '') : url.pathname;
+      return `${url.host.replace(/^www\./, '')}${path}${url.search}`;
+    } catch {
+      return value.trim();
+    }
+  };
+  if (!result.finalUrl || !result.url) return '';
+  return normalize(result.finalUrl) === normalize(result.url) ? '' : result.finalUrl;
+}
+
 function freshStoredResult(result: PerformanceResult | undefined): PerformanceResult | undefined {
   if (!result?.fetchedAt) return undefined;
   const fetchedAt = Date.parse(result.fetchedAt);
@@ -185,7 +209,17 @@ function freshStoredResult(result: PerformanceResult | undefined): PerformanceRe
   return age >= 0 && age <= RESULT_FRESHNESS_MS ? result : undefined;
 }
 
-function readStoredResults(): Record<string, Partial<Record<Strategy, PerformanceResult>>> {
+/**
+ * Что лежит в localStorage по странице: последний удачный замер и, если
+ * последняя попытка не удалась, её ошибка (DA-124). Без ошибки после
+ * перезагрузки старый замер выглядел свежим и «готовым».
+ */
+type StoredPage = Partial<Record<Strategy, PerformanceResult>> & {
+  mobileError?: string;
+  desktopError?: string;
+};
+
+function readStoredResults(): Record<string, StoredPage> {
   try {
     const parsed = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
     return parsed && typeof parsed === 'object' ? parsed : {};
@@ -312,8 +346,30 @@ function AuditPanel({
       </div>
 
       {status === 'error' ? (
-        <p className="min-h-20 text-xs leading-relaxed text-[var(--adm-danger)]">{error || 'Проверка не удалась'}</p>
+        <div className="min-h-20 text-xs leading-relaxed">
+          <p className="text-[var(--adm-danger)]">{error || 'Проверка не удалась'}</p>
+          {result && (
+            // Старый замер не выдаётся за свежий (DA-124): видно, от какого он числа.
+            <p className="mt-1 text-[var(--adm-fg)]/65">
+              Последний удачный замер — {formatMeasuredAt(result.fetchedAt)}: скорость {result.scores.performance ?? '—'}.
+            </p>
+          )}
+        </div>
       ) : (
+        <>
+          {result && (
+            <p className="mb-2 text-[11px] text-[var(--adm-fg)]/70">Замер {formatMeasuredAt(result.fetchedAt)}</p>
+          )}
+          {result && redirectedTo(result) && (
+            // Проверка ушла по перенаправлению на другой адрес (DA-123): оценка
+            // относится к нему, а не к странице из списка.
+            <p className="mb-2 text-xs text-[var(--adm-warning,#b45309)]">
+              Измерен другой адрес: {redirectedTo(result)} — страница перенаправляет.
+            </p>
+          )}
+        </>
+      )}
+      {status === 'error' ? null : (
         <>
           <div className="perf-audit__metrics">
             <ScoreBadge score={result?.scores.performance ?? null} label="Скорость" />
@@ -424,6 +480,16 @@ export default function AdminPerformance({ password }: { password: string }) {
     });
   }, []);
   const stopRequested = useRef(false);
+  const auditRequests = useRef(new Set<AuditRequest>());
+
+  // Ушли из раздела посреди пакетной проверки — следующие страницы не
+  // запускаются и текущий запрос отменяется: раньше квота PageSpeed тратилась
+  // уже без экрана, кнопки «Остановить» и итогов (DA-122).
+  useEffect(() => () => {
+    stopRequested.current = true;
+    for (const controller of auditRequests.current) controller.abort();
+    auditRequests.current.clear();
+  }, []);
 
   const applyFatalBlock = useCallback((code: FatalErrorCode) => {
     if (code === 'PAGESPEED_KEY_REQUIRED') setApiKeyConfigured(false);
@@ -465,12 +531,16 @@ export default function AdminPerformance({ password }: { password: string }) {
       setRows(payload.pages.map((url) => {
         const mobile = freshStoredResult(stored[url]?.mobile);
         const desktop = freshStoredResult(stored[url]?.desktop);
+        const mobileError = typeof stored[url]?.mobileError === 'string' ? stored[url]?.mobileError : undefined;
+        const desktopError = typeof stored[url]?.desktopError === 'string' ? stored[url]?.desktopError : undefined;
         return {
           url,
           mobile,
           desktop,
-          mobileStatus: mobile ? 'done' : 'idle',
-          desktopStatus: desktop ? 'done' : 'idle',
+          mobileError,
+          desktopError,
+          mobileStatus: mobileError ? 'error' : mobile ? 'done' : 'idle',
+          desktopStatus: desktopError ? 'error' : desktop ? 'done' : 'idle',
         };
       }));
       setStorageHydrated(true);
@@ -501,9 +571,13 @@ export default function AdminPerformance({ password }: { password: string }) {
 
   useEffect(() => {
     if (!storageHydrated) return;
-    const stored: Record<string, Partial<Record<Strategy, PerformanceResult>>> = {};
+    const stored: Record<string, StoredPage> = {};
     rows.forEach((row) => {
-      if (row.mobile || row.desktop) stored[row.url] = { mobile: row.mobile, desktop: row.desktop };
+      const mobileError = row.mobileStatus === 'error' ? row.mobileError : undefined;
+      const desktopError = row.desktopStatus === 'error' ? row.desktopError : undefined;
+      if (row.mobile || row.desktop || mobileError || desktopError) {
+        stored[row.url] = { mobile: row.mobile, desktop: row.desktop, mobileError, desktopError };
+      }
     });
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
@@ -522,11 +596,19 @@ export default function AdminPerformance({ password }: { password: string }) {
     endpoint.searchParams.set('strategy', strategy);
     endpoint.searchParams.set('timezone_offset', String(new Date().getTimezoneOffset()));
     if (force) endpoint.searchParams.set('force', '1');
-    const response = await fetch(endpoint.toString(), {
-      headers: { 'X-Admin-Password': password },
-      credentials: 'same-origin',
-      cache: 'no-store',
-    });
+    const controller = new AbortController();
+    auditRequests.current.add(controller);
+    let response: Response;
+    try {
+      response = await fetch(endpoint.toString(), {
+        headers: { 'X-Admin-Password': password },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+    } finally {
+      auditRequests.current.delete(controller);
+    }
     const payload = await response.json().catch(() => ({})) as {
       success?: boolean;
       result?: PerformanceResult;

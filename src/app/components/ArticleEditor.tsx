@@ -91,7 +91,19 @@ function uid(): string {
  * `watch?v=`: короткие `youtu.be/…`, Shorts и ссылки из «Поделиться» давали в
  * статье пустую рамку. Незнакомый адрес отдаётся как есть.
  */
-function toVideoEmbedUrl(raw: string): string {
+/**
+ * Метка времени YouTube → секунды (CL-29): «90», «90s», «1m30s», «1h2m3s».
+ * Раньше бралась только первая группа цифр, и «1m30s» начиналось с 1-й секунды.
+ */
+export function youtubeStartSeconds(value: string | null): number {
+  const raw = String(value || '').trim().toLowerCase();
+  if (/^\d+s?$/.test(raw)) return Number.parseInt(raw, 10);
+  const match = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+  if (!match || !raw) return 0;
+  return Number(match[1] || 0) * 3600 + Number(match[2] || 0) * 60 + Number(match[3] || 0);
+}
+
+export function toVideoEmbedUrl(raw: string): string {
   try {
     const parsed = new URL(raw);
     const host = parsed.hostname.replace(/^www\.|^m\./, '');
@@ -102,14 +114,18 @@ function toVideoEmbedUrl(raw: string): string {
       const parts = parsed.pathname.split('/').filter(Boolean);
       if (parts[0] === 'watch') id = parsed.searchParams.get('v') || '';
       else if (parts[0] === 'shorts' || parts[0] === 'embed' || parts[0] === 'live' || parts[0] === 'v') id = parts[1] || '';
-    } else if (host === 'vimeo.com') {
-      const vimeoId = parsed.pathname.split('/').filter(Boolean).pop() || '';
-      return /^\d+$/.test(vimeoId) ? `https://player.vimeo.com/video/${vimeoId}` : raw;
+    } else if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+      // Скрытое видео: vimeo.com/123456789/abcdef1234 — номер не последний
+      // сегмент, а хеш доступа уходит в плеер параметром h (CL-29).
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      const index = parts.findIndex((part) => /^\d+$/.test(part));
+      if (index === -1) return raw;
+      const hash = parts[index + 1] && /^[0-9a-f]+$/i.test(parts[index + 1]) ? parts[index + 1] : parsed.searchParams.get('h') || '';
+      return `https://player.vimeo.com/video/${parts[index]}${hash ? `?h=${encodeURIComponent(hash)}` : ''}`;
     }
     if (/^[\w-]{6,}$/.test(id)) {
-      const start = parsed.searchParams.get('t') || parsed.searchParams.get('start');
-      const seconds = start ? String(start).match(/^\d+/)?.[0] : '';
-      return `https://www.youtube.com/embed/${id}${seconds ? `?start=${seconds}` : ''}`;
+      const seconds = youtubeStartSeconds(parsed.searchParams.get('t') || parsed.searchParams.get('start'));
+      return `https://www.youtube.com/embed/${id}${seconds > 0 ? `?start=${seconds}` : ''}`;
     }
   } catch {
     // Не адрес — оставляем строку как есть.

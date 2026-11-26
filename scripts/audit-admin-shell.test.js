@@ -127,6 +127,21 @@ test('история UTM сохраняет свои ссылки при пов�
   const longHistory = Array.from({ length: 12 }, (_, id) => ({ id: String(id), url: `https://www.whalewzrd.com/?n=${id}` }));
   assert.equal(readUtmHistory(JSON.stringify(longHistory)).length, 8);
 });
+
+test('CL-02..04: UTM — без обязательных полей ссылку не скопировать, регистр и пробелы названы, пресет спрашивает', async () => {
+  const { utmIssues } = await loadWithStubs('src/app/components/admin/AdminUtmBuilder.tsx');
+  assert.deepEqual(utmIssues({ source: '', medium: 'cpc', campaign: '  ' }).missing, ['utm_source', 'utm_campaign']);
+  assert.deepEqual(utmIssues({ source: 'fb', medium: 'cpc', campaign: '{{campaign.name}}' }), { missing: [], warnings: [] });
+  const shouting = utmIssues({ source: 'Meta ', medium: 'paid social', campaign: 'x' });
+  assert.equal(shouting.missing.length, 0, 'пробел по краям обрезается и сам по себе не ошибка');
+  assert.ok(shouting.warnings.some((text) => /utm_source заглавные/.test(text)));
+  assert.ok(shouting.warnings.some((text) => /utm_medium пробел/.test(text)));
+  assert.equal(utmIssues({ source: '{{site_source_name}}', medium: 'cpc', campaign: 'x' }).warnings.length, 0, 'макросы Meta не считаются заглавными буквами');
+
+  const builder = await source('src/app/components/admin/AdminUtmBuilder.tsx');
+  assert.match(builder, /disabled=\{!fullUrl \|\| issues\.missing\.length > 0\}/);
+  assert.match(builder, /fieldsEdited\.current\) \{\s*const confirmed = await confirmAsk/);
+});
 const schedulePanelSource = await source('src/app/components/admin/PublishSchedulePanel.tsx');
 
 /** Кусок исходника между двумя якорями — чтобы проверять порядок внутри одной функции. */
@@ -484,6 +499,25 @@ test('F-062: ссылка на страницу услуги считается 
   assert.equal(links.detail, '1 шт.');
   const noLinks = seo.runChecks({ title: 'Заголовок', content: '<p><a href="https://example.com">чужое</a></p>' }).find((check) => check.id === 'links');
   assert.equal(noLinks.level, 'warn');
+});
+
+test('CL-37: длина заголовка для поиска считается так, как его соберёт сайт — с разделом и хвостом « | Whale Wizard»', async (t) => {
+  const seo = await loadSeoAssistant(t);
+  assert.equal(seo.searchTitleOf({ title: 'Таргет для клиники', category: 'Кейсы' }), 'Таргет для клиники — Кейсы | Whale Wizard');
+  assert.equal(seo.searchTitleOf({ title: 'X', seoTitle: 'Свой заголовок' }), 'Свой заголовок | Whale Wizard');
+  assert.equal(seo.searchTitleOf({ title: '' }), '');
+  // 50 знаков своего заголовка раньше были «в норме» (до 65), а в выдаче — 65.
+  const long = seo.runChecks({ seoTitle: 'А'.repeat(50), content: '' }).find((check) => check.id === 'title');
+  assert.equal(long.level, 'warn');
+  assert.match(long.detail, /^65 символов/);
+  assert.match(long.detail, /Whale Wizard/);
+  const fine = seo.runChecks({ seoTitle: 'А'.repeat(40), content: '' }).find((check) => check.id === 'title');
+  assert.equal(fine.level, 'ok');
+  const empty = seo.runChecks({ content: '' }).find((check) => check.id === 'title');
+  assert.equal(empty.level, 'fail');
+  // Описание — как у сайта: при пустом SEO-описании берётся краткое содержание.
+  const summary = seo.runChecks({ title: 'x', summary: 'К'.repeat(120), content: '' }).find((check) => check.id === 'description');
+  assert.equal(summary.level, 'ok');
 });
 
 test('Broken Link Checker: валидация ссылок выявляет отсутствующие страницы и опечатки в протоколе', async (t) => {
@@ -946,4 +980,51 @@ test('DA-152, DA-155: редактор не пропускает заголов�
   assert.match(check([{ text: 'я'.repeat(220), tone: 'accent' }]).message, /длиннее 180/);
   // 180 знаков проходят проверку заголовка: дальше редактор спрашивает уже про абзацы.
   assert.doesNotMatch(check([{ text: 'я'.repeat(180), tone: 'accent' }, { text: 'Подпись', tone: 'supporting' }]).message, /длиннее|поясняющие/);
+});
+
+test('DA-121: график Search Console ставит дни по календарю, пропуск виден и рвёт линию', async () => {
+  const { gscCalendarDays, gscSegments } = await loadWithStubs('src/app/utils/gscCalendar.ts');
+  const points = [{ date: '2026-10-16' }, { date: '2026-10-17' }, { date: '2026-10-22' }];
+  const days = gscCalendarDays(points);
+  assert.equal(days.length, 7, 'с 16 по 22 октября — семь дней, а не три точки');
+  assert.deepEqual(days.map((day) => Boolean(day.point)), [true, true, false, false, false, false, true]);
+  assert.deepEqual(gscSegments(days).map((segment) => segment.map((item) => item.index)), [[0, 1], [6]]);
+  // Расстояние: один день — 1/6 ширины, провал в пять дней — 5/6.
+  const x = (index) => index / (days.length - 1);
+  assert.ok(Math.abs((x(1) - x(0)) * 5 - (x(6) - x(1))) < 1e-9);
+  assert.deepEqual(gscCalendarDays([]), []);
+  assert.equal(gscCalendarDays([{ date: '2026-10-01' }]).length, 1);
+  assert.equal(gscCalendarDays([{ date: 'broken' }, { date: '2026-10-01' }]).length, 1, 'кривая дата не ломает шкалу');
+  const ui = await source('src/app/components/admin/AdminSearchConsole.tsx');
+  assert.match(ui, /Нет данных Google за этот день/);
+});
+
+test('DA-122..124: «Скорость» — уход из раздела останавливает очередь, редирект виден, неудачная перепроверка не прячется', async () => {
+  const { redirectedTo } = await loadWithStubs('src/app/components/admin/AdminPerformance.tsx');
+  const site = 'https://www.whalewzrd.com';
+  assert.equal(redirectedTo({ url: `${site}/consult`, finalUrl: `${site}/` }), `${site}/`, 'проверка /consult ушла на главную — видно');
+  assert.equal(redirectedTo({ url: `${site}/meta-ads`, finalUrl: `${site}/meta-ads/` }), '', 'завершающий слеш — тот же адрес');
+  assert.equal(redirectedTo({ url: 'https://whalewzrd.com/meta-ads', finalUrl: `${site}/meta-ads` }), '', 'www — тот же сайт');
+  assert.equal(redirectedTo({ url: `${site}/faq`, finalUrl: '' }), '');
+
+  const ui = await source('src/app/components/admin/AdminPerformance.tsx');
+  assert.match(ui, /useEffect\(\(\) => \(\) => \{\s*stopRequested\.current = true;\s*for \(const controller of auditRequests\.current\) controller\.abort\(\);/,
+    'размонтирование останавливает очередь и отменяет текущий запрос');
+  assert.match(ui, /signal: controller\.signal/);
+  assert.match(ui, /mobileStatus: mobileError \? 'error' : mobile \? 'done' : 'idle'/, 'после перезагрузки ошибка последней попытки не превращается в «готово»');
+  assert.match(ui, /Последний удачный замер —/);
+});
+
+test('CL-06, CL-07, CL-09: чек-лист запуска — честно о хранении, свой диалог сброса, пункты без противоречий', async () => {
+  const launchpad = await source('src/app/components/admin/AdminLaunchpad.tsx');
+  assert.match(launchpad, /Всё хранится только в этом браузере/, 'общий раздел говорит, где живут отметки');
+  assert.doesNotMatch(launchpad, /window\.confirm/, 'сброс — через confirmAsk, как в карточке клиента');
+  assert.match(launchpad, /await confirmAsk\(\{\s*title: 'Сбросить отметки\?'/);
+  assert.match(launchpad, /LCP до 2,5 с/);
+  assert.doesNotMatch(launchpad, /< 1\.8с \(LCP\)/);
+  assert.match(launchpad, /7 × целевая стоимость лида/);
+  assert.doesNotMatch(launchpad, /агрегированных событий \(AEM\)/);
+  const builder = await source('src/app/components/admin/AdminUtmBuilder.tsx');
+  const metaPresetContent = builder.match(/id: 'meta',[\s\S]*?content: '([^']+)'/)[1];
+  assert.ok(launchpad.includes(`utm_content=${metaPresetContent}`), 'шаблон UTM в чек-листе совпадает с пресетом конструктора');
 });
