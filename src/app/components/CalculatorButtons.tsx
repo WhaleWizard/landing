@@ -2,6 +2,7 @@ import { lazy, Suspense, useState } from 'react';
 import { m } from 'motion/react';
 import { Calculator, TrendingUp, ArrowRight } from 'lucide-react';
 import Modal from './Modal';
+import AccentTitle from './AccentTitle';
 
 const BudgetCalculatorPopup = lazy(() => import('./BudgetCalculatorPopup'));
 const RoiCalculatorPopup = lazy(() => import('./RoiCalculatorPopup'));
@@ -32,8 +33,7 @@ export default function CalculatorButtons() {
             <span className="text-xs md:text-sm text-primary-text font-semibold">Расчёты перед запуском</span>
           </div>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-3">
-            Два ориентира перед запуском{' '}
-            <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">рекламы</span>
+            <AccentTitle prefix="Два ориентира перед запуском" accent="рекламы" />
           </h2>
           <p className="text-sm md:text-base text-muted-foreground max-w-2xl mx-auto">
             Оцените стоимость ведения и посчитайте ROAS или ROMI по своим цифрам. Это отправная точка, а не прогноз результата.

@@ -42,6 +42,7 @@ import {
   type ContentPreviewPayload,
   type ContentPreviewReport,
 } from '../content/contentPreviewProtocol';
+import AccentTitle from '../components/AccentTitle';
 // Home content preview renders the cosmic Hero directly, outside Home.tsx.
 // import '../../styles/cosmic-hero.css' -> consolidated into src/styles/index.css for single-stylesheet SSR CRP
 
@@ -228,10 +229,7 @@ function ServiceContactCopy({ page, content }: { page: ServiceType; content: Edi
               <span className={`text-sm font-semibold ${theme.labelClassName}`}>{content.badge}</span>
             </div>
             <h2 ref={titleRef} style={managedTitleStyle(content.typography)} className={`mb-6 text-balance text-3xl font-bold leading-tight tracking-[-0.02em] md:text-4xl lg:text-[44px] ${managedTitleClasses(content.typography, 'contact')}`}>
-              {content.titlePrefix}{' '}
-              <span className={`bg-gradient-to-r ${theme.titleGradientClassName} bg-clip-text text-transparent`}>
-                {content.titleAccent}
-              </span>
+              <AccentTitle prefix={content.titlePrefix} accent={content.titleAccent} accentClassName={`bg-gradient-to-r ${theme.titleGradientClassName} bg-clip-text text-transparent`} />
             </h2>
             <p style={managedBodyStyle(content.typography)} className={`mx-auto mb-8 max-w-lg text-pretty text-base leading-relaxed text-muted-foreground md:text-lg lg:mx-0 ${managedBodyClasses(content.typography)}`}>
               {content.description}
@@ -267,10 +265,7 @@ function HomeContactCopy({ content }: { content: EditableContent['contact'] }) {
               <span className="text-sm font-semibold text-primary">{content.badge}</span>
             </div>
             <h2 ref={titleRef} style={managedTitleStyle(content.typography)} className={`max-w-[20ch] text-balance text-2xl font-bold leading-[1.12] sm:text-3xl md:text-4xl lg:text-5xl ${managedTitleClasses(content.typography, 'contact')}`}>
-              {content.titlePrefix}{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                {content.titleAccent}
-              </span>
+              <AccentTitle prefix={content.titlePrefix} accent={content.titleAccent} />
             </h2>
             <p style={managedBodyStyle(content.typography)} className={`max-w-xl text-pretty text-base leading-relaxed text-muted-foreground md:text-lg ${managedBodyClasses(content.typography)}`}>
               {content.description}

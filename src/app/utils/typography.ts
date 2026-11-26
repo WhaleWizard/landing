@@ -23,13 +23,35 @@ const SPACE_BEFORE_UNIT = /(\d) (?=(?:₽|\$|€|USD|EUR|RUB|UZS|руб\.?|су�
 /** Названия площадок и инструментов, которые нельзя разрывать. */
 const BRAND_PAIRS = /\b(Meta|Google|Performance|Search|Tag|Events) (Ads|Apps|Pixel|Analytics|Max|Console|Manager)\b/g;
 
+/**
+ * Короткие предлоги, союзы и частицы не остаются в конце строки: «в», «со»,
+ * «и», «до», «от», «для»… привязываются к следующему слову. Так строка не
+ * обрывается на «Что клиенты ценят в работе со» с «мной» на следующей.
+ * Без lookbehind — регулярные выражения с ним роняют старые iPhone (до iOS 16.4).
+ */
+const SHORT_WORD_BEFORE_SPACE = /(^|[\s(«„"'—–-])(а|в|во|да|до|за|и|из|изо|к|ко|на|не|ни|но|о|об|обо|от|ото|по|с|со|у|я|мы|вы|без|для|над|под|при|про|или|перед|через|после|между|около)( )/giu;
+/** Частицы «же», «ли», «бы» держатся за предыдущее слово. */
+const SPACE_BEFORE_PARTICLE = / (ли|ль|же|ж|бы|б)(?=$|[\s.,!?;:…»)])/giu;
+
+function bindShortWords(value: string): string {
+  // Цепочка «и в работе»: совпадения не пересекаются, поэтому второй проход
+  // привязывает слово, разделитель перед которым съел первый.
+  let result = value;
+  for (let pass = 0; pass < 3; pass += 1) {
+    const next = result.replace(SHORT_WORD_BEFORE_SPACE, `$1$2${NBSP}`);
+    if (next === result) break;
+    result = next;
+  }
+  return result.replace(SPACE_BEFORE_PARTICLE, `${NBSP}$1`);
+}
+
 export function typographText(value: string): string {
   if (typeof value !== 'string' || !value.includes(' ')) return value;
-  return value
+  return bindShortWords(value
     .replace(SPACE_BEFORE_DASH, `${NBSP}$1`)
     .replace(SPACE_BETWEEN_DIGIT_GROUPS, `$1${NBSP}`)
     .replace(SPACE_BEFORE_UNIT, `$1${NBSP}`)
-    .replace(BRAND_PAIRS, (match, first: string, second: string) => (isBrandPair(first, second) ? `${first}${NBSP}${second}` : match));
+    .replace(BRAND_PAIRS, (match, first: string, second: string) => (isBrandPair(first, second) ? `${first}${NBSP}${second}` : match)));
 }
 
 const BRANDS = new Set([

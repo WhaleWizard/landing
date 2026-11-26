@@ -18,6 +18,7 @@ import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import { PlatformMark, type Platform, type PlatformTone } from './brand/PlatformMark';
+import AccentTitle from './AccentTitle';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -252,14 +253,19 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
       <section id="services" ref={sectionRef} className="relative py-16 md:py-24 overflow-x-clip overflow-y-visible">
         {/* Орбы без отрицательного z-index: с -z-10 они рисовались позади
             непрозрачного фона страницы и были не видны. Пауза вне вьюпорта. */}
+        {/* Пульсация — на обёртке, размытие — на неподвижном пятне внутри: размытие рисуется один раз, а не на каждом кадре прокрутки (рывки на iPhone). Вид тот же. */}
         <div
-          className="ww-ambient-motion absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
+          className="ww-ambient-motion absolute top-0 right-0 w-96 h-96 animate-pulse pointer-events-none"
           style={{ willChange: 'opacity' }}
-        />
+        >
+          <div className="h-full w-full rounded-full bg-accent/10 blur-[120px]" />
+        </div>
         <div
-          className="ww-ambient-motion absolute bottom-0 left-0 w-96 h-96 bg-primary/10 rounded-full blur-[120px] animate-pulse pointer-events-none"
+          className="ww-ambient-motion absolute bottom-0 left-0 w-96 h-96 animate-pulse pointer-events-none"
           style={{ animationDelay: '1s', willChange: 'opacity' }}
-        />
+        >
+          <div className="h-full w-full rounded-full bg-primary/10 blur-[120px]" />
+        </div>
         <div className="absolute inset-x-0 top-8 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent pointer-events-none md:hidden" />
 
         {/* Плексус-сеть, стягивающаяся к курсору (на тач — блуждает сама) */}
@@ -280,10 +286,7 @@ function Services({ content, contentKey = null, platformTone = 'white' }: {
               <span className="text-sm text-primary font-semibold">{sectionContent.badge}</span>
             </div>
             <h2 ref={titleRef} style={managedTitleStyle(sectionContent.typography)} className={`mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4 ${managedTitleClasses(sectionContent.typography)}`}>
-              {sectionContent.titlePrefix}{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                {sectionContent.titleAccent}
-              </span>
+              <AccentTitle prefix={sectionContent.titlePrefix} accent={sectionContent.titleAccent} />
             </h2>
             <p style={managedBodyStyle(sectionContent.typography)} className={`mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(sectionContent.typography)}`}>
               {sectionContent.description}

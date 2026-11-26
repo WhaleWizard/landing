@@ -23,6 +23,7 @@ const STATIC_TITLE_MIN_FONT_SIZE = 20;
 const Footer = lazy(() => import('../components/Footer'));
 
 import { FAQ_CATEGORIES, type FaqCategory, type FaqItem } from '../types/faq';
+import AccentTitle from '../components/AccentTitle';
 export { FAQ_CATEGORIES, type FaqCategory, type FaqItem };
 
 type FaqSeed = Omit<FaqItem, 'id'>;
@@ -665,10 +666,7 @@ export default function FAQPage() {
               data-ww-title-fit-min={STATIC_TITLE_MIN_FONT_SIZE}
               className="text-3xl sm:text-4xl md:text-5xl font-bold text-pretty"
             >
-              Ответы на вопросы о рекламе и{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                аналитике
-              </span>
+              <AccentTitle prefix="Ответы на вопросы о рекламе и" accent="аналитике" />
             </h1>
             <p className="text-muted-foreground mt-4 max-w-3xl mx-auto text-pretty">
               {typographText(FAQ_SEO.lead)}

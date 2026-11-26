@@ -5,6 +5,7 @@ import { trackContact } from '../consent/consent';
 import { useDragScroll } from '../hooks/useDragScroll';
 import { preferredScrollBehavior } from '../utils/motionPreference';
 import { PlatformMark } from './brand/PlatformMark';
+import AccentTitle from './AccentTitle';
 
 const socials = [
   // Один адрес Telegram на весь сайт — тот же, что в подвале, на «спасибо» и в
@@ -58,10 +59,7 @@ function SocialDock() {
         <div className="mb-8 flex items-center justify-between gap-4 lg:justify-center">
           <div className="min-w-0 lg:text-center">
             <h2 className="text-balance text-xl md:text-2xl font-bold mb-1.5">
-              Разборы, заметки и связь{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                в соцсетях
-              </span>
+              <AccentTitle prefix="Разборы, заметки и связь" accent="в соцсетях" />
             </h2>
             <p className="text-pretty text-muted-foreground text-xs md:text-sm">
               <span className="lg:hidden">Листайте, чтобы выбрать удобный канал.</span>

@@ -60,6 +60,7 @@ import {
   type ContentTypography,
   withMobileTitleLines,
 } from '../utils/contentTypography';
+import AccentTitle from './AccentTitle';
 
 const budgetOptions = [
   {
@@ -468,14 +469,19 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
         возврат прокруткой вверх заново вставлял два слоя с размытием в 128 px,
         и первая их отрисовка съедала кадр ровно в момент движения страницы.
       */}
+      {/* Пульсация — на обёртке, размытие — на неподвижном пятне внутри: размытие рисуется один раз, а не на каждом кадре прокрутки (рывки на iPhone). Вид тот же. */}
       <div
-        className="ww-ambient-motion pointer-events-none absolute top-0 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse"
+        className="ww-ambient-motion pointer-events-none absolute top-0 left-1/4 w-96 h-96 animate-pulse"
         style={{ willChange: 'opacity' }}
-      />
+      >
+        <div className="h-full w-full rounded-full bg-primary/20 blur-[128px]" />
+      </div>
       <div
-        className="ww-ambient-motion pointer-events-none absolute bottom-0 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse"
+        className="ww-ambient-motion pointer-events-none absolute bottom-0 right-1/4 w-96 h-96 animate-pulse"
         style={{ animationDelay: '1s', willChange: 'opacity' }}
-      />
+      >
+        <div className="h-full w-full rounded-full bg-accent/20 blur-[128px]" />
+      </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-8 md:gap-12 items-start">
@@ -492,10 +498,7 @@ function ContactForm({ content: contentProp = defaultContactContent, contentKey 
               <span className="text-sm text-primary font-semibold">{content.badge}</span>
             </div>
             <h2 ref={titleRef} style={managedTitleStyle(content.typography)} className={`max-w-[20ch] text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold leading-[1.12] ${managedTitleClasses(content.typography, 'contact')}`}>
-              {content.titlePrefix}{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                {content.titleAccent}
-              </span>
+              <AccentTitle prefix={content.titlePrefix} accent={content.titleAccent} />
             </h2>
             <p style={managedBodyStyle(content.typography)} className={`max-w-[62ch] text-pretty text-base md:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(content.typography)}`}>
               {content.description}

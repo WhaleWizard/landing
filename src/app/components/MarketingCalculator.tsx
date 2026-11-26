@@ -37,6 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from './ui/select';
+import AccentTitle from './AccentTitle';
 
 /**
  * Какая из двух страниц калькулятора рисует заголовок.
@@ -1097,10 +1098,7 @@ export default function MarketingCalculator({
               data-ww-title-fit-min={String(STATIC_TITLE_MIN_FONT_SIZE)}
               className="text-balance text-3xl font-bold leading-tight sm:text-4xl md:text-5xl"
             >
-              {pageCopy.titlePrefix}{' '}
-              <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-                {pageCopy.titleAccent}
-              </span>
+              <AccentTitle prefix={pageCopy.titlePrefix} accent={pageCopy.titleAccent} />
             </h1>
             <p className="mx-auto mt-3 max-w-2xl text-pretty text-sm leading-relaxed text-muted-foreground sm:text-base">
               {typographText(pageCopy.lead)}

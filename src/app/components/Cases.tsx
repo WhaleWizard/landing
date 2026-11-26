@@ -18,6 +18,7 @@ import {
 import { useIsMobile } from './ui/use-mobile';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
 import { withReturnTo } from '../utils/siteNavigation';
+import AccentTitle from './AccentTitle';
 
 export type CaseStat = { label: string; value: string };
 
@@ -243,10 +244,7 @@ function Cases({
             <span className="text-xs md:text-sm text-primary-text">{sectionContent.badge}</span>
           </div>
           <h2 ref={titleRef} style={managedTitleStyle(sectionContent.typography)} className={`mx-auto max-w-4xl text-balance text-[clamp(1.75rem,7.5vw,2.35rem)] md:text-4xl lg:text-[44px] font-semibold md:font-bold leading-[1.12] tracking-[-0.018em] md:tracking-[-0.02em] mb-3 md:mb-4 ${managedTitleClasses(sectionContent.typography)}`}>
-            {sectionContent.titlePrefix}{' '}
-            <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-              {sectionContent.titleAccent}
-            </span>
+            <AccentTitle prefix={sectionContent.titlePrefix} accent={sectionContent.titleAccent} />
           </h2>
           <p style={managedBodyStyle(sectionContent.typography)} className={`mx-auto max-w-2xl text-pretty text-sm md:text-base lg:text-lg text-muted-foreground leading-relaxed ${managedBodyClasses(sectionContent.typography)}`}>
             {sectionContent.description}

@@ -54,7 +54,10 @@ function CallToAction({ content: contentProp = defaultCallToActionContent, conte
           className="relative p-6 md:p-8 rounded-2xl md:rounded-3xl bg-gradient-to-br from-card/80 via-card/60 to-card/80 backdrop-blur-xl border border-primary/30 shadow-2xl shadow-primary/10"
         >
           {/* Animated Border Glow */}
-          <div className="absolute inset-0 rounded-2xl md:rounded-3xl bg-gradient-to-r from-primary via-accent to-secondary opacity-20 blur-xl animate-pulse" />
+          {/* Пульсация — на обёртке, размытие — на неподвижном пятне внутри: размытие рисуется один раз, а не на каждом кадре прокрутки (рывки на iPhone). Вид тот же. */}
+          <div className="absolute inset-0 animate-pulse">
+            <div className="h-full w-full rounded-2xl md:rounded-3xl bg-gradient-to-r from-primary via-accent to-secondary opacity-20 blur-xl" />
+          </div>
           
           <div className="relative flex flex-col md:flex-row items-center justify-between gap-6">
             {/* Left Content */}

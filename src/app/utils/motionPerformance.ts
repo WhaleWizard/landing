@@ -6,6 +6,24 @@ export function isScrollActivityActive(): boolean {
     && document.documentElement.dataset.wwScrolling === 'true';
 }
 
+let lastPageScrollAt = 0;
+let pageScrollTracked = false;
+
+/**
+ * Сколько миллисекунд назад прокручивали саму страницу (не вложенные ленты:
+ * их события прокрутки до окна не доходят). Автолистание каруселей ждёт тишины:
+ * на iPhone программная прокрутка ленты во время вертикальной прокрутки
+ * пальцем сбивает инерцию страницы — она дёргается и останавливается.
+ */
+export function msSincePageScroll(): number {
+  if (typeof window === 'undefined') return Number.POSITIVE_INFINITY;
+  if (!pageScrollTracked) {
+    pageScrollTracked = true;
+    window.addEventListener('scroll', () => { lastPageScrollAt = performance.now(); }, { passive: true });
+  }
+  return lastPageScrollAt ? performance.now() - lastPageScrollAt : Number.POSITIVE_INFINITY;
+}
+
 /**
  * Slow decorative dust does not need to repaint at a 120/144 Hz display rate.
  * Keep the fractional frame remainder: rounding 24 fps to every third frame

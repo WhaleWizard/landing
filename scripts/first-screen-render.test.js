@@ -60,7 +60,7 @@ test('server-rendered home shows the real hero, published text and visible, link
   const html = await renderHome();
   const { document } = parseHTML(html);
   assert.equal(document.querySelectorAll('h1').length, 1);
-  assert.match(document.querySelector('h1').textContent, /Первый экран.*без мигания/);
+  assert.match(document.querySelector('h1').textContent, /Первый экран.*без\sмигания/);
   assert.ok(document.querySelector('#hero.cosmic-hero .cosmic-stage .cosmic-whale img'));
   // Live hero does not force settled so title effects can play
   assert.equal(document.querySelector('#hero')?.hasAttribute('data-hero-effects'), false);
@@ -160,7 +160,8 @@ test('About renders the published block edits for clients without JavaScript', a
     sectionOrder: ['aboutExtra', 'aboutStory'],
   } } });
   const { document } = parseHTML(html);
-  assert.equal(document.querySelector('h1').textContent, 'О Руслане');
+  // Неразрывный пробел после «О» ставит типографика (FX-12).
+  assert.equal(document.querySelector('h1').textContent.replace(/ /g, ' '), 'О Руслане');
   assert.deepEqual([...document.querySelectorAll('.about-page h2')].slice(0, 2).map((el) => el.textContent), ['Новый раздел', 'Моя история']);
   assert.equal(document.querySelector('#about-story + p strong').textContent, 'абзац');
   assert.equal(document.querySelector('.about-work-steps'), null);

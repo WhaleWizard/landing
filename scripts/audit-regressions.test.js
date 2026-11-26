@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -483,18 +484,18 @@ const typography = await loadModule('src/app/utils/typography.ts');
 const NB = ' ';
 
 test('CL-30: пробел перед тире неразрывный, тире остаётся в конце строки', () => {
-  assert.equal(typography.typographText('Расскажите о проекте — скажу, с чего начать'), `Расскажите о проекте${NB}— скажу, с чего начать`);
+  assert.equal(typography.typographText('Расскажите о проекте — скажу, с чего начать'), `Расскажите о${NB}проекте${NB}— скажу, с${NB}чего начать`);
   assert.equal(typography.typographText('2020 – 2026'), `2020${NB}– 2026`);
   assert.equal(typography.typographText('кто-то — нет'), `кто-то${NB}— нет`, 'дефис внутри слова не трогается');
 });
 
 test('CL-26: разряды чисел, число с валютой и названия площадок не разрываются', () => {
-  assert.equal(typography.typographText('бюджет $810 000 за год'), `бюджет $810${NB}000 за год`);
+  assert.equal(typography.typographText('бюджет $810 000 за год'), `бюджет $810${NB}000 за${NB}год`);
   assert.equal(typography.typographText('1 200 000 показов'), `1${NB}200${NB}000 показов`);
-  assert.equal(typography.typographText('от 500 USD и 20 %'), `от 500${NB}USD и 20${NB}%`);
-  assert.equal(typography.typographText('реклама в Meta Ads и Google Ads, Performance Max'), `реклама в Meta${NB}Ads и Google${NB}Ads, Performance${NB}Max`);
-  assert.equal(typography.typographText('Meta Business и Google Maps'), 'Meta Business и Google Maps', 'другие пары не трогаются');
-  assert.equal(typography.typographText('в 2026 году'), 'в 2026 году', 'год не склеивается со словом');
+  assert.equal(typography.typographText('от 500 USD и 20 %'), `от${NB}500${NB}USD и${NB}20${NB}%`);
+  assert.equal(typography.typographText('реклама в Meta Ads и Google Ads, Performance Max'), `реклама в${NB}Meta${NB}Ads и${NB}Google${NB}Ads, Performance${NB}Max`);
+  assert.equal(typography.typographText('Meta Business и Google Maps'), `Meta Business и${NB}Google Maps`, 'другие пары площадок не склеиваются, союз — привязан');
+  assert.equal(typography.typographText('в 2026 году'), `в${NB}2026 году`, 'год не склеивается со следующим словом, предлог — привязан');
 });
 
 test('CL-26, CL-30: тексты сайта — только отображаемые поля; HTML статьи — только текст, код как есть', () => {
@@ -513,4 +514,72 @@ test('CL-26, CL-30: тексты сайта — только отображае�
     typography.typographHtml(html),
     `<p title="a — b">Текст${NB}— тут, 10${NB}000${NB}USD</p><pre><code>x — 1 000</code></pre><p>Meta${NB}Ads</p>`,
   );
+});
+
+// ─── FX-12: короткие предлоги не висят, заголовок переносится по смыслу ──────
+
+test('FX-12: предлоги и союзы привязаны к следующему слову, «же/ли/бы» — к предыдущему', () => {
+  const show = (value) => typography.typographText(value).replace(/\u00A0/g, '_');
+  assert.equal(show('Что клиенты ценят в работе со мной'), 'Что клиенты ценят в_работе со_мной');
+  assert.equal(show('Практика рекламы и аналитики'), 'Практика рекламы и_аналитики');
+  assert.equal(show('От установки до ценного события'), 'От_установки до_ценного события');
+  assert.equal(show('и в работе'), 'и_в_работе', 'цепочка коротких слов привязывается целиком');
+  assert.equal(show('Два ориентира перед запуском'), 'Два ориентира перед_запуском');
+  assert.equal(show('Можно ли так? Я бы сделал'), 'Можно_ли так? Я_бы сделал');
+  assert.equal(show('Вводные в вопросе'), 'Вводные в_вопросе', 'слово «в» внутри — да, а «Вводные» не трогается');
+  assert.doesNotMatch(readFileSync('src/app/utils/typography.ts', 'utf8'), /\(\?<[=!]/, 'без lookbehind: он роняет iPhone до iOS 16.4');
+});
+
+const accentTitleModule = await (async () => {
+  const { createRequire } = await import('node:module');
+  const requireReal = createRequire(import.meta.url);
+  const source = await readFile(new URL('../src/app/components/AccentTitle.tsx', import.meta.url), 'utf8');
+  const compiled = await transform(source, { loader: 'tsx', format: 'cjs', target: 'node20', jsx: 'automatic' });
+  const module = { exports: {} };
+  new Function('module', 'exports', 'require', compiled.code)(module, module.exports, (request) => (request.endsWith('/typography') ? typography : requireReal(request)));
+  return module.exports;
+})();
+
+test('FX-12: AccentTitle — цветная часть целиком в отдельной группе, короткий союз с конца уходит вместе с ней', async () => {
+  const source = readFileSync('src/app/components/AccentTitle.tsx', 'utf8');
+  assert.match(source, /className="ww-title-accent-group"/);
+  const css = readFileSync('src/styles/index.css', 'utf8');
+  assert.match(css, /\.ww-title-accent-group \{\s*display: inline-block;/);
+  assert.match(css, /:is\(h1, h2, h3\):has\(> \.ww-title-accent-group\) \{\s*text-wrap: pretty;/, 'balance перекраивал фразу');
+  // Все заголовки «обычная + цветная часть» идут через компонент.
+  for (const file of ['src/app/components/Testimonials.tsx', 'src/app/components/Cases.tsx', 'src/app/components/Services.tsx', 'src/app/components/ContactForm.tsx', 'src/app/components/MarketingCalculator.tsx', 'src/app/pages/ServiceLandingPage.tsx', 'src/app/components/Blog.tsx', 'src/app/pages/ContentPreview.tsx']) {
+    const text = readFileSync(file, 'utf8');
+    assert.match(text, /<AccentTitle /, `${file} использует AccentTitle`);
+    assert.doesNotMatch(text, /\{[a-zA-Z.]*titlePrefix\}\{' '\}/, `${file}: заголовок больше не собирается вручную`);
+  }
+  {
+    const { createRequire } = await import('node:module');
+    const requireReal = createRequire(import.meta.url);
+    const { renderToStaticMarkup } = requireReal('react-dom/server');
+    const { createElement } = requireReal('react');
+    const html = renderToStaticMarkup(createElement(accentTitleModule.default, { prefix: 'Реклама, аналитика и', accent: 'регулярная оптимизация' })).replace(/\u00A0/g, '_');
+    assert.match(html, /^Реклама, аналитика <span class="ww-title-accent-group">и_<span class="[^"]+">регулярная оптимизация<\/span><\/span>$/);
+    const simple = renderToStaticMarkup(createElement(accentTitleModule.default, { prefix: 'Что клиенты ценят', accent: 'в работе со мной' })).replace(/ /g, '_');
+    assert.match(simple, /^Что клиенты ценят <span class="ww-title-accent-group"><span class="[^"]+">в_работе со_мной<\/span><\/span>$/);
+  }
+});
+
+// ─── FX-10: пульсирующий элемент не несёт размытие сам ──────────────────────
+
+test('FX-10: размытые световые пятна неподвижны, пульсирует обёртка', () => {
+  const files = ['src/app/components/Hero.tsx', 'src/app/components/Services.tsx', 'src/app/components/ContactForm.tsx', 'src/app/pages/BlogPage.tsx', 'src/app/pages/ServiceLandingPage.tsx', 'src/app/components/CallToAction.tsx', 'src/app/components/Testimonials.tsx', 'src/app/components/Cases.tsx'];
+  for (const file of files) {
+    for (const match of readFileSync(file, 'utf8').matchAll(/className=["{`]([^"`]*)["`}]/g)) {
+      const classes = match[1];
+      const pulses = /\banimate-(pulse|ping)\b|ww-hero-card-glow/.test(classes);
+      const blurs = /\bblur-(?:sm|md|lg|xl|2xl|3xl|\[)/.test(classes);
+      assert.ok(!(pulses && blurs), `${file}: пульсация и размытие на одном элементе — размытие перерисовывается каждый кадр: ${classes.slice(0, 120)}`);
+    }
+  }
+});
+
+test('FX-11: автолистание отзывов ждёт, пока страницу перестанут прокручивать', () => {
+  const source = readFileSync('src/app/components/Testimonials.tsx', 'utf8');
+  assert.match(source, /if \(isScrollActivityActive\(\) \|\| msSincePageScroll\(\) < 1500\) return;/);
+  assert.match(readFileSync('src/app/utils/motionPerformance.ts', 'utf8'), /export function msSincePageScroll/);
 });

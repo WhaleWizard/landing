@@ -51,6 +51,7 @@ import { useIsHydrating } from '../hooks/useIsHydrating';
 import { preloadable } from '../utils/preloadable';
 import { loadCaseArticleView } from '../utils/caseArticlePreload';
 import ClientOnly from '../components/ClientOnly';
+import AccentTitle from '../components/AccentTitle';
 import '../../styles/article-extras.css';
 
 const PlexusBackdrop = lazy(() => import('../components/PlexusBackdrop'));
@@ -165,8 +166,13 @@ function ArticleHeroBackdrop() {
   useAmbientVisibility(ref);
   return (
     <div ref={ref} aria-hidden="true" className="pointer-events-none absolute inset-0">
-      <div className="ww-ambient-motion absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 bg-primary/20 rounded-full blur-[128px] animate-pulse" style={{ willChange: 'opacity' }} />
-      <div className="ww-ambient-motion absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 bg-accent/20 rounded-full blur-[128px] animate-pulse" style={{ animationDelay: '1s' }} />
+      {/* Пульсация — на обёртке, размытие — на неподвижном пятне внутри: размытие рисуется один раз, а не на каждом кадре прокрутки (рывки на iPhone). Вид тот же. */}
+      <div className="ww-ambient-motion absolute top-0 left-1/4 w-48 h-48 md:w-96 md:h-96 animate-pulse" style={{ willChange: 'opacity' }}>
+        <div className="h-full w-full rounded-full bg-primary/20 blur-[128px]" />
+      </div>
+      <div className="ww-ambient-motion absolute bottom-0 right-1/4 w-48 h-48 md:w-96 md:h-96 animate-pulse" style={{ animationDelay: '1s' }}>
+        <div className="h-full w-full rounded-full bg-accent/20 blur-[128px]" />
+      </div>
       <ClientOnly>
         <Suspense fallback={null}>
           <PlexusBackdrop className="absolute inset-0 h-full w-full" />
@@ -1337,10 +1343,11 @@ function BlogPageComponent() {
               {isCasesRoute ? `Кейсы · ${scopedArticles.length}` : `Практический блог · ${russianCountLabel(scopedArticles.length, ['статья', 'статьи', 'статей'])}`}
             </div>
             <h1 ref={listTitleFit} data-ww-title-fit={`${LIST_TITLE_LINES.titleMaxLinesMobile}/${LIST_TITLE_LINES.titleMaxLinesDesktop}`} data-ww-title-fit-min="22" className="text-balance text-[clamp(1.9rem,9.6vw,2.6rem)] font-bold leading-[1.14] tracking-[-0.038em] md:text-[3.25rem]">
-              {isCasesRoute ? 'Кейсы и ' : 'Решения для '}
-              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                {isCasesRoute ? 'разборы' : 'реальных задач'}
-              </span>
+              <AccentTitle
+                prefix={isCasesRoute ? 'Кейсы и' : 'Решения для'}
+                accent={isCasesRoute ? 'разборы' : 'реальных задач'}
+                accentClassName="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent"
+              />
             </h1>
             <p className={`mt-4 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground ${isCasesRoute ? 'mx-auto' : ''}`}>
               {isCasesRoute

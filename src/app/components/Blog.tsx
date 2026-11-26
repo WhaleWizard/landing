@@ -17,6 +17,7 @@ import { useDragScroll } from '../hooks/useDragScroll';
 import ArticlesLoadError from './ArticlesLoadError';
 import { withReturnTo } from '../utils/siteNavigation';
 import { categoryDisplayLabel } from '../data/blogSections';
+import AccentTitle from './AccentTitle';
 
 /** Какую карточку ленты открыли — чтобы «Назад» вернул к ней (DA-161). */
 const CAROUSEL_RETURN_KEY = 'ww-home-blog-carousel';
@@ -92,8 +93,7 @@ function Blog() {
             <span className="text-xs md:text-sm text-accent-text">Статьи и разборы</span>
           </div>
           <h2 className="text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4">
-            Практика рекламы{' '}
-            <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">и аналитики</span>
+            <AccentTitle prefix="Практика рекламы" accent="и аналитики" />
           </h2>
           <p className="text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto">
             Разбираю запуски, аналитику и решения, которые влияют на заявки и продажи.

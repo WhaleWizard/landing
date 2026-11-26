@@ -2592,8 +2592,11 @@ function routeIndexPath(route) {
 
 function assertFileContains(pathname, markers, label) {
   if (!existsSync(pathname)) throw new Error(`${label} is missing at ${pathname}`);
-  const html = readFileSync(pathname, 'utf8');
-  const missing = markers.filter((marker) => !html.includes(marker));
+  // Неразрывные пробелы ставит типографика при выводе («в Meta», «20 %»):
+  // для проверки текста они равны обычным, иначе маркер заголовка не находится.
+  const plain = (value) => String(value).replace(/ |&nbsp;|&#160;/g, ' ');
+  const html = plain(readFileSync(pathname, 'utf8'));
+  const missing = markers.filter((marker) => !html.includes(plain(marker)));
   if (missing.length > 0) {
     throw new Error(`${label} is missing required markers: ${missing.join(', ')}`);
   }

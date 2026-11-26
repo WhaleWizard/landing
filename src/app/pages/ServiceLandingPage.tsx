@@ -30,6 +30,7 @@ import {
   type ContentTypography,
   withMobileTitleLines,
 } from '../utils/contentTypography';
+import AccentTitle from '../components/AccentTitle';
 import '../../styles/service-practice.css';
 
 const loadServices = memoizedImport(() => import('../components/Services'));
@@ -1054,14 +1055,13 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
 
   return (
     <section ref={sectionRef} id="contact" className="relative py-16 md:py-24 overflow-hidden">
-      <div
-        className="ww-ambient-motion absolute top-0 left-1/4 w-80 h-80 md:w-96 md:h-96 rounded-full blur-[128px] animate-pulse pointer-events-none"
-        style={{ backgroundColor: theme.orbFrom }}
-      />
-      <div
-        className="ww-ambient-motion absolute bottom-0 right-1/4 w-80 h-80 md:w-96 md:h-96 rounded-full blur-[128px] animate-pulse pointer-events-none"
-        style={{ backgroundColor: theme.orbTo, animationDelay: '1s' }}
-      />
+      {/* Пульсация — на обёртке, размытие — на неподвижном пятне внутри: размытие рисуется один раз, а не на каждом кадре прокрутки (рывки на iPhone). Вид тот же. */}
+      <div className="ww-ambient-motion absolute top-0 left-1/4 w-80 h-80 md:w-96 md:h-96 animate-pulse pointer-events-none">
+        <div className="h-full w-full rounded-full blur-[128px]" style={{ backgroundColor: theme.orbFrom }} />
+      </div>
+      <div className="ww-ambient-motion absolute bottom-0 right-1/4 w-80 h-80 md:w-96 md:h-96 animate-pulse pointer-events-none" style={{ animationDelay: '1s' }}>
+        <div className="h-full w-full rounded-full blur-[128px]" style={{ backgroundColor: theme.orbTo }} />
+      </div>
       <div className={`absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-60`} />
 
       <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -1073,10 +1073,7 @@ function ContactSection({ service, contact, theme }: Pick<ServiceLandingPageProp
             </div>
 
             <h2 ref={titleRef} style={managedTitleStyle(contact.typography)} className={`text-balance text-3xl md:text-4xl lg:text-[44px] font-bold mb-6 leading-tight tracking-[-0.02em] ${managedTitleClasses(contact.typography, 'contact')}`}>
-              {contact.titlePrefix}{' '}
-              <span className={`bg-gradient-to-r ${theme.titleGradientClassName} bg-clip-text text-transparent`}>
-                {contact.titleAccent}
-              </span>
+              <AccentTitle prefix={contact.titlePrefix} accent={contact.titleAccent} accentClassName={`bg-gradient-to-r ${theme.titleGradientClassName} bg-clip-text text-transparent`} />
             </h2>
 
             <p style={managedBodyStyle(contact.typography)} className={`text-muted-foreground text-base md:text-lg mb-8 max-w-lg mx-auto lg:mx-0 text-pretty leading-relaxed ${managedBodyClasses(contact.typography)}`}>

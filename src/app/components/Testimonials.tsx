@@ -14,7 +14,9 @@ import {
   withMobileTitleLines,
 } from '../utils/contentTypography';
 import { useIsMobile } from './ui/use-mobile';
+import { isScrollActivityActive, msSincePageScroll } from '../utils/motionPerformance';
 import { useAmbientVisibility } from './hooks/useAmbientVisibility';
+import AccentTitle from './AccentTitle';
 
 const PlexusBackdrop = lazy(() => import('./PlexusBackdrop'));
 
@@ -376,8 +378,12 @@ function Testimonials({
 
     // Такт повторяется, а не ставится один раз: пока секция вне экрана, отзыв
     // не листается, но и автолистание не умирает — оно продолжится с возвратом.
+    msSincePageScroll(); // начать отслеживание прокрутки страницы заранее
     const timer = window.setInterval(() => {
       if (!visibleRef.current) return;
+      // Страницу листают пальцем — такт пропускается: программная прокрутка
+      // ленты в этот момент сбивала инерцию страницы на iPhone (рывки).
+      if (isScrollActivityActive() || msSincePageScroll() < 1500) return;
       const nextIndex = (currentIndex + 1) % items.length;
       scrollMobileTestimonials(nextIndex, nextIndex === 0 ? 'auto' : undefined);
     }, 5000);
@@ -425,10 +431,7 @@ function Testimonials({
             <span className="text-sm text-accent font-semibold">{content.badge}</span>
           </div>
           <h2 ref={titleRef} style={managedTitleStyle(content.typography)} className={`text-balance text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold mb-3 md:mb-4 ${managedTitleClasses(content.typography)}`}>
-            {content.titlePrefix}{' '}
-            <span className="bg-gradient-to-r from-primary via-accent to-secondary bg-clip-text text-transparent">
-              {content.titleAccent}
-            </span>
+            <AccentTitle prefix={content.titlePrefix} accent={content.titleAccent} />
           </h2>
           <p style={managedBodyStyle(content.typography)} className={`text-pretty text-sm md:text-base lg:text-lg text-muted-foreground max-w-2xl mx-auto ${managedBodyClasses(content.typography)}`}>
             {content.description}

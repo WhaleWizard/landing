@@ -105,23 +105,28 @@ const BackgroundOrbs = memo(({
   staticMotion?: boolean;
 }) => (
   <>
+    {/* Пульсация — на обёртке, размытие — на неподвижном пятне внутри: размытие рисуется один раз, а не на каждом кадре прокрутки (рывки на iPhone). Вид тот же. */}
     <div
-      className="ww-ambient-motion absolute top-1/4 left-1/4 w-64 h-64 md:w-[600px] md:h-[600px] bg-primary/30 rounded-full blur-[150px] animate-pulse pointer-events-none"
+      className="ww-ambient-motion absolute top-1/4 left-1/4 w-64 h-64 md:w-[600px] md:h-[600px] animate-pulse pointer-events-none"
       style={{
         willChange: staticMotion ? 'auto' : 'opacity',
         animationPlayState: staticMotion ? 'paused' : undefined,
         transform: 'translateZ(0)',
       }}
-    />
+    >
+      <div className="h-full w-full rounded-full bg-primary/30 blur-[150px]" />
+    </div>
     <div
-      className="ww-ambient-motion absolute bottom-1/4 right-1/4 w-64 h-64 md:w-[600px] md:h-[600px] bg-accent/20 rounded-full blur-[150px] animate-pulse pointer-events-none"
+      className="ww-ambient-motion absolute bottom-1/4 right-1/4 w-64 h-64 md:w-[600px] md:h-[600px] animate-pulse pointer-events-none"
       style={{
         animationDelay: '1s',
         willChange: staticMotion ? 'auto' : 'opacity',
         animationPlayState: staticMotion ? 'paused' : undefined,
         transform: 'translateZ(0)',
       }}
-    />
+    >
+      <div className="h-full w-full rounded-full bg-accent/20 blur-[150px]" />
+    </div>
     <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-30 pointer-events-none" />
     <div className="absolute bottom-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-accent/50 to-transparent opacity-30 pointer-events-none" />
   </>
@@ -667,8 +672,10 @@ const RightPanel = memo(({ showCards = true, settledEntrance = false, google = f
       >
         <div className="relative p-2.5 md:p-5 rounded-2xl bg-background/95 backdrop-blur-md border border-accent/25 overflow-hidden shadow-lg shadow-black/10" style={{ transform: 'translateZ(0)' }}>
           <div
-            className="ww-hero-card-glow ww-ambient-motion absolute -top-8 -right-8 w-24 h-24 bg-accent/20 blur-3xl rounded-full pointer-events-none"
-          />
+            className="ww-hero-card-glow ww-ambient-motion absolute -top-8 -right-8 w-24 h-24 pointer-events-none"
+          >
+            <div className="h-full w-full rounded-full bg-accent/20 blur-3xl" />
+          </div>
           <div className="flex items-start justify-between mb-2 md:mb-3 relative z-10">
             <div>
               <div className="text-[9px] sm:text-[10px] md:text-xs uppercase tracking-wider text-accent/60 font-medium mb-0.5">
