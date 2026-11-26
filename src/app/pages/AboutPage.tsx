@@ -8,6 +8,7 @@ import SEO from '../components/SEO';
 import { ABOUT_CONTENT_KEY, ABOUT_DEFAULTS, ABOUT_PROFILE, ABOUT_SECTIONS, type AboutContent, type AboutSection } from '../data/about';
 import { useSiteContent } from '../hooks/useServiceContent';
 import { withReturnTo } from '../utils/siteNavigation';
+import AccentTitle from '../components/AccentTitle';
 import './about-page.css';
 
 const Footer = lazy(() => import('../components/Footer'));
@@ -53,13 +54,13 @@ export function AboutBody({ content, previewSection }: { content: AboutContent; 
       );
       case 'aboutStory': return (
         <section key={section} className="about-section about-prose" aria-labelledby="about-story">
-          <h2 id="about-story">{story.title}</h2>
+          <h2 id="about-story"><AccentTitle prefix={story.title} /></h2>
           {paragraphs(story.paragraphs)}
         </section>
       );
       case 'aboutWork': return (
         <section key={section} className="about-section" aria-labelledby="about-work">
-          <h2 id="about-work">{work.title}</h2>
+          <h2 id="about-work"><AccentTitle prefix={work.title} /></h2>
           {work.items.length > 0 && (
             <ol className="about-work-steps" role="list">
               {work.items.map(({ visualSlot, title, text }, index) => {
@@ -78,7 +79,7 @@ export function AboutBody({ content, previewSection }: { content: AboutContent; 
       );
       case 'aboutProjects': return (
         <section key={section} className="about-section" aria-labelledby="about-projects">
-          <h2 id="about-projects">{projects.title}</h2>
+          <h2 id="about-projects"><AccentTitle prefix={projects.title} /></h2>
           <div className="about-prose">{paragraphs(projects.paragraphs)}</div>
           {projects.items.length > 0 && (
             <div className="about-projects">
@@ -96,7 +97,7 @@ export function AboutBody({ content, previewSection }: { content: AboutContent; 
       );
       case 'aboutFocus': return (
         <section key={section} className="about-section about-prose" aria-labelledby="about-focus">
-          <h2 id="about-focus">{focus.title}</h2>
+          <h2 id="about-focus"><AccentTitle prefix={focus.title} /></h2>
           {paragraphs(focus.paragraphs)}
         </section>
       );
@@ -108,7 +109,7 @@ export function AboutBody({ content, previewSection }: { content: AboutContent; 
       ));
       case 'aboutInvitation': return (
         <section key={section} className="about-section about-contact" aria-labelledby="about-contact">
-          <h2 id="about-contact">{invitation.title}</h2>
+          <h2 id="about-contact"><AccentTitle prefix={invitation.title} /></h2>
           <p><AboutText text={invitation.text} linkState={linkState} /></p>
           {invitation.button && <Link className="about-contact-link" to="/#contact">{invitation.button} <ArrowRight size={18} aria-hidden="true" /></Link>}
         </section>

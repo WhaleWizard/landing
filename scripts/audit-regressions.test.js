@@ -558,9 +558,30 @@ test('FX-12: AccentTitle — цветная часть целиком в отд�
     const { renderToStaticMarkup } = requireReal('react-dom/server');
     const { createElement } = requireReal('react');
     const html = renderToStaticMarkup(createElement(accentTitleModule.default, { prefix: 'Реклама, аналитика и', accent: 'регулярная оптимизация' })).replace(/\u00A0/g, '_');
-    assert.match(html, /^Реклама, аналитика <span class="ww-title-accent-group">и_<span class="[^"]+">регулярная оптимизация<\/span><\/span>$/);
+    assert.match(html, /^<span data-ww-title-head="">Реклама, аналитика<\/span> <br class="ww-title-break" aria-hidden="true"\/><span class="ww-title-accent-group">и_<span class="[^"]+">регулярная оптимизация<\/span><\/span>$/);
     const simple = renderToStaticMarkup(createElement(accentTitleModule.default, { prefix: 'Что клиенты ценят', accent: 'в работе со мной' })).replace(/ /g, '_');
-    assert.match(simple, /^Что клиенты ценят <span class="ww-title-accent-group"><span class="[^"]+">в_работе со_мной<\/span><\/span>$/);
+    assert.match(simple, /^<span data-ww-title-head="">Что клиенты ценят<\/span> <br class="ww-title-break" aria-hidden="true"\/><span class="ww-title-accent-group"><span class="[^"]+">в_работе со_мной<\/span><\/span>$/);
+    const plain = renderToStaticMarkup(createElement(accentTitleModule.default, { prefix: 'Как это выглядит на реальных проектах' })).replace(/ /g, '_');
+    assert.equal(plain, '<span data-ww-title-head="">Как это выглядит на_реальных проектах</span>', 'обычный заголовок тоже проходит типографику и подгонку');
+  }
+});
+
+test('FX-13: заголовки разделов на телефоне — одна строка от 20 px или ровно две по смыслу, не крупнее 26 px', () => {
+  const source = readFileSync('src/app/components/AccentTitle.tsx', 'utf8');
+  assert.match(source, /const ONE_LINE_MIN_PX = 20;/);
+  assert.match(source, /const MOBILE_CAP_PX = 26;/);
+  assert.match(source, /const MOBILE_QUERY = '\(max-width: 767px\)';/, 'на компьютере вид не меняется');
+  assert.match(source, /groupWords > 1 && boundary <= best \* 1\.25/, 'одно слово цветной части не остаётся одно на строке');
+  assert.match(source, /measureText/, 'ширина меряется шрифтом заголовка, без чтения раскладки');
+  assert.doesNotMatch(source, /data-ww-title-fit/, 'своё имя признака: data-ww-title-fit занят подгонкой списков блога и кейсов');
+  const css = readFileSync('src/styles/index.css', 'utf8');
+  assert.match(css, /\[data-ww-accent-fit\] \{\s*font-size: var\(--ww-title-size\) !important;\s*max-width: none !important;/);
+  assert.match(css, /\[data-ww-accent-fit='split'\] \.ww-title-break \{ display: inline; \}/);
+  assert.match(css, /:is\(h1, h2, h3\)\[data-ww-accent-fit='free'\] \{ text-wrap: balance; \}/);
+  for (const file of ['src/app/pages/BlogPage.tsx', 'src/app/pages/CasesPage.tsx', 'src/app/pages/AboutPage.tsx', 'src/app/pages/ServiceLandingPage.tsx']) {
+    assert.match(readFileSync(file, 'utf8'), /<AccentTitle prefix=/, `${file}: обычные заголовки разделов тоже подгоняются`);
+  }
+  {
   }
 });
 

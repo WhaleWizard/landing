@@ -65,6 +65,7 @@ import { withReturnTo } from '../utils/siteNavigation';
 import { hasGeneratedFirstScreen, isInitialEntry } from '../utils/firstScreen';
 import { useIsHydrating } from '../hooks/useIsHydrating';
 import ClientOnly from '../components/ClientOnly';
+import AccentTitle from '../components/AccentTitle';
 
 const Footer = lazy(() => import('../components/Footer'));
 
@@ -898,7 +899,7 @@ export default function CasesPage() {
               <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0">
                   <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Дальше по теме</p>
-                  <h2 className="mt-1.5 text-balance text-xl font-bold sm:text-2xl">Как эти решения устроены изнутри</h2>
+                  <h2 className="mt-1.5 text-balance text-xl font-bold sm:text-2xl"><AccentTitle prefix="Как эти решения устроены изнутри" /></h2>
                   <p className="mt-2 max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground">
                     В блоге — разборы механик, которые стоят за этими цифрами: воронки, аналитика, ставки и креативы.
                   </p>

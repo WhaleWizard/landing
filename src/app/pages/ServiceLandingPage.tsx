@@ -1027,7 +1027,7 @@ function ServicePracticeLinks({ service, theme }: Pick<ServiceLandingPageProps, 
       <div className="ww-practice__strip">
         <h2 id="service-practice-title" className="ww-practice__title">
           <span className="ww-practice__dot" aria-hidden="true" />
-          {content.title}
+          <AccentTitle prefix={content.title} />
         </h2>
         <ul className="ww-practice__links">
           {content.links.map(({ href, label }) => (

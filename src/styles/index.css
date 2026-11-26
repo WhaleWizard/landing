@@ -815,3 +815,25 @@ input[type='number']::-webkit-outer-spin-button {
 :is(h1, h2, h3):has(> .ww-title-accent-group) {
   text-wrap: pretty;
 }
+
+/* Перенос между частями заголовка — только когда подгонка выбрала его (FX-13). */
+.ww-title-break { display: none; }
+
+/*
+ * Подгонка заголовков разделов на телефоне (AccentTitle, FX-13): одна строка,
+ * если помещается при кегле от 20 px, иначе ровно две по смыслу. Кегль
+ * считает скрипт по ширине текста, ограничение ширины в ch на телефоне
+ * снимается — иначе узкая колонка давала третью строку.
+ */
+@media (max-width: 767px) {
+  [data-ww-accent-fit] {
+    font-size: var(--ww-title-size) !important;
+    max-width: none !important;
+  }
+  [data-ww-accent-fit='split'] .ww-title-break { display: inline; }
+  [data-ww-accent-fit='split'] .ww-title-accent-group { display: inline; }
+  [data-ww-accent-fit='free'] .ww-title-accent-group { display: inline; }
+  /* Самый ровный перенос на две строки: без этого браузер набивал первую строку
+     до отказа и оставлял одно слово на второй («…перед запуском / рекламы»). */
+  :is(h1, h2, h3)[data-ww-accent-fit='free'] { text-wrap: balance; }
+}

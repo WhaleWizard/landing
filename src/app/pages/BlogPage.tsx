@@ -1182,7 +1182,7 @@ function BlogPageComponent() {
                   <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                   Разбор по вашему проекту
                 </div>
-                <h2 className="text-balance text-xl font-bold text-foreground sm:text-2xl">Нужно применить это к вашему проекту?</h2>
+                <h2 className="text-balance text-xl font-bold text-foreground sm:text-2xl"><AccentTitle prefix="Нужно применить это к вашему проекту?" /></h2>
                 <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground sm:text-base">
                   Пришлите ссылку и короткие вводные. Я посмотрю, с какого шага разумнее начать и какие данные подготовить.
                 </p>
@@ -1565,7 +1565,7 @@ function BlogPageComponent() {
                       <div className="mb-4 flex items-end justify-between gap-4">
                         <div>
                           <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Ещё по теме</p>
-                          <h2 id="blog-feed-heading" className="mt-1 text-2xl font-bold">Практические разборы</h2>
+                          <h2 id="blog-feed-heading" className="mt-1 text-2xl font-bold"><AccentTitle prefix="Практические разборы" /></h2>
                         </div>
                         <span className="text-xs text-muted-foreground">{russianCountLabel(feedArticles.length, ['материал', 'материала', 'материалов'])}</span>
                       </div>
@@ -1636,7 +1636,7 @@ function BlogPageComponent() {
             <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.08em] text-primary">Дальше по теме</p>
-                <h2 className="mt-1.5 text-balance text-xl font-bold sm:text-2xl">Как это выглядит на реальных проектах</h2>
+                <h2 className="mt-1.5 text-balance text-xl font-bold sm:text-2xl"><AccentTitle prefix="Как это выглядит на реальных проектах" /></h2>
                 <p className="mt-2 max-w-xl text-pretty text-sm leading-relaxed text-muted-foreground">
                   В кейсах — те же принципы, но с бюджетами, сроками и цифрами конкретных проектов.
                 </p>
