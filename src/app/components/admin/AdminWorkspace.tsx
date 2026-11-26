@@ -1,3 +1,4 @@
+import { typographText } from "../../utils/typography";
 import {
   useWorkspaceGuard,
   useWorkspaceNavigation,
@@ -239,7 +240,7 @@ export default function AdminWorkspace({
               </button>
             </div>
           )}
-          <h2>{work?.title || "Проекты"}</h2>
+          <h2>{work?.title ? typographText(work.title) : "Проекты"}</h2>
           <p className="admin-meta">
             {work
               ? `${work.kind === "service" ? "Разовая услуга" : "Проект"} · ${WORK_STATUS[work.status]}`
@@ -949,6 +950,7 @@ export function WorkspaceClient({
   initialInvoiceId,
   onNavigate: navigateExternal,
   onEdit,
+  onCreateCase,
   onRegisterLeaveGuard,
 }: {
   password: string;
@@ -957,6 +959,8 @@ export function WorkspaceClient({
   onRegisterLeaveGuard?: RegisterLeaveGuard;
   onNavigate?: (t: WorkspaceTarget) => void;
   onEdit?: () => void;
+  /** «Собрать кейс» прямо из обзора клиента (FX-02). */
+  onCreateCase?: () => void;
 }) {
   const [invoiceDirty, setInvoiceDirty] = useState(false);
   const beforeNavigate=useWorkspaceNavigation(onRegisterLeaveGuard);
@@ -988,7 +992,11 @@ export function WorkspaceClient({
             {client.contact_method} {client.contact_value}
           </p>
         </div>
-        <AdminButton onClick={()=>beforeNavigate(()=>onEdit?.())}>Карточка и договор</AdminButton>
+        <div className="flex flex-wrap gap-2">
+          {/* Кнопка была только в полной карточке, на шаг глубже обзора (FX-02). */}
+          {onCreateCase && <AdminButton tone="quiet" onClick={()=>beforeNavigate(()=>onCreateCase())}>Собрать кейс</AdminButton>}
+          <AdminButton onClick={()=>beforeNavigate(()=>onEdit?.())}>Карточка и договор</AdminButton>
+        </div>
       </div>
       {form && (
         <WorkspaceForms
@@ -1083,8 +1091,13 @@ export function WorkspaceClient({
                               ? "Настройка"
                               : i.note || "Разовая услуга"}
                         <small>
-                          {i.note} · получено{" "}
-                          {money(invoiceReceived(i), i.currency)}
+                          {/* Примечание — в подписи, только если оно не стало
+                              заголовком строки и не пустое (CL-39): иначе выходило
+                              «· получено 0 $» или примечание дважды. */}
+                          {[
+                            ["consultation", "audit", "setup"].includes(i.kind || "") ? i.note : "",
+                            `получено ${money(invoiceReceived(i), i.currency)}`,
+                          ].filter(Boolean).join(" · ")}
                         </small>
                       </span>
                       <ArrowUpRight />

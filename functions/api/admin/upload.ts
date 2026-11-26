@@ -85,7 +85,7 @@ function validateUpload(file: File, ext: string): string | null {
   if (file.size > MAX_UPLOAD_BYTES) return 'Файл слишком большой: не больше 15 МБ';
 
   const mime = String(file.type || '').toLowerCase();
-  const allowedExtensions = ALLOWED_UPLOAD_TYPES[mime];
+  const allowedExtensions = Object.prototype.hasOwnProperty.call(ALLOWED_UPLOAD_TYPES, mime) ? ALLOWED_UPLOAD_TYPES[mime] : undefined;
   if (!allowedExtensions) return `Такой тип файла загружать нельзя (${mime || 'тип не определён'})`;
 
   // Сверка расширения с типом не ослабляется: файл без расширения или с чужим
@@ -161,7 +161,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const contentType = String(request.headers.get('Content-Type') || '').toLowerCase();
   if (!contentType.includes('multipart/form-data')) {
     return json(
-      { success: false, error: 'Expected multipart/form-data body' },
+      { success: false, error: 'Файл не передан' },
       { status: 415, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
@@ -171,7 +171,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   const declaredLength = Number(request.headers.get('Content-Length') || 0);
   if (Number.isFinite(declaredLength) && declaredLength > MAX_UPLOAD_BYTES) {
     return json(
-      { success: false, error: 'Uploaded file is too large. Maximum size is 15 MB' },
+      { success: false, error: 'Файл слишком большой: можно до 15 МБ' },
       { status: 413, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
@@ -185,7 +185,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
     const file = formData.get('file') as File | null;
     if (!file) {
-      return json({ success: false, error: 'No file uploaded' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+      return json({ success: false, error: 'Файл не выбран' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
     }
 
     const { safeName, ext } = buildSafeName(file.name);
@@ -272,6 +272,6 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     // Внутренняя причина уходит в лог, а не в ответ: текст исключения парсера
     // рассказывал вызывающей стороне об устройстве обработчика.
     console.error('[Admin upload] Failed:', error);
-    return json({ success: false, error: 'Upload failed' }, { status: 500, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    return json({ success: false, error: 'Не удалось загрузить файл' }, { status: 500, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 };

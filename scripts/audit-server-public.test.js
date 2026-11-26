@@ -887,3 +887,38 @@ test('DA-150: прежний адрес переименованного кей�
     assert.equal(response.headers.get('location'), `${SITE}/cases/${newSlug}?utm_source=article`);
   }
 });
+
+// ===========================================================================
+// CL-25 — сбор скорости пишет отдельную строку только для страниц сайта
+// ===========================================================================
+
+test('CL-25: /api/vitals складывает чужие адреса в одну строку «прочее», страницы и статьи — отдельно', async () => {
+  const vitals = await loadModule('functions/api/vitals.ts');
+  const { normalizeVitalsPath, OTHER_PAGE_PATH } = vitals;
+  assert.equal(normalizeVitalsPath('/meta-ads/'), '/meta-ads');
+  assert.equal(normalizeVitalsPath('/'), '/');
+  assert.equal(normalizeVitalsPath('/blog/kak-nastroit-capi?utm_source=fb#top'), '/blog/kak-nastroit-capi');
+  assert.equal(normalizeVitalsPath('/cases/case-1'), '/cases/case-1');
+  for (const junk of ['/wp-admin', '/random-123', '/blog/../admin', '/blog/Bad_Slug', '/admin', '/api/lead', `/${'a'.repeat(300)}`]) {
+    assert.equal(normalizeVitalsPath(junk), OTHER_PAGE_PATH, junk);
+  }
+
+  const { sqlite, d1 } = freshDatabase();
+  const post = (metrics) => vitals.onRequestPost({
+    request: new Request(`${SITE}/api/vitals`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'User-Agent': BROWSER_UA, 'CF-Connecting-IP': '198.51.100.77' },
+      body: JSON.stringify({ metrics }),
+    }),
+    env: { DB: d1 },
+  });
+  const response = await post([
+    { metric: 'LCP', value: 1800, path: '/wp-admin' },
+    { metric: 'LCP', value: 2100, path: '/random-123' },
+    { metric: 'LCP', value: 1500, path: '/meta-ads' },
+    { metric: 'constructor', value: 1, path: '/' },
+  ]);
+  assert.equal(response.status, 200);
+  const rows = sqlite.prepare('SELECT page_path, samples FROM web_vitals_daily ORDER BY page_path').all().map((row) => ({ ...row }));
+  assert.deepEqual(rows, [{ page_path: '(other)', samples: 2 }, { page_path: '/meta-ads', samples: 1 }]);
+});

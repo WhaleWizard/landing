@@ -46,11 +46,22 @@ async function importFunctionModule(relativePath) {
 
 const guard = await importFunctionModule('functions/_lib/migration-guard.ts');
 
+// Сравниваем содержание, а не переводы строк: на Windows git при скачивании
+// превращает LF сгенерированных файлов и миграций в CRLF, и побайтное
+// сравнение падало только локально, хотя файлы не отстали ни на строку.
+const sameText = (text) => String(text).replace(/\r\n/g, '\n');
+
 test('карта таблиц совпадает с файлами миграций', () => {
   assert.ok(existsSync(MAP_PATH), 'нет functions/_lib/migration-tables.ts — запустите build:migration-map');
   const expected = renderMigrationTables(collectMigrationTables());
-  assert.equal(readFileSync(MAP_PATH, 'utf8'), expected,
+  const actual = readFileSync(MAP_PATH, 'utf8');
+  // DA-23: побайтное сравнение падало на свежем Windows-чекауте (CRLF), хотя
+  // карта не отстала ни на строку. Сравниваем содержание, как соседние тесты.
+  assert.equal(sameText(actual), sameText(expected),
     'карта миграций устарела — запустите npm run build:migration-map');
+  // CRLF сам по себе не расхождение, а лишняя строка — расхождение.
+  assert.equal(sameText(expected.replace(/\n/g, '\r\n')), sameText(expected));
+  assert.notEqual(sameText(`${actual}\n  extra_table: '9999_extra.sql',`), sameText(expected));
 });
 
 test('каждая миграция из карты действительно существует', () => {
@@ -66,11 +77,6 @@ test('таблицы ключевых разделов есть в карте', 
     assert.ok(guard.MIGRATION_BY_TABLE[table], `таблица ${table} потерялась в карте миграций`);
   }
 });
-
-// Сравниваем содержание, а не переводы строк: на Windows git при скачивании
-// превращает LF сгенерированных файлов и миграций в CRLF, и побайтное
-// сравнение падало только локально, хотя файлы не отстали ни на строку.
-const sameText = (text) => String(text).replace(/\r\n/g, '\n');
 
 test('подписи миграций не отстали от файлов', () => {
   assert.ok(existsSync(SIGNATURES_PATH), 'нет migration-signatures.ts — запустите build:migration-map');

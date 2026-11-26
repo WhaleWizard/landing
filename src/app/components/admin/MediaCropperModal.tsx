@@ -400,7 +400,7 @@ export default function MediaCropperModal({
           <div className="admin-cropper-controls-col">
             {/* Пресеты пропорций */}
             <div className="admin-cropper-section">
-              <label className="admin-cropper-section-label">Целевой формат (Aspect Ratio):</label>
+              <label className="admin-cropper-section-label">Формат кадра:</label>
               <div className="admin-cropper-presets-grid">
                 {PRESETS.map((p) => (
                   <button

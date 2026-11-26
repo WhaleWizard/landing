@@ -63,7 +63,7 @@ function MigrationCard({ row, password, isNext }: { row: MigrationRow; password:
         cache: 'no-store',
       });
       const data = await response.json().catch(() => null) as { sql?: string } | null;
-      if (!response.ok || !data?.sql) throw new Error('Не удалось прочитать SQL');
+      if (!response.ok || !data?.sql) throw new Error('Не удалось загрузить текст миграции');
       return data.sql;
     })();
     try {
@@ -84,7 +84,7 @@ function MigrationCard({ row, password, isNext }: { row: MigrationRow; password:
     } catch {
       const sql = await sqlPromise.catch(() => '');
       setManualSql(sql);
-      if (!sql) notify.error('Не удалось прочитать SQL', 'Попробуйте снова или откройте файл в репозитории');
+      if (!sql) notify.error('Не удалось загрузить текст миграции', 'Попробуйте ещё раз через минуту или скопируйте его из папки migrations в репозитории');
     } finally {
       setLoading(false);
     }

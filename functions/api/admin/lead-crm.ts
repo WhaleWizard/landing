@@ -210,7 +210,7 @@ function normalizeBoundedText(value: unknown, field: string, maxLength: number, 
   const normalized = value.trim();
   if (required && !normalized) throw validationError(`${field} is required`);
   if (normalized.length > maxLength) {
-    throw validationError(`${field} must be at most ${maxLength} characters`);
+    throw validationError(`Слишком длинный текст: не больше ${maxLength} знаков`);
   }
   return normalized;
 }
@@ -482,7 +482,7 @@ async function updateLead(
   }
   const patch = normalizeLeadPatch(body, capabilities.workspace);
   const current = await getCrmLead(db, leadId, capabilities.workspace, capabilities.correctness);
-  if (!current) throw Object.assign(new Error('Lead not found'), { name: 'NotFoundError' });
+  if (!current) throw Object.assign(new Error('Заявка не найдена'), { name: 'NotFoundError' });
   const requestId = normalizeActionId(body.action_id);
   const actionId = convertOn ? `client:${requestId}` : requestId;
   const findClient = () => db.prepare('SELECT id FROM clients WHERE lead_id = ?').bind(leadId).first<{ id: number }>();
@@ -499,7 +499,7 @@ async function updateLead(
     expectedRevision = parseBoundedInteger(body.expected_revision, 0, Number.MAX_SAFE_INTEGER, 'expected_revision');
     const expected = expectedRevision;
     if (expected !== Number(current.crm_revision || 0)) {
-      throw conflictError('Lead was changed in another tab. Reload it before saving.');
+      throw conflictError('Заявку изменили в другой вкладке. Обновите её и сохраните ещё раз.');
     }
   }
 
@@ -563,7 +563,7 @@ async function updateLead(
         if (client) return { changed: false, idempotent: true, lead: latest, activities_created: 0, action_id: actionId, clientId: client.id };
       }
     }
-    throw conflictError('Lead was changed in another tab. Reload it before saving.');
+    throw conflictError('Заявку изменили в другой вкладке. Обновите её и сохраните ещё раз.');
   }
   const lead = await getCrmLead(db, leadId, capabilities.workspace, capabilities.correctness);
   const client = convertOn ? await findClient() : null;
@@ -679,7 +679,7 @@ async function addNote(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
   ]);
   const note = await db.prepare('SELECT * FROM crm_notes WHERE lead_id = ? AND action_id = ?')
     .bind(leadId, actionId).first<CrmNoteRow>();
-  if (!note) throw await trashedLeadError(db, leadId) ?? conflictError('action_id was already used by another CRM mutation');
+  if (!note) throw await trashedLeadError(db, leadId) ?? conflictError('Эта операция уже выполнялась с другими данными. Обновите заявку.');
   if (note.body !== noteBody || Boolean(note.pinned) !== pinned) {
     throw conflictError('Повтор операции содержит другие данные');
   }
@@ -700,7 +700,7 @@ async function updateNote(db: D1Database, body: LeadCrmPayload, leadId: number):
   const noteId = parsePositiveInteger(body.note_id);
   if (!noteId) throw validationError('A valid note_id is required');
   const current = await db.prepare('SELECT * FROM crm_notes WHERE id = ? AND lead_id = ?').bind(noteId, leadId).first<CrmNoteRow>();
-  if (!current) throw Object.assign(new Error('Note not found'), { name: 'NotFoundError' });
+  if (!current) throw Object.assign(new Error('Заметка не найдена — возможно, её уже удалили'), { name: 'NotFoundError' });
   const actionId = normalizeActionId(body.action_id);
   const nextBody = body.body === undefined ? current.body : normalizeBoundedText(body.body, 'body', MAX_NOTE_LENGTH, true);
   const nextPinned = body.pinned === undefined ? current.pinned === 1 : parseBoolean(body.pinned, 'pinned');
@@ -710,7 +710,7 @@ async function updateNote(db: D1Database, body: LeadCrmPayload, leadId: number):
     return { changed: false, idempotent: true, note: current, action_id: actionId };
   }
   const expectedRevision = expectedEntityRevision(body, current, 'note');
-  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Note was changed in another tab. Reload it before saving.');
+  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Заметку изменили в другой вкладке. Обновите заявку и сохраните ещё раз.');
   if (same) return { changed: false, note: current };
   const results = await db.batch([
     db.prepare(
@@ -734,7 +734,7 @@ async function updateNote(db: D1Database, body: LeadCrmPayload, leadId: number):
       actionId,
     ),
   ]);
-  if (resultChanges(results[0]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Note was changed in another tab. Reload it before saving.');
+  if (resultChanges(results[0]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Заметку изменили в другой вкладке. Обновите заявку и сохраните ещё раз.');
   const note = await db.prepare('SELECT * FROM crm_notes WHERE id = ?').bind(noteId).first<CrmNoteRow>();
   return { changed: true, note, action_id: actionId };
 }
@@ -748,10 +748,10 @@ async function deleteNote(db: D1Database, body: LeadCrmPayload, leadId: number):
     const prior = await db.prepare("SELECT id FROM lead_activity WHERE action_id = ? AND type = 'note_deleted' AND entity_id = ? AND lead_id = ?")
       .bind(actionId, noteId, leadId).first<{ id: number }>();
     if (prior) return { deleted: true, idempotent: true, note_id: noteId, action_id: actionId };
-    throw Object.assign(new Error('Note not found'), { name: 'NotFoundError' });
+    throw Object.assign(new Error('Заметка не найдена — возможно, её уже удалили'), { name: 'NotFoundError' });
   }
   const expectedRevision = expectedEntityRevision(body, current, 'note');
-  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Note was changed in another tab. Reload it before deleting.');
+  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Заметку изменили в другой вкладке. Обновите заявку и удалите ещё раз.');
   const results = await db.batch([
     db.prepare(
       `INSERT INTO lead_activity
@@ -764,7 +764,7 @@ async function deleteNote(db: D1Database, body: LeadCrmPayload, leadId: number):
     db.prepare(`DELETE FROM crm_notes WHERE id = ? AND lead_id = ? AND revision = ?${await activeLeadGuard(db)}`)
       .bind(noteId, leadId, expectedRevision, leadId),
   ]);
-  if (resultChanges(results[1]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Note was changed in another tab. Reload it before deleting.');
+  if (resultChanges(results[1]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Заметку изменили в другой вкладке. Обновите заявку и удалите ещё раз.');
   return { deleted: true, note_id: noteId, action_id: actionId };
 }
 
@@ -792,7 +792,7 @@ async function createTask(db: D1Database, body: LeadCrmPayload, leadId: number):
   ]);
   const task = await db.prepare('SELECT * FROM crm_tasks WHERE lead_id = ? AND action_id = ?')
     .bind(leadId, actionId).first<CrmTaskRow>();
-  if (!task) throw await trashedLeadError(db, leadId) ?? conflictError('action_id was already used by another CRM mutation');
+  if (!task) throw await trashedLeadError(db, leadId) ?? conflictError('Эта операция уже выполнялась с другими данными. Обновите заявку.');
   if (task.title !== title || task.kind !== kind || task.priority !== priority || task.due_at !== dueAt) {
     throw conflictError('Повтор операции содержит другие данные');
   }
@@ -803,7 +803,7 @@ async function updateTask(db: D1Database, body: LeadCrmPayload, leadId: number):
   const taskId = parsePositiveInteger(body.task_id);
   if (!taskId) throw validationError('A valid task_id is required');
   const current = await db.prepare('SELECT * FROM crm_tasks WHERE id = ? AND lead_id = ?').bind(taskId, leadId).first<CrmTaskRow>();
-  if (!current) throw Object.assign(new Error('Task not found'), { name: 'NotFoundError' });
+  if (!current) throw Object.assign(new Error('Задача не найдена — возможно, её уже удалили'), { name: 'NotFoundError' });
   const actionId = normalizeActionId(body.action_id);
   const next = {
     title: body.title === undefined ? current.title : normalizeBoundedText(body.title, 'title', MAX_TASK_TITLE_LENGTH, true),
@@ -819,7 +819,7 @@ async function updateTask(db: D1Database, body: LeadCrmPayload, leadId: number):
     return { changed: false, idempotent: true, task: current, action_id: actionId };
   }
   const expectedRevision = expectedEntityRevision(body, current, 'task');
-  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Task was changed in another tab. Reload it before saving.');
+  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Задачу изменили в другой вкладке. Обновите заявку и сохраните ещё раз.');
   if (same) return { changed: false, task: current };
   const completedAtSql = next.status === 'completed'
     ? "COALESCE(completed_at, datetime('now'))"
@@ -849,7 +849,7 @@ async function updateTask(db: D1Database, body: LeadCrmPayload, leadId: number):
       next.status !== current.status ? `task_${next.status}` : 'task_updated',
     ),
   ]);
-  if (resultChanges(results[0]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Task was changed in another tab. Reload it before saving.');
+  if (resultChanges(results[0]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Задачу изменили в другой вкладке. Обновите заявку и сохраните ещё раз.');
   const task = await db.prepare('SELECT * FROM crm_tasks WHERE id = ?').bind(taskId).first<CrmTaskRow>();
   return { changed: true, task, action_id: actionId };
 }
@@ -863,10 +863,10 @@ async function deleteTask(db: D1Database, body: LeadCrmPayload, leadId: number):
     const prior = await db.prepare("SELECT id FROM lead_activity WHERE action_id = ? AND type = 'task_deleted' AND entity_id = ? AND lead_id = ?")
       .bind(actionId, taskId, leadId).first<{ id: number }>();
     if (prior) return { deleted: true, idempotent: true, task_id: taskId, action_id: actionId };
-    throw Object.assign(new Error('Task not found'), { name: 'NotFoundError' });
+    throw Object.assign(new Error('Задача не найдена — возможно, её уже удалили'), { name: 'NotFoundError' });
   }
   const expectedRevision = expectedEntityRevision(body, current, 'task');
-  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Task was changed in another tab. Reload it before deleting.');
+  if (expectedRevision !== Number(current.revision || 0)) throw conflictError('Задачу изменили в другой вкладке. Обновите заявку и удалите ещё раз.');
   const results = await db.batch([
     db.prepare(
       `INSERT INTO lead_activity
@@ -879,7 +879,7 @@ async function deleteTask(db: D1Database, body: LeadCrmPayload, leadId: number):
     db.prepare(`DELETE FROM crm_tasks WHERE id = ? AND lead_id = ? AND revision = ?${await activeLeadGuard(db)}`)
       .bind(taskId, leadId, expectedRevision, leadId),
   ]);
-  if (resultChanges(results[1]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Task was changed in another tab. Reload it before deleting.');
+  if (resultChanges(results[1]) === 0) throw await trashedLeadError(db, leadId) ?? conflictError('Задачу изменили в другой вкладке. Обновите заявку и удалите ещё раз.');
   return { deleted: true, task_id: taskId, action_id: actionId };
 }
 
@@ -892,7 +892,7 @@ interface NormalizedTag {
 
 function normalizeTags(value: unknown): NormalizedTag[] {
   if (!Array.isArray(value)) throw validationError('tags must be an array');
-  if (value.length > MAX_TAGS_PER_LEAD) throw validationError(`A lead can have at most ${MAX_TAGS_PER_LEAD} tags`);
+  if (value.length > MAX_TAGS_PER_LEAD) throw validationError(`У заявки может быть не больше ${MAX_TAGS_PER_LEAD} меток`);
   const tags = value.map((raw, index) => {
     const nameValue = typeof raw === 'string' ? raw : (raw && typeof raw === 'object' ? (raw as Record<string, unknown>).name : '');
     const colorValue = raw && typeof raw === 'object' ? (raw as Record<string, unknown>).color : undefined;
@@ -1063,7 +1063,7 @@ async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
   const actionId = normalizeActionId(body.action_id);
   const lead = await db.prepare('SELECT crm_revision, crm_action_id FROM leads WHERE id = ?')
     .bind(leadId).first<{ crm_revision: number; crm_action_id: string }>();
-  if (!lead) throw Object.assign(new Error('Lead not found'), { name: 'NotFoundError' });
+  if (!lead) throw Object.assign(new Error('Заявка не найдена'), { name: 'NotFoundError' });
   const currentResult = await db.prepare(
     `SELECT t.id, t.name, t.slug, t.color, t.created_at, t.updated_at
      FROM crm_tags t INNER JOIN crm_lead_tags lt ON lt.tag_id = t.id
@@ -1079,7 +1079,7 @@ async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
   if (body.expected_revision === undefined) throw validationError('expected_revision is required');
   const expectedRevision = parseBoundedInteger(body.expected_revision, 0, Number.MAX_SAFE_INTEGER, 'expected_revision');
   if (expectedRevision !== Number(lead.crm_revision || 0)) {
-    throw conflictError('Lead was changed in another tab. Reload it before saving tags.');
+    throw conflictError('Заявку изменили в другой вкладке. Обновите её и поставьте метки ещё раз.');
   }
 
   if (sameTags) return { changed: false, tags: current };
@@ -1139,7 +1139,7 @@ async function setTags(db: D1Database, body: LeadCrmPayload, leadId: number): Pr
 
   const results = await db.batch(statements);
   if (resultChanges(results[updateIndex]) === 0) {
-    throw conflictError('Lead was changed in another tab. Reload it before saving tags.');
+    throw conflictError('Заявку изменили в другой вкладке. Обновите её и поставьте метки ещё раз.');
   }
   const nextResult = await db.prepare(
     `SELECT t.id, t.name, t.slug, t.color, t.created_at, t.updated_at
@@ -1195,7 +1195,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
   if (!env.DB) {
-    return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'D1 is not configured' }, { status: 503, headers: noStore });
+    return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'База данных D1 не подключена к сайту в настройках Cloudflare' }, { status: 503, headers: noStore });
   }
 
   const url = new URL(request.url);
@@ -1225,7 +1225,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       ? Math.min(Math.max(requestedLimit, 1), MAX_ACTIVITY_LIMIT)
       : DEFAULT_ACTIVITY_LIMIT;
     const bundle = await getLeadBundle(env.DB, leadId, capabilities, activityLimit);
-    if (!bundle) return json({ success: false, error: 'Lead not found' }, { status: 404, headers: noStore });
+    if (!bundle) return json({ success: false, error: 'Заявка не найдена' }, { status: 404, headers: noStore });
     return json({ success: true, capabilities, ...bundle }, { headers: noStore });
   } catch (error) {
     if (error instanceof Error && error.name === 'NotFoundError') {
@@ -1246,7 +1246,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   }
   if (!validBody) return json({ success: false, error: 'Некорректный JSON' }, { status: 400, headers: noStore });
   if (!env.DB) {
-    return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'D1 is not configured' }, { status: 503, headers: noStore });
+    return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'База данных D1 не подключена к сайту в настройках Cloudflare' }, { status: 503, headers: noStore });
   }
 
   const action = String(body.action || 'update_lead');
@@ -1265,7 +1265,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const capabilities = await assertAdminCrmSchema(env.DB, requirement);
     const activeOnly = (await getLeadsColumns(env.DB)).has('deleted_at') ? ' AND deleted_at IS NULL' : '';
     const exists = await env.DB.prepare(`SELECT id FROM leads WHERE id = ?${activeOnly}`).bind(leadId).first<{ id: number }>();
-    if (!exists) return json({ success: false, error: 'Lead not found' }, { status: 404, headers: noStore });
+    if (!exists) return json({ success: false, error: 'Заявка не найдена' }, { status: 404, headers: noStore });
 
     let result: Record<string, unknown>;
     if (action === 'update_lead') result = await updateLead(env.DB, body, leadId, capabilities);
@@ -1283,7 +1283,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     else if (action === 'delete_task') result = await deleteTask(env.DB, body, leadId);
     else if (action === 'set_tags') result = await setTags(env.DB, body, leadId);
     else if (action === 'merge_lead') result = await mergeLead(env.DB, body, leadId);
-    else throw validationError('Unknown action');
+    else throw validationError('Неизвестное действие');
 
     return json({ success: true, action, ...result }, { headers: noStore });
   } catch (error) {

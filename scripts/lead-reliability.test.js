@@ -606,7 +606,7 @@ test('quality action ids make reclassification signals unique and retries stable
 test('legacy admin endpoint cannot partially persist a combined status and quality mutation', () => {
   const source = readFileSync('functions/api/admin/leads.ts', 'utf8');
   assert.match(source, /if \(hasStatus && hasQuality\)/);
-  assert.match(source, /Update status and quality in separate requests/);
+  assert.match(source, /Статус и качество заявки меняются по отдельности/);
 });
 
 test('a trashed lead never absorbs a new submission from the same contact', async () => {

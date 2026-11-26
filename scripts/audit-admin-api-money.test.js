@@ -546,6 +546,23 @@ test('client deletion protects a project added just before the transaction', asy
   assert.equal((await clients.post({ action: 'delete', id: id + 1 })).status, 404);
 });
 
+test('FX-07: часовой пояс «не указан» сохраняется пустым, а не UTC+0', async (t) => {
+  t.after(installMemoryCache());
+  const clients = await harness('functions/api/admin/clients.ts');
+  const { sqlite } = clients;
+  t.after(() => sqlite.close());
+  const created = await clients.post({ action: 'create', name: 'Клиент', status: 'active', timezone_offset: 300 });
+  assert.equal(created.status, 200);
+  const id = created.payload.id;
+  assert.equal(sqlite.prepare('SELECT timezone_offset FROM clients WHERE id = ?').get(id).timezone_offset, 300);
+  const cleared = await clients.post({ action: 'update', id, name: 'Клиент', status: 'active', timezone_offset: null });
+  assert.equal(cleared.status, 200);
+  assert.equal(sqlite.prepare('SELECT timezone_offset FROM clients WHERE id = ?').get(id).timezone_offset, null, 'Number(null) не превращается в UTC+0');
+  const east = await clients.post({ action: 'update', id, name: 'Клиент', status: 'active', timezone_offset: 0 });
+  assert.equal(east.status, 200);
+  assert.equal(sqlite.prepare('SELECT timezone_offset FROM clients WHERE id = ?').get(id).timezone_offset, 0, 'настоящий UTC+0 сохраняется');
+});
+
 // ─── F-028: расходы не введены — null, а не ноль ─────────────────────────────
 
 test('F-028: без единой строки ad_spend отчёт, цели и воронка не рисуют нулевой расход', async (t) => {

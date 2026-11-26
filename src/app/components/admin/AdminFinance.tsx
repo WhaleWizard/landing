@@ -1,3 +1,4 @@
+import { joinAmounts } from './AttributionCharts';
 import { WorkspacePayments } from './workspace/WorkspacePayments';
 import { useWorkspaceGuard } from './workspace/useWorkspaceGuard';
 import { invoiceIsOverdue, invoiceReceipts, invoiceReceived, invoiceOutstanding, type WorkPayment, type WorkspaceTarget } from '../../../../shared/admin-workspace';
@@ -125,9 +126,8 @@ function addMoney(target: Money, currency: string, amount: number): void {
 
 function formatMoney(money: Money): string {
   if (!money.size) return '—';
-  return [...money.entries()]
-    .map(([currency, amount]) => `${amount.toLocaleString('ru-RU',{maximumFractionDigits:2})} ${currency}`)
-    .join(' · ');
+  return joinAmounts([...money.entries()]
+    .map(([currency, amount]) => `${amount.toLocaleString('ru-RU',{maximumFractionDigits:2})} ${currency}`));
 }
 
 function formatOne(amount: number, currency: string): string {

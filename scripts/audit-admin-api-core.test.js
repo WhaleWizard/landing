@@ -1218,6 +1218,8 @@ function installSiteFetchStub() {
   const original = globalThis.fetch;
   globalThis.fetch = async (input) => {
     const url = typeof input === 'string' ? input : input.url;
+    if (url === 'https://www.example.test/sitemap.xml') return new Response('<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>', { status: 200 });
+    if (url === 'https://www.example.test/feed.xml') return new Response('<?xml version="1.0"?><rss version="2.0"><channel></channel></rss>', { status: 200 });
     if (url.startsWith('https://www.example.test/')) return new Response('ok', { status: 200 });
     throw new Error(`Неожиданный внешний запрос в тесте: ${url}`);
   };
@@ -1810,4 +1812,68 @@ test('DA-88, DA-89, DA-97: старая вкладка не закрывает �
   assert.equal(opened.payload.opened, 2);
   const unlockEvents = sqlite.prepare("SELECT path FROM page_lock_events WHERE action = 'unlock' ORDER BY path").all().map((row) => row.path);
   assert.ok(unlockEvents.includes('/faq') && unlockEvents.includes('/consult'));
+});
+
+// ─── DA-120: карта сайта и лента проверяются по содержимому, а не только по HTTP 200 ───
+
+test('DA-120: HTML вместо sitemap.xml и feed.xml — сбой, пустой ответ и 404 — тоже; настоящий XML — норма', async (t) => {
+  const restoreCache = installMemoryCache();
+  t.after(restoreCache);
+  const sqlite = freshDatabase();
+  const env = { DB: new D1Database(sqlite), ADMIN_PASSWORD };
+  const original = globalThis.fetch;
+  t.after(() => { globalThis.fetch = original; });
+  const serve = (sitemap, feed) => {
+    globalThis.fetch = async (input) => {
+      const url = typeof input === 'string' ? input : input.url;
+      if (url.endsWith('/sitemap.xml')) return sitemap();
+      if (url.endsWith('/feed.xml')) return feed();
+      if (url.startsWith('https://www.example.test/')) return new Response('<!doctype html><html></html>', { status: 200 });
+      throw new Error(`Неожиданный внешний запрос в тесте: ${url}`);
+    };
+  };
+
+  serve(() => new Response('<!DOCTYPE html><html><body>главная</body></html>', { status: 200 }),
+    () => new Response('<html><body>главная</body></html>', { status: 200 }));
+  let checks = await healthChecks(env);
+  assert.equal(checks.get('page-sitemap').status, 'fail');
+  assert.match(checks.get('page-sitemap').detail, /HTML-страница/);
+  assert.equal(checks.get('page-feed').status, 'fail');
+
+  serve(() => new Response('', { status: 200 }), () => new Response('Not found', { status: 404 }));
+  checks = await healthChecks(env);
+  assert.match(checks.get('page-sitemap').detail, /ответ пустой/);
+  assert.equal(checks.get('page-feed').detail, 'HTTP 404');
+
+  serve(() => new Response('﻿<?xml version="1.0"?>\n<sitemapindex xmlns="x"></sitemapindex>', { status: 200 }),
+    () => new Response('<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"></feed>', { status: 200 }));
+  checks = await healthChecks(env);
+  assert.equal(checks.get('page-sitemap').status, 'ok');
+  assert.equal(checks.get('page-feed').status, 'ok');
+  assert.equal(checks.get('page-home').status, 'ok');
+});
+
+// ─── CL-24: служебные имена объекта в параметрах — понятный отказ, а не 500 ───
+
+test('CL-24: «?sort=constructor» в CRM — 400, «?sql=__proto__» в миграциях — 404', async (t) => {
+  t.after(installMemoryCache());
+  const sqlite = freshDatabase();
+  const env = { DB: new D1Database(sqlite), ADMIN_PASSWORD };
+  const headers = { 'X-Admin-Password': ADMIN_PASSWORD, 'CF-Connecting-IP': '203.0.113.31' };
+
+  const crm = await loadModule('functions/api/admin/crm-leads.ts');
+  for (const sort of ['constructor', '__proto__', 'toString']) {
+    const response = await crm.onRequestGet({ request: new Request(`https://www.example.test/api/admin/crm-leads?sort=${sort}`, { headers }), env });
+    assert.equal(response.status, 400, `sort=${sort}`);
+  }
+  const ok = await crm.onRequestGet({ request: new Request('https://www.example.test/api/admin/crm-leads?sort=priority', { headers }), env });
+  assert.equal(ok.status, 200);
+
+  const migrations = await loadModule('functions/api/admin/migrations.ts');
+  for (const name of ['__proto__', 'constructor', 'hasOwnProperty']) {
+    const response = await migrations.onRequestGet({ request: new Request(`https://www.example.test/api/admin/migrations?sql=${name}`, { headers }), env });
+    assert.equal(response.status, 404, `sql=${name}`);
+  }
+  const real = await migrations.onRequestGet({ request: new Request('https://www.example.test/api/admin/migrations?sql=0013_site_sections.sql', { headers }), env });
+  if (real.status === 200) assert.match((await real.json()).sql, /CREATE/i);
 });

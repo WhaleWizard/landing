@@ -13488,7 +13488,8 @@ body[data-admin-theme] .admin-cmdk__foot kbd {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: #fff;
+  /* Белый на янтарном — 2 : 1 (CL-36); тёмный — больше 8 : 1 в обеих темах. */
+  color: #1c1917;
   pointer-events: none;
 }
 
@@ -17842,7 +17843,7 @@ body[data-admin-theme] .planner-weekpick {
 
 .admin-root .adm-channel-metrics {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--adm-border);
@@ -18997,6 +18998,7 @@ body[data-admin-theme] .planner-weekpick {
 
 .admin-root .admin-cropper-footer {
   display: flex;
+  flex-wrap: wrap; /* CL-46: на телефоне кнопки не уходят за правый край */
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -19007,7 +19009,10 @@ body[data-admin-theme] .planner-weekpick {
 
 .admin-root .admin-cropper-footer-right {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 10px;
+  margin-inline-start: auto;
 }
 
 /* ==========================================================================
@@ -20371,7 +20376,9 @@ body[data-admin-theme] .planner-weekpick {
 .admin-root .admin-publication-stats strong { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .admin-root .admin-publication-stats span { color: var(--adm-text-tertiary); font-size: 12px; }
 .admin-root .admin-money-stack { display: grid; gap: 4px; }
-.admin-root .admin-money-stack > span { white-space: nowrap; }
+/* Сумма не обрезается в узкой плитке (CL-33): число держится целиком
+   (разряды — неразрывные пробелы), валюта может уйти на свою строку. */
+.admin-root .admin-money-stack > span { white-space: normal; }
 .admin-root .admin-editor-layout.is-editing .admin-publications-create { width: 40px; padding: 0; flex: none; }
 .admin-root .admin-editor-layout.is-editing .admin-publications-create span { display: none; }
 .admin-root .admin-editor-layout.is-editing .admin-publication-stats { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
@@ -20462,3 +20469,47 @@ body[data-admin-theme] .planner-weekpick {
   .admin-root .admin-launchpad-filter-group > svg,
   .admin-root .admin-audit-filter-group > svg { display: none; }
 }
+
+/* «Цели и деньги» на узком экране (CL-32): две колонки по ~136 px оставляли
+   тексту рядом с кольцом около 30 px — подписи рвались по слогам. На узкой
+   области подписи встают под кольцо. */
+@container admin-main (max-width: 480px) {
+  .admin-root .goal-ring { flex-direction: column; align-items: flex-start; }
+}
+
+/* Технические имена настроек (TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID…) длиннее
+   строки телефона и обрезались за краем (CL-34): переносим где угодно. */
+.admin-root code,
+.admin-root .health-verdict__list span,
+.admin-root .health-row__detail,
+.admin-root .admin-wrap-anywhere { overflow-wrap: anywhere; }
+
+/* Цели касания на сенсорных экранах (CL-35): галочка выбора файла, переключатель
+   вида публикаций и ссылки-инструкции были 16–28 px. На компьютере с мышью
+   вид не меняется. */
+@media (pointer: coarse) {
+  .admin-root .media-card__check { min-width: 44px; min-height: 44px; align-items: center; justify-content: center; }
+  .admin-root .media-card__check input { width: 20px; height: 20px; }
+  .admin-root :is([aria-label="Вид: Список"], [aria-label="Вид: Карточки"]) { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .admin-root :is(.admin-gsc-page-link, .admin-launchpad-item-link, .admin-touch-link) { min-height: 44px; display: inline-flex; align-items: center; }
+}
+
+/* Редактор статьи на телефоне (CL-43): группа «Блок № · тип блока» занимала
+   ~20 px рядом с пятью кнопками, и тип блока нельзя было прочитать и выбрать.
+   Ей нужно не меньше 220 px — кнопки уходят на следующую строку. */
+.admin-root .admin-block-head__type { flex: 1 1 220px; }
+/* На 320 px и пять кнопок блока (≈216 px) шире карточки (≈200 px): ряд
+   переносится, а не торчит за правую рамку блока. */
+.admin-root .admin-block-head__actions { flex-wrap: wrap; max-width: 100%; }
+
+/* Поле в фокусе не прячется под плавающей панелью «Сохранить и опубликовать»
+   (CL-44, WCAG 2.4.11): браузер докручивает так, чтобы поле было выше неё. */
+html:has(.admin-root .admin-editor-actions) { scroll-padding-bottom: 120px; }
+
+/* Воронка, 320 px: в трёх колонках «выручка не указана» не помещалась и уходила
+   за край карточки канала. На самом узком экране — две колонки, подпись переносится. */
+@container admin-main (max-width: 340px) {
+  .admin-root .adm-channel-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-root .adm-channel-metric__val { white-space: normal; overflow-wrap: anywhere; }
+}
+

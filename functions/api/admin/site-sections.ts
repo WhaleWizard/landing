@@ -151,7 +151,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     return json({ success: false, error: 'Unknown section key' }, { status: 400, headers: noStore });
   }
   if (!body.action || !['save', 'publish', 'restore'].includes(body.action)) {
-    return json({ success: false, error: 'Unknown action' }, { status: 400, headers: noStore });
+    return json({ success: false, error: 'Неизвестное действие' }, { status: 400, headers: noStore });
   }
   if (body.expectedVersion !== undefined && (!Number.isSafeInteger(body.expectedVersion) || body.expectedVersion < 0)) {
     return json({ success: false, error: 'Недопустимая версия страницы' }, { status: 400, headers: noStore });
@@ -176,12 +176,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env, waitUnti
     if (body.action === 'restore') {
       const versionId = Number(body.versionId || 0);
       if (!Number.isInteger(versionId) || versionId <= 0) {
-        return json({ success: false, error: 'Invalid version' }, { status: 400, headers: noStore });
+        return json({ success: false, error: 'Некорректная версия' }, { status: 400, headers: noStore });
       }
       const snapshot = await db.prepare(
         'SELECT snapshot_json FROM site_section_versions WHERE id=? AND section_key=? LIMIT 1',
       ).bind(versionId, body.key).first<{ snapshot_json: string }>();
-      if (!snapshot) return json({ success: false, error: 'Version not found' }, { status: 404, headers: noStore });
+      if (!snapshot) return json({ success: false, error: 'Версия не найдена' }, { status: 404, headers: noStore });
       const sanitized = JSON.stringify(safeSiteJsonObject(body.key, snapshot.snapshot_json));
       // Черновик уже ровно такой (DA-92): повторное восстановление ничего не
       // меняет — ни версии, ни лишнего снимка, который вытеснил бы из

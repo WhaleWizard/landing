@@ -3,6 +3,7 @@ import { json } from '../_lib/http';
 import { enforceRateLimit } from '../_lib/rate-limit';
 import { readRequestText } from '../_lib/http';
 import { detectDeviceFromUserAgent, isTrustedTrackingRequest } from '../_lib/meta-capi';
+import { PAGE_LOCK_ROUTES } from '../_lib/page-locks';
 import type { Env } from '../_lib/types';
 
 const noStore = { 'Cache-Control': CACHE_CONTROL.noStore };
@@ -34,11 +35,24 @@ function detectDevice(userAgent: string): string {
   return detectDeviceFromUserAgent(userAgent) || '';
 }
 
-function normalizePath(raw: unknown): string {
+/**
+ * Адрес, под которым складывается замер (CL-25). Любой путь из запроса раньше
+ * становился своей строкой: бот мог насоздавать `/wp-admin`, `/random-123` —
+ * это записи D1 из суточного лимита и мусор в разделе «Скорость». Теперь своя
+ * строка — только у страниц сайта (тот же белый список, что у «Доступа к
+ * страницам») и у статей и кейсов с корректным адресом; остальное — одной
+ * строкой «прочее».
+ */
+export const OTHER_PAGE_PATH = '(other)';
+const SITE_PATHS = new Set(PAGE_LOCK_ROUTES.map((route) => route.path));
+const ARTICLE_PATH = /^\/(?:blog|cases)\/[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+export function normalizeVitalsPath(raw: unknown): string {
   const value = String(raw || '/').split('?')[0].split('#')[0].trim();
   if (!value.startsWith('/')) return '/';
   const trimmed = value.length > 1 && value.endsWith('/') ? value.slice(0, -1) : value;
-  return trimmed.slice(0, 200);
+  if (trimmed.length > 200) return OTHER_PAGE_PATH;
+  return SITE_PATHS.has(trimmed) || ARTICLE_PATH.test(trimmed) ? trimmed : OTHER_PAGE_PATH;
 }
 
 function bucket(metric: string, value: number): 'good' | 'needs_improvement' | 'poor' {
@@ -84,12 +98,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   for (const item of items) {
     const metric = String(item.metric || '').toUpperCase();
-    if (!THRESHOLDS[metric]) continue;
+    if (!Object.prototype.hasOwnProperty.call(THRESHOLDS, metric)) continue;
     const value = Number(item.value);
     if (!Number.isFinite(value) || value < 0 || value > MAX_VALUES[metric]) continue;
 
     const rating = bucket(metric, value);
-    const path = normalizePath(item.path);
+    const path = normalizeVitalsPath(item.path);
     const rounded = metric === 'CLS' ? Math.round(value * 1000) / 1000 : Math.round(value);
 
     statements.push(env.DB.prepare(`

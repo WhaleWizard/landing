@@ -20,6 +20,19 @@ export function formatMoney(value: number | null | undefined, currency: string |
   return currency ? `${amount} ${currency}` : amount;
 }
 
+/**
+ * Список сумм в разных валютах одной строкой: «1 200 USD · 800 EUR». Внутри
+ * суммы и перед разделителем — неразрывные пробелы, перенос возможен только
+ * после «·» (CL-31): раньше «1 200 USD ·» стояло на одной строке, «800 EUR» —
+ * на следующей, а на телефоне число одной суммы оказывалось рядом с валютой
+ * другой.
+ */
+export function joinAmounts(parts: string[]): string {
+  return parts
+    .map((part) => part.replace(/\s+/g, '\u00A0'))
+    .join('\u00A0· ');
+}
+
 export function formatDayLabel(day: string): string {
   const parsed = new Date(`${day}T00:00:00Z`);
   return Number.isNaN(parsed.getTime())

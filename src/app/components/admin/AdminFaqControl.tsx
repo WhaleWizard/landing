@@ -216,9 +216,9 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
         const refreshed = await load(true);
         if (refreshed) {
           const hook = payload.seoBuild;
-          const buildNotice = hook?.triggered ? ' Cloudflare принял запрос на сборку SEO-HTML.'
-            : hook?.configured ? ` Запрос на сборку отклонён: ${hook.error || 'не удалось связаться с Cloudflare'}.` : '';
-          setNotice(action === 'publish' ? `FAQ опубликован в D1.${buildNotice}` : 'Черновик FAQ сохранён.');
+          const buildNotice = hook?.triggered ? ' Версия для поисковиков обновится сама — обычно за 2–3 минуты.'
+            : hook?.configured ? ` Поисковики увидят изменения после следующей сборки сайта: автоматическая пересборка не запустилась (${hook.error || 'не удалось связаться с Cloudflare'}).` : '';
+          setNotice(action === 'publish' ? `FAQ опубликован на сайте.${buildNotice}` : 'Черновик FAQ сохранён.');
         }
       }
     } catch (error) {
@@ -247,7 +247,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
       if (!response.ok || !payload?.success) throw new Error(payload?.error || `HTTP ${response.status}`);
       if (typeof payload.version === 'number') setVersion(payload.version);
       if (faqSignature(itemsRef.current, seoRef.current) !== beforeRestore) {
-        setNotice('Версия восстановлена в D1, но изменения, сделанные во время запроса, оставлены в редакторе. Нажмите «Обновить», когда будете готовы загрузить восстановленный черновик.');
+        setNotice('Версия восстановлена, но изменения, сделанные во время запроса, оставлены в редакторе. Нажмите «Обновить», когда будете готовы загрузить восстановленный черновик.');
       } else {
         const refreshed = await load(true);
         if (refreshed) setNotice('Версия восстановлена в черновик. Проверьте вопросы перед публикацией.');
@@ -336,7 +336,7 @@ export default function AdminFaqControl({ password, onRegisterLeaveGuard }: {
             <div className="admin-version-list mt-3">{versions.map((row) => <div key={row.id}><div><strong>{row.source === 'published' ? 'Публикация' : 'Черновик'}</strong><span>{new Date(`${row.created_at.replace(' ', 'T')}Z`).toLocaleString('ru-RU')}</span></div><button type="button" className="admin-icon-button" aria-label="Восстановить версию FAQ" title={isDirty ? 'Сначала сохраните или отмените изменения' : 'Восстановить в черновик'} disabled={loading || isDirty} onClick={() => void restore(row.id)}><RotateCcw aria-hidden="true" /></button></div>)}</div>
             {versions.length === 0 && <p className="admin-muted mt-3">Версии появятся после сохранения.</p>}
           </section>
-          <div className="admin-notice admin-notice--warning">Видимый FAQ получает опубликованные вопросы из D1. Статический HTML для поисковых роботов синхронизируется при следующем деплое.</div>
+          <div className="admin-notice admin-notice--warning">Посетители видят опубликованные вопросы сразу. Версия страницы для поисковиков обновляется при следующей сборке сайта.</div>
         </aside>
       </div>
     </div>

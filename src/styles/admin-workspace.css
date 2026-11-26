@@ -659,6 +659,17 @@
   }
   .ws-tabs {
     gap: 16px;
+    /* CL-41: шесть вкладок не переносятся «4 + 2», а листаются одной лентой. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .ws-tabs::-webkit-scrollbar {
+    display: none;
+  }
+  .ws-tabs > button {
+    flex: none;
+    white-space: nowrap;
   }
   .ws-stat {
     padding: 18px;

@@ -518,7 +518,7 @@ const DraggableBlockItem = memo(function DraggableBlockItem({
             ))}
           </select>
         </div>
-        <div className="inline-flex items-center gap-1">
+        <div className="admin-block-head__actions inline-flex items-center gap-1">
           <button type="button" onClick={() => onInsertAfter(block.id)} className="rounded-md p-1.5 text-[var(--adm-primary)] hover:bg-[var(--adm-primary)]/10" title="Добавить абзац сразу после этого блока" aria-label="Добавить абзац после блока"><Plus className="h-4 w-4" /></button>
           <button type="button" onClick={() => onMoveArrow(index, -1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вверх" aria-label="Переместить блок вверх"><ArrowUp className="h-4 w-4" /></button>
           <button type="button" onClick={() => onMoveArrow(index, 1)} className="rounded-md p-1.5 hover:bg-[var(--adm-primary)]/10" title="Вниз" aria-label="Переместить блок вниз"><ArrowDown className="h-4 w-4" /></button>

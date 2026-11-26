@@ -162,7 +162,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
   if (!env.DB) {
-    return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'D1 is not configured' }, { status: 503, headers: noStore });
+    return json({ success: false, code: 'D1_NOT_CONFIGURED', error: 'База данных D1 не подключена к сайту в настройках Cloudflare' }, { status: 503, headers: noStore });
   }
 
   try {
@@ -281,7 +281,8 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
       score: 'l.lead_score DESC, l.id DESC',
       priority: "CASE l.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'normal' THEN 2 ELSE 3 END, l.id DESC",
     };
-    if (!sorts[sort]) throw new Error(`sort must be one of: ${Object.keys(sorts).join(', ')}`);
+    // Собственное свойство, а не унаследованное: «constructor» и «__proto__» есть у любого объекта (CL-24).
+    if (!Object.prototype.hasOwnProperty.call(sorts, sort)) throw new Error(`sort must be one of: ${Object.keys(sorts).join(', ')}`);
     appliedFilters.sort = sort;
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -318,6 +319,6 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
     if (error instanceof Error && /must be|cannot be/i.test(error.message)) {
       return json({ success: false, error: error.message }, { status: 400, headers: noStore });
     }
-    return json({ success: false, error: 'Failed to load CRM leads' }, { status: 500, headers: noStore });
+    return json({ success: false, error: 'Не удалось загрузить заявки' }, { status: 500, headers: noStore });
   }
 };

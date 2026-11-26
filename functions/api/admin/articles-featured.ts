@@ -54,14 +54,14 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   }
 
   if (!Array.isArray(payload?.slugs)) {
-    return json({ success: false, error: 'Invalid payload: slugs[] required' }, { status: 400, headers: noStore });
+    return json({ success: false, error: 'Не передан список закреплённых статей' }, { status: 400, headers: noStore });
   }
   const slugs = payload.slugs.map((value) => String(value || '').trim());
   if (slugs.length > LEGACY_FEATURED_LIMIT) {
     return json({ success: false, error: `На главной можно закрепить до ${HOME_ARTICLES_LIMIT} статей.` }, { status: 400, headers: noStore });
   }
   if (new Set(slugs).size !== slugs.length || !slugs.every(isValidSlug)) {
-    return json({ success: false, error: 'Invalid slugs: must be unique and well-formed' }, { status: 400, headers: noStore });
+    return json({ success: false, error: 'В списке закреплённых статей повтор или некорректный адрес' }, { status: 400, headers: noStore });
   }
 
   try {

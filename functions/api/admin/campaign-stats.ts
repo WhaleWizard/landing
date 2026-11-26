@@ -500,7 +500,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   } | null;
 
   if (!body?.action) {
-    return json({ success: false, error: 'Missing action' }, { status: 400, headers: noStore });
+    return json({ success: false, error: 'Не указано действие' }, { status: 400, headers: noStore });
   }
 
   const nowIso = new Date().toISOString();
@@ -568,12 +568,12 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (body.action === 'delete_record') {
     const id = typeof body.id === 'string' ? body.id.trim() : '';
     if (!id) {
-      return json({ success: false, error: 'Missing record id' }, { status: 400, headers: noStore });
+      return json({ success: false, error: 'Не указана запись' }, { status: 400, headers: noStore });
     }
 
     await env.DB.prepare('DELETE FROM campaign_stats WHERE id = ?').bind(id).run();
     return json({ success: true, deleted: id }, { headers: noStore });
   }
 
-  return json({ success: false, error: 'Unknown action' }, { status: 400, headers: noStore });
+  return json({ success: false, error: 'Неизвестное действие' }, { status: 400, headers: noStore });
 };

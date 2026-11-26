@@ -427,6 +427,8 @@ function clientFields(body: Record<string, unknown>, todayIso: string): { column
     ['contact_method', cleanLine(body.contact_method, 40)],
     ['contact_value', cleanLine(body.contact_value, LIMITS.contact)],
     ['timezone_offset', (() => {
+      // Number(null) === 0: без этой проверки «не указан» сохранялся как UTC+0 (FX-07).
+      if (body.timezone_offset === null || body.timezone_offset === '') return null;
       const parsed = Number(body.timezone_offset);
       return Number.isFinite(parsed) && Math.abs(parsed) <= 840 ? Math.round(parsed) : null;
     })()],

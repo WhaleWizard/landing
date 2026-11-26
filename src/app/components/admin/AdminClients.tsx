@@ -8,7 +8,7 @@ import {
 import { AdminDecimalInput, AdminSelect } from './AdminUI';
 import { AdminBlank, AdminDetailSkeleton, AdminSectionSkeleton, confirmAsk, notify } from './AdminFeedback';
 import { toIsoDate } from './plannerModel';
-import { CountUpValue } from './AttributionCharts';
+import { CountUpValue, joinAmounts } from './AttributionCharts';
 import CaseBuilderDialog from './CaseBuilderDialog';
 import type { CaseDataDraft } from './caseFromClient';
 import ClientLaunchpad from './ClientLaunchpad';
@@ -109,6 +109,35 @@ interface Summary {
   averageLifetimeDays: number;
 }
 
+// Часовой пояс клиента выбирается списком с городами, а не числом «часов от UTC» (CL-38).
+// Значение — смещение в минутах к востоку от Гринвича, как хранит сервер.
+const TIMEZONE_CITIES: Record<number, string> = {
+  [-480]: 'Лос-Анджелес', [-360]: 'Мехико', [-300]: 'Нью-Йорк, Торонто', [-180]: 'Сан-Паулу, Буэнос-Айрес',
+  0: 'Лондон, Лиссабон', 60: 'Берлин, Варшава, Прага', 120: 'Киев, Кишинёв, Кипр, Израиль',
+  180: 'Москва, Минск, Стамбул', 240: 'Дубай, Баку, Тбилиси, Ереван', 270: 'Кабул',
+  300: 'Ташкент, Самарканд, Екатеринбург', 330: 'Индия', 345: 'Непал',
+  360: 'Бишкек, Омск', 420: 'Новосибирск, Бангкок', 480: 'Сингапур, Пекин, Иркутск',
+  540: 'Токио, Сеул, Якутск', 600: 'Владивосток, Сидней', 720: 'Камчатка, Окленд',
+};
+
+function timezoneLabel(minutes: number): string {
+  const sign = minutes < 0 ? '−' : '+';
+  const abs = Math.abs(minutes);
+  const offset = `UTC${sign}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, '0')}` : ''}`;
+  return TIMEZONE_CITIES[minutes] ? `${offset} — ${TIMEZONE_CITIES[minutes]}` : offset;
+}
+
+const TIMEZONE_NONE = 'none';
+
+function timezoneOptions(current: number | null): Array<{ value: string; label: string }> {
+  const minutes = new Set<number>([...Array.from({ length: 27 }, (_, index) => (index - 12) * 60), 270, 330, 345]);
+  if (current !== null) minutes.add(current);
+  return [
+    { value: TIMEZONE_NONE, label: 'Не указан' },
+    ...[...minutes].sort((a, b) => a - b).map((value) => ({ value: String(value), label: timezoneLabel(value) })),
+  ];
+}
+
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Активен' },
   { value: 'paused', label: 'На паузе' },
@@ -188,7 +217,7 @@ function emptyClient(): Client {
     id: 0, lead_id: null, name: '', company: '', status: 'active',
     started_at: toIsoDate(new Date()),
     paused_until: null, finished_at: null, finish_reason: '',
-    contact_method: 'telegram', contact_value: '', timezone_offset: null,
+    contact_method: 'Telegram', contact_value: '', timezone_offset: null,
     services: [], retainer_amount: 0, retainer_currency: 'USD', billing_day: null,
     contract_number: '', contract_signed_at: null, contract_ends_at: null,
     contract_auto_renew: 0, contract_file_url: '', scope_included: '', scope_excluded: '',
@@ -224,6 +253,9 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [filter, setFilter] = useState<'all' | ClientStatus | 'attention'>('all');
 
   const [caseBuilderOpen, setCaseBuilderOpen] = useState(false);
+  // «Собрать кейс» из обзора: окно открывается, когда полная карточка
+  // догрузила помесячные цифры (FX-02).
+  const [caseBuilderPending, setCaseBuilderPending] = useState(false);
   const [selectedId, setSelectedClient] = useState<number | null>(null);
   const activeClient = useRef<number | null>(null);
   const clientRequest = useRef(0);
@@ -234,6 +266,11 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
   const [access, setAccess] = useState<AccessItem[]>([]);
   const [notes, setNotes] = useState<ClientNote[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  useEffect(() => {
+    if (!caseBuilderPending || workspaceOverview || detailLoading) return;
+    setCaseBuilderPending(false);
+    setCaseBuilderOpen(true);
+  }, [caseBuilderPending, detailLoading, workspaceOverview]);
   const [saving, setSaving] = useState(false);
   const savePending = useRef(false);
   const [noteDraft, setNoteDraft] = useState('');
@@ -609,7 +646,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
 
   // ---------- Карточка клиента ----------
   if (selectedId && draft && connectedWorkspace && workspaceOverview) {
-    return <div className="admin-stack admin-stack--lg"><div><button type="button" className="admin-button admin-button--quiet" onClick={() => beforeNavigate(() => { setSelectedId(null); setDraft(null); })}><ArrowLeft />К списку клиентов</button></div><WorkspaceClient key={selectedId} password={password} clientId={selectedId} initialInvoiceId={targetClientId === selectedId ? target?.invoiceId : undefined} onNavigate={onNavigate} onEdit={() => setWorkspaceOverview(false)} onRegisterLeaveGuard={onRegisterLeaveGuard} /></div>;
+    return <div className="admin-stack admin-stack--lg"><div><button type="button" className="admin-button admin-button--quiet" onClick={() => beforeNavigate(() => { setSelectedId(null); setDraft(null); })}><ArrowLeft />К списку клиентов</button></div><WorkspaceClient key={selectedId} password={password} clientId={selectedId} initialInvoiceId={targetClientId === selectedId ? target?.invoiceId : undefined} onNavigate={onNavigate} onEdit={() => setWorkspaceOverview(false)} onCreateCase={onCreateCase ? () => { setWorkspaceOverview(false); setCaseBuilderPending(true); } : undefined} onRegisterLeaveGuard={onRegisterLeaveGuard} /></div>;
   }
   if (selectedId !== null && draft) {
     const localTime = clientLocalTime(draft.timezone_offset);
@@ -686,15 +723,17 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
               </label>
             )}
             <label className="admin-field"><span className="admin-label">Где общаетесь</span>
-              <input className="admin-input" maxLength={40} placeholder="telegram" value={draft.contact_method} onChange={(e) => setDraft({ ...draft, contact_method: e.target.value })} />
+              <input className="admin-input" maxLength={40} placeholder="Telegram, WhatsApp, почта" value={draft.contact_method} onChange={(e) => setDraft({ ...draft, contact_method: e.target.value })} />
             </label>
             <label className="admin-field"><span className="admin-label">Контакт</span>
               <input className="admin-input" maxLength={200} placeholder="@username" value={draft.contact_value} onChange={(e) => setDraft({ ...draft, contact_value: e.target.value })} />
             </label>
-            <label className="admin-field"><span className="admin-label">Часовой пояс, часы от UTC</span>
-              <input className="admin-input" type="number" min={-14} max={14} value={draft.timezone_offset === null ? '' : draft.timezone_offset / 60}
-                onChange={(e) => setDraft({ ...draft, timezone_offset: e.target.value === '' ? null : Math.round(Number(e.target.value) * 60) })} />
-            </label>
+            <AdminSelect
+              label="Часовой пояс клиента"
+              value={draft.timezone_offset === null ? TIMEZONE_NONE : String(draft.timezone_offset)}
+              options={timezoneOptions(draft.timezone_offset)}
+              onValueChange={(value) => setDraft({ ...draft, timezone_offset: value === TIMEZONE_NONE ? null : Number(value) })}
+            />
             {draft.status === 'finished' && (
               <label className="admin-field admin-field--wide"><span className="admin-label">Почему закончили</span>
                 <textarea className="admin-input" rows={2} maxLength={2000} value={draft.finish_reason} onChange={(e) => setDraft({ ...draft, finish_reason: e.target.value })} />
@@ -1098,7 +1137,7 @@ export default function AdminClients({ password, onOpenLead, onCreateCase, targe
                   {client.workspaceSummary ? client.workspaceSummary.titles.join(' · ') : client.services.length ? client.services.map((service) => service.name).join(', ') : client.relationship_type==='one_off' ? 'Разовые услуги и консультации' : 'услуги не заданы'}
                 </span>
                 <span className="clients__money">
-                  {client.workspaceSummary ? client.workspaceSummary.recurring.map(m=>formatMoney(m.amount,m.currency)).join(' · ') || '—' : client.relationship_type!=='one_off' && client.retainer_amount > 0 ? formatMoney(client.retainer_amount, client.retainer_currency) : '—'}
+                  {client.workspaceSummary ? joinAmounts(client.workspaceSummary.recurring.map(m=>formatMoney(m.amount,m.currency))) || '—' : client.relationship_type!=='one_off' && client.retainer_amount > 0 ? formatMoney(client.retainer_amount, client.retainer_currency) : '—'}
                 </span>
                 <span className="clients__meta">
                   {client.status === 'paused' ? 'на паузе'

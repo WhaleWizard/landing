@@ -334,7 +334,7 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
           'tracking-signature-config',
           'Подпись tracking-запросов',
           'ok',
-          `Штатный режим monitor: запросы наблюдаются, но не блокируются. «Валидных 0» — это норма: браузер не подписывает запросы, и включать enforce нельзя. ${traffic}. ${approximateWindow}`,
+          `Всё в порядке: защита работает в режиме наблюдения (monitor) — подозрительные запросы записываются, но не блокируются, так и задумано. «Валидных 0» — тоже норма: браузер посетителя не может подписывать запросы, поэтому режим блокировки (enforce) включать нельзя. ${traffic}. ${approximateWindow}`,
         ));
       } else {
         const status: CheckStatus = audit.valid === 0 && audit.invalid > 0
@@ -503,6 +503,17 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
   }
 
   // --- Страницы сайта ---
+  const describeXmlFeed = (id: 'page-sitemap' | 'page-feed', body: string, status: number): [CheckStatus, string] => {
+    const head = body.replace(/^﻿/, '').trimStart().slice(0, 2000).toLowerCase();
+    if (!head) return ['fail', `HTTP ${status}, но ответ пустой`];
+    if (head.startsWith('<!doctype html') || head.startsWith('<html')) {
+      return ['fail', `HTTP ${status}, но вместо ${id === 'page-sitemap' ? 'карты сайта' : 'ленты'} пришла HTML-страница — поисковики её не прочитают`];
+    }
+    const root = id === 'page-sitemap' ? /<(urlset|sitemapindex)[\s>]/ : /<(rss|feed)[\s>]/;
+    return root.test(head)
+      ? ['ok', `Отвечает (HTTP ${status}), формат XML верный`]
+      : ['fail', `HTTP ${status}, но в ответе нет ${id === 'page-sitemap' ? '<urlset>' : '<rss>'} — файл не в том формате`];
+  };
   const origin = env.SITE_URL || new URL(request.url).origin;
   for (const [id, path, title] of [
     ['page-home', '/', 'Главная страница'],
@@ -511,9 +522,18 @@ async function runChecks(env: Env, request: Request): Promise<HealthCheck[]> {
   ] as const) {
     try {
       const res = await fetch(`${origin}${path}`, { headers: { 'User-Agent': 'ww-admin-health-check' } });
-      checks.push(res.ok
-        ? check(id, title, 'ok', `Отвечает (HTTP ${res.status})`)
-        : check(id, title, 'fail', `HTTP ${res.status}`));
+      if (!res.ok) {
+        checks.push(check(id, title, 'fail', `HTTP ${res.status}`));
+        continue;
+      }
+      if (id === 'page-home') {
+        checks.push(check(id, title, 'ok', `Отвечает (HTTP ${res.status})`));
+        continue;
+      }
+      // HTTP 200 ещё не значит, что это карта сайта или лента: при сбое
+      // маршрута сервер отдаёт под этим адресом HTML-страницу, и поисковик
+      // получает не XML (DA-120). Проверяем корневой элемент.
+      checks.push(check(id, title, ...describeXmlFeed(id, await res.text(), res.status)));
     } catch (error) {
       checks.push(check(id, title, 'fail', error instanceof Error ? error.message : 'Не отвечает'));
     }
@@ -584,7 +604,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
   if (body.action !== 'telegram-test') {
-    return json({ success: false, error: 'Unknown action' }, { status: 400, headers: noStore });
+    return json({ success: false, error: 'Неизвестное действие' }, { status: 400, headers: noStore });
   }
   if (!isTelegramConfigured(env)) {
     return json({ success: false, error: 'Секреты Telegram не настроены' }, { status: 503, headers: noStore });

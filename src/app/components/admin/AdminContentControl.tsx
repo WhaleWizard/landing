@@ -1892,13 +1892,13 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         let nextState: PagesBuildState = { status: 'idle' };
         if (hook?.triggered) {
           nextState = { status: 'requested', pagePath: pageMeta.path };
-          savedNotice = 'Версия опубликована в D1. Cloudflare принял запрос на сборку SEO-HTML.';
+          savedNotice = 'Опубликовано на сайте. Версии страниц для поисковиков обновятся сами — обычно за 2–3 минуты.';
         } else if (hook?.configured) {
           const error = hook.error || 'Не удалось запустить сборку';
           nextState = { status: 'error', error, pagePath: pageMeta.path };
-          savedNotice = `Версия опубликована в D1. Запрос на сборку отклонён: ${error}.`;
+          savedNotice = `Опубликовано на сайте — посетители уже видят новый текст. Поисковики увидят его после следующей сборки сайта: автоматическая пересборка не запустилась (${error}).`;
         } else {
-          savedNotice = 'Версия опубликована в D1. Для автоматического обновления SEO-HTML настройте Deploy Hook.';
+          savedNotice = 'Опубликовано на сайте — посетители уже видят новый текст. Поисковики увидят его после следующей сборки сайта (автоматическая пересборка не настроена — Deploy Hook в Cloudflare).';
         }
         setBuildState(nextState);
         persistBuildState(nextState);
@@ -1954,7 +1954,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
         savedVersion.current = { key: pageMeta.key, version: payload.version };
       }
       if (JSON.stringify(contentRef.current) !== contentBeforeRestore) {
-        setNotice('Версия восстановлена в D1. Более новые изменения остались в редакторе.');
+        setNotice('Версия восстановлена. Более новые изменения остались в редакторе.');
         return;
       }
       const refreshed = await load(true);
@@ -2066,7 +2066,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
           ) : buildState.status === 'error' && buildState.pagePath === pageMeta.path ? (
             <span
               className="admin-state admin-state--danger"
-              title={`Ошибка вызова Deploy Hook: ${buildState.error}`}
+              title={`Пересборка сайта не запустилась (Deploy Hook): ${buildState.error}`}
             >
               <AlertTriangle aria-hidden="true" />
               Сборка не запрошена
@@ -2592,7 +2592,7 @@ export default function AdminContentControl({ password, onRegisterLeaveGuard }: 
 
         <aside className="admin-stack admin-content-aside">
           <section className="admin-card"><div className="admin-section-header admin-section-header--compact"><div><p className="admin-eyebrow">История</p><h3 className="admin-card-title">Последние версии</h3></div></div>{versions.length === 0 ? <p className="admin-muted">Версии появятся после первого сохранения.</p> : <div className="admin-version-list">{versions.map((version) => <div key={version.id}><div><strong>{version.source === 'published' ? 'Публикация' : 'Черновик'}</strong><span>{new Date(`${version.created_at.replace(' ', 'T')}Z`).toLocaleString('ru-RU')}</span></div><button type="button" className="admin-icon-button" title="Восстановить в черновик" aria-label="Восстановить эту версию в черновик" disabled={loading || isDirty} onClick={() => void restore(version.id)}><RotateCcw aria-hidden="true" /></button></div>)}</div>}</section>
-          <div className="admin-notice admin-notice--warning">При публикации версия сохраняется в D1. Посетители увидят её после обновления кэша. Если настроен Deploy Hook, админка отправит запрос на обновление SEO-HTML.</div>
+          <div className="admin-notice admin-notice--warning">Опубликованный текст посетители видят сразу или в течение пары минут. Версии страниц для поисковиков обновляются при сборке сайта — админка запускает её сама, если в Cloudflare настроен Deploy Hook.</div>
         </aside>
       </div>
       </>}

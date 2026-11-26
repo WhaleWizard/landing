@@ -528,7 +528,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     return json({ success: false, error: 'Unauthorized' }, { status: 401, headers: noStore });
   }
   if (body.action !== 'process-outbox') {
-    return json({ success: false, error: 'Unknown action' }, { status: 400, headers: noStore });
+    return json({ success: false, error: 'Неизвестное действие' }, { status: 400, headers: noStore });
   }
   if (!env.DB) {
     return json({ success: false, error: 'D1 не подключена' }, { status: 503, headers: noStore });

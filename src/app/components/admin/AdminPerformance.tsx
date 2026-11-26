@@ -677,7 +677,7 @@ export default function AdminPerformance({ password }: { password: string }) {
                 {' '}<code className="font-semibold">PAGESPEED_API_KEY</code> и выполните новый deploy. До этого запуск проверок отключён.
               </p>
               <a
-                className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--adm-primary)]"
+                className="admin-touch-link mt-2 inline-flex items-center gap-1 text-xs font-medium text-[var(--adm-primary)]"
                 href="https://developers.google.com/speed/docs/insights/v5/get-started"
                 target="_blank"
                 rel="noreferrer"
@@ -746,7 +746,7 @@ export default function AdminPerformance({ password }: { password: string }) {
             </button>
           )}
           {sitemapUrl && (
-            <a className="inline-flex items-center gap-1 text-xs text-[var(--adm-primary)]" href={sitemapUrl} target="_blank" rel="noreferrer">
+            <a className="admin-touch-link inline-flex items-center gap-1 text-xs text-[var(--adm-primary)]" href={sitemapUrl} target="_blank" rel="noreferrer">
               Открыть sitemap.xml <ExternalLink className="h-3 w-3" aria-hidden="true" />
             </a>
           )}

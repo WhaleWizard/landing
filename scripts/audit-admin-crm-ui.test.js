@@ -404,7 +404,8 @@ test('F-037: таблица «По месяцам» показывает мин�
 
   const table = [...view.container.querySelectorAll('table')].find((node) => node.textContent.includes('Прибыль'));
   assert.ok(table, 'таблица «По месяцам» на месте');
-  const cells = [...table.querySelectorAll('tbody td')].map((cell) => cell.textContent.trim());
+  // Суммы держатся целиком неразрывными пробелами (CL-31) — сравниваем по смыслу.
+  const cells = [...table.querySelectorAll('tbody td')].map((cell) => cell.textContent.replace(/ /g, ' ').trim());
   assert.equal(cells.length, 5, 'строка месяца: месяц, получено, расходы, налог, прибыль');
   assert.equal(cells[2], '300 USD');
   assert.equal(cells[4], '-300 USD', 'прибыль — честный минус, а не прочерк');
@@ -428,12 +429,12 @@ test('monthly finance totals use receipt dates and preserve the full outstanding
   const view = await mount(finance.AdminFinance, { password: 'x' });
   await settle();
   const tiles = [...view.container.querySelectorAll('.adm-tile')];
-  assert.match(tiles[0].textContent, /500 USD.*Просрочено: 400 USD/);
-  assert.match(tiles[1].textContent, /Получено в этом месяце150 USD/);
+  assert.match(tiles[0].textContent, /500\sUSD.*Просрочено: 400\sUSD/);
+  assert.match(tiles[1].textContent, /Получено в этом месяце150\sUSD/);
   await click(buttonByText(view.container, 'Итоги'));
 
   const table = view.container.querySelector('[aria-label="Итоги по месяцам"]');
-  const rows = [...table.querySelectorAll('tbody tr')].map((row) => [...row.cells].map((cell) => cell.textContent));
+  const rows = [...table.querySelectorAll('tbody tr')].map((row) => [...row.cells].map((cell) => cell.textContent.replace(/ /g, ' ')));
   assert.deepEqual(rows, [
     ['октябрь 2026 г.', '150 USD', '—', '15 USD', '135 USD'],
     ['сентябрь 2026 г.', '250 USD', '—', '25 USD', '225 USD'],
@@ -852,7 +853,7 @@ test('F-040: доска догружает открытые сделки све�
   assert.equal(columnByName('Новые').querySelector('.crm-column__count').textContent, '310', 'все 310 открытых на доске, а не 300');
   assert.equal(columnByName('Новые').querySelectorAll('.crm-card').length, 310);
   assert.equal(columnByName('Выиграны').querySelector('.crm-column__count').textContent, '349', 'счётчик колонки — с сервера, а не длина загруженного');
-  assert.match(columnByName('Выиграны').querySelector('.crm-column__value').textContent, /^123.456 USD$/, 'сумма выигранных — итог сервера по всем сделкам');
+  assert.match(columnByName('Выиграны').querySelector('.crm-column__value').textContent, /^123.456\sUSD$/, 'сумма выигранных — итог сервера по всем сделкам');
   assert.ok(columnByName('Выиграны').textContent.includes('Показаны последние 299 из 349.'), 'неполная колонка говорит об этом словами');
   assert.ok(view.container.textContent.includes('Сделок на доске: 610 из 660'), 'шапка показывает «N из M», когда загружено не всё');
 
@@ -877,7 +878,7 @@ test('F-040: когда всё помещается, доска не пишет 
   assert.ok(view.container.textContent.includes('Сделок на доске: 3.'), 'без «из», когда загружено всё');
   assert.ok(!view.container.textContent.includes('Показаны последние'));
   const column = [...view.container.querySelectorAll('.crm-column')].find((node) => node.querySelector('h3')?.textContent === 'Новые');
-  assert.match(column.querySelector('.crm-column__value').textContent, /^1.500 USD$/);
+  assert.match(column.querySelector('.crm-column__value').textContent, /^1.500\sUSD$/);
   await view.unmount();
 });
 

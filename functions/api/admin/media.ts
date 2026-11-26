@@ -697,7 +697,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
       return json({ success: true, key: outcome.key, previousKey: outcome.previousKey, moved: outcome.moved }, { headers: noStore });
     }
 
-    return json({ success: false, error: 'Invalid action or key' }, { status: 400, headers: noStore });
+    return json({ success: false, error: 'Неизвестное действие или файл' }, { status: 400, headers: noStore });
   } catch (error) {
     return json({ success: false, error: error instanceof Error ? error.message : 'Не удалось выполнить действие' }, { status: 500, headers: noStore });
   }

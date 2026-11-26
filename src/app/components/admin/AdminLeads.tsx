@@ -1,3 +1,4 @@
+import { joinAmounts } from './AttributionCharts';
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import AdminOverlay from './AdminOverlay';
 import {
@@ -1951,7 +1952,7 @@ export default function AdminLeads({ password, onOpenClients, target }: { target
         <button type="button" onClick={() => { setDue('today'); setView('list'); }}><CalendarClock aria-hidden="true" /><span>На сегодня</span><strong>{reminders.today || 0}</strong></button>
         <button type="button" onClick={() => { setDue('none'); setView('list'); }}><Clock3 aria-hidden="true" /><span>Без следующего шага</span><strong>{reminders.without_next_action || 0}</strong></button>
         <div><CheckCircle2 aria-hidden="true" /><span>Открытые задачи</span><strong>{taskSummary.open || 0}</strong></div>
-        <div><CircleDollarSign aria-hidden="true" /><span>В работе</span><strong>{openValues.length ? openValues.map((item) => `${Number(item.open_value).toLocaleString('ru-RU')} ${item.deal_currency}`).join(' · ') : '—'}</strong></div>
+        <div><CircleDollarSign aria-hidden="true" /><span>В работе</span><strong>{openValues.length ? joinAmounts(openValues.map((item) => `${Number(item.open_value).toLocaleString('ru-RU')} ${item.deal_currency}`)) : '—'}</strong></div>
       </div>
 
       {duplicateGroups.length > 0 && (

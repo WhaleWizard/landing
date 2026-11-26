@@ -150,7 +150,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   // These mutations have different delivery semantics. Keeping them separate
   // prevents a quality conflict from returning an error after status persisted.
   if (hasStatus && hasQuality) {
-    return json({ success: false, error: 'Update status and quality in separate requests' }, { status: 400, headers: noStore });
+    return json({ success: false, error: 'Статус и качество заявки меняются по отдельности' }, { status: 400, headers: noStore });
   }
   if (
     !Number.isInteger(id) || id <= 0 ||
@@ -181,7 +181,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
         quality_revision?: number;
         quality_action_id?: string;
       }>();
-      if (!row) return json({ success: false, error: 'Lead not found' }, { status: 404, headers: noStore });
+      if (!row) return json({ success: false, error: 'Заявка не найдена' }, { status: 404, headers: noStore });
       // Оценка из старой вкладки или повтор начатой операции не отправляют
       // событие качества по заявке, которую уже убрали в корзину (DA-42).
       if (isTrashedLead(row)) return qualityStateError('LEAD_TRASHED', TRASHED_QUALITY_MESSAGE);

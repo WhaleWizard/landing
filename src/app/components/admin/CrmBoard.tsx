@@ -102,7 +102,8 @@ function columnTotals<T extends BoardLead>(leads: T[], primary: string): string 
     .sort((a, b) => (a[0] === primary ? -1 : b[0] === primary ? 1 : b[1] - a[1]))
     .map(([code, value]) => money(value, code))
     .filter(Boolean)
-    .join(' · ');
+    .join('\u00A0· ')
+    .replace(/(\d) (?=[A-Z]{3}\b)/g, '$1\u00A0');
 }
 
 /** Сумма выигранных по каждой валюте — с сервера, по всем сделкам, а не по загруженным. */
@@ -112,7 +113,8 @@ function wonTotals(summary: BoardSummary | null, primary: string): string {
     .sort((a, b) => (a.deal_currency === primary ? -1 : b.deal_currency === primary ? 1 : Number(b.won_value) - Number(a.won_value)))
     .map((row) => money(Number(row.won_value), row.deal_currency || primary))
     .filter(Boolean)
-    .join(' · ');
+    .join('\u00A0· ')
+    .replace(/(\d) (?=[A-Z]{3}\b)/g, '$1\u00A0');
 }
 
 function stageIndex(stage: PipelineStage): number {

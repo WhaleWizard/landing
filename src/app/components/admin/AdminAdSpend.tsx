@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CircleDollarSign, FileUp, Plus, RefreshCw, Trash2, Wallet } from 'lucide-react';
-import { formatMoney } from './AttributionCharts';
+import { formatMoney, joinAmounts } from './AttributionCharts';
 import { confirmAsk, notify } from './AdminFeedback';
 import { toIsoDate } from './plannerModel';
 
@@ -212,7 +212,7 @@ export default function AdminAdSpend({
           </p>
           {Boolean(totals?.length) && (
             <p className="adm-spend__totals">
-              За период: {totals?.map((total) => formatMoney(total.amount, total.currency)).join(' · ')}
+              За период: {joinAmounts((totals || []).map((total) => formatMoney(total.amount, total.currency)))}
             </p>
           )}
           {activeData?.truncated ? (

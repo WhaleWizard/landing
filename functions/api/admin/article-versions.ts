@@ -42,7 +42,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   if (rateLimited) return rateLimited;
 
   if (!hasD1(env)) {
-    return json({ success: false, error: 'D1 is not configured' }, { status: 503, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    return json({ success: false, error: 'База данных D1 не подключена к сайту в настройках Cloudflare' }, { status: 503, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 
   const payload = await readJsonPayload(request);
@@ -76,7 +76,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   if (rateLimited) return rateLimited;
 
   if (!hasD1(env)) {
-    return json({ success: false, error: 'D1 is not configured' }, { status: 503, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    return json({ success: false, error: 'База данных D1 не подключена к сайту в настройках Cloudflare' }, { status: 503, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 
   const url = new URL(request.url);

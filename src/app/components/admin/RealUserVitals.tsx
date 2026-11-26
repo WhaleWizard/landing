@@ -156,7 +156,7 @@ export default function RealUserVitals({ password }: { password: string }) {
               <ul>
                 {(data.slowestPages || []).map((page) => (
                   <li key={page.path}>
-                    <span title={page.path}>{page.path === '/' ? 'Главная' : page.path}</span>
+                    <span title={page.path === '(other)' ? 'Адреса вне списка страниц сайта: опечатки, старые ссылки, боты' : page.path}>{page.path === '/' ? 'Главная' : page.path === '(other)' ? 'Другие адреса' : page.path}</span>
                     <strong>{page.average >= 1000 ? `${(page.average / 1000).toFixed(2)} с` : `${page.average} мс`}</strong>
                     <em>{formatNumber(page.samples)} измерений</em>
                   </li>

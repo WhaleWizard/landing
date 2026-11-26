@@ -201,7 +201,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
   try {
     if (requestedSlug) {
       if (!isValidAdminSlug(requestedSlug)) {
-        return json({ success: false, error: 'Invalid article slug' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+        return json({ success: false, error: 'Некорректный адрес статьи' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
       }
       // Одна статья целиком — вместе с черновиками и запланированными: это
       // админка, а не публичная выдача. Точечное чтение из D1, при сбое —
@@ -211,7 +211,7 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env, waitUntil
         ?? (await fetchArticlesWithFallback(env, request, waitUntil)).find((item) => item.slug === requestedSlug)
         ?? null;
       if (!article) {
-        return json({ success: false, error: 'Article not found' }, { status: 404, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+        return json({ success: false, error: 'Статья не найдена' }, { status: 404, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
       }
       return json({ success: true, article }, { headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
     }
@@ -271,7 +271,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
 
   if (!Array.isArray(payload?.articles)) {
     return json(
-      { success: false, error: 'Invalid payload: articles[] required' },
+      { success: false, error: 'Не передан список статей' },
       {
         status: 400,
         headers: { 'Cache-Control': CACHE_CONTROL.noStore },
@@ -289,7 +289,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
   }
   if (!payload.articles.every((article) => isValidArticlePayload(article as Article))) {
     return json(
-      { success: false, error: 'Invalid article payload: check required fields and size limits' },
+      { success: false, error: 'Статья не сохранена: заполните обязательные поля и проверьте, что текст не слишком большой' },
       {
         status: 400,
         headers: { 'Cache-Control': CACHE_CONTROL.noStore },
@@ -316,7 +316,7 @@ export const onRequestPut: PagesFunction<Env> = async ({ request, env, waitUntil
 
     if (existing.length > 0 && payload.articles.length === 0) {
       return json(
-        { success: false, error: 'Refusing to overwrite non-empty blog with an empty payload' },
+        { success: false, error: 'Пустой список статей не может заменить опубликованный блог' },
         {
           status: 400,
           headers: { 'Cache-Control': CACHE_CONTROL.noStore },
@@ -518,14 +518,14 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
   const incoming = payload?.article;
   if (!incoming || typeof incoming !== 'object' || !isValidArticlePayload(incoming)) {
     return json(
-      { success: false, error: 'Invalid article payload: check required fields and size limits' },
+      { success: false, error: 'Статья не сохранена: заполните обязательные поля и проверьте, что текст не слишком большой' },
       { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } },
     );
   }
 
   const slug = String(incoming.slug || '').trim();
   if (!isValidAdminSlug(slug)) {
-    return json({ success: false, error: 'Invalid article slug' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    return json({ success: false, error: 'Некорректный адрес статьи' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
 
   try {
@@ -614,7 +614,7 @@ export const onRequestPatch: PagesFunction<Env> = async ({ request, env, waitUnt
     }
 
     if (!saved) {
-      return json({ success: false, error: 'Article was not persisted' }, { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+      return json({ success: false, error: 'Статья не сохранилась в базе. Повторите сохранение' }, { status: 502, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
     }
 
     const siteUrl = getSiteUrl(env, request);
@@ -662,7 +662,7 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, waitUn
 
   const slug = String(new URL(request.url).searchParams.get('slug') || '').trim();
   if (!isValidAdminSlug(slug)) {
-    return json({ success: false, error: 'Invalid article slug' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+    return json({ success: false, error: 'Некорректный адрес статьи' }, { status: 400, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
   }
   if (slug === PROTECTED_ARTICLE_SLUG) return protectedArticleError();
 
@@ -679,7 +679,7 @@ export const onRequestDelete: PagesFunction<Env> = async ({ request, env, waitUn
     }
 
     if (!deleted) {
-      return json({ success: false, error: 'Article not found' }, { status: 404, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
+      return json({ success: false, error: 'Статья не найдена' }, { status: 404, headers: { 'Cache-Control': CACHE_CONTROL.noStore } });
     }
 
     const siteUrl = getSiteUrl(env, request);

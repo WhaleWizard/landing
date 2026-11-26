@@ -48,8 +48,9 @@ export const onRequestGet: PagesFunction<Env> = async ({ request, env }) => {
   // ради одной кнопки незачем.
   const requested = new URL(request.url).searchParams.get('sql');
   if (requested) {
-    const sql = MIGRATION_SQL[requested];
-    if (!sql) {
+    // Собственное свойство, а не унаследованное: иначе «?sql=__proto__» отдавал {} как текст миграции (CL-24).
+    const sql = Object.prototype.hasOwnProperty.call(MIGRATION_SQL, requested) ? MIGRATION_SQL[requested] : '';
+    if (typeof sql !== 'string' || !sql) {
       return json({ success: false, error: 'Такой миграции нет' }, { status: 404, headers: noStore });
     }
     return json({ success: true, file: requested, sql }, { headers: noStore });

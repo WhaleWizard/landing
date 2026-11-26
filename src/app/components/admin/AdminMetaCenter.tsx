@@ -202,7 +202,7 @@ function StateCard({ icon, title, value, detail, tone = 'neutral' }: {
       <div className="mt-3 flex items-center gap-2">
         <span className={`rounded-full border px-2.5 py-1 text-sm font-semibold ${TONES[tone]}`}>{value}</span>
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-[var(--adm-fg)]/58">{detail}</p>
+      <p className="admin-wrap-anywhere mt-2 text-sm leading-relaxed text-[var(--adm-fg)]/58">{detail}</p>
     </div>
   );
 }
